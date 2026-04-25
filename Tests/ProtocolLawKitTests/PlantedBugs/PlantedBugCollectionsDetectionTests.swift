@@ -1,0 +1,141 @@
+import Testing
+import PropertyBased
+@testable import ProtocolLawKit
+
+/// PRD §8 framework self-test gate, M3 protocols (IteratorProtocol, Sequence,
+/// Collection, SetAlgebra). Split from `PlantedBugDetectionTests` so neither
+/// suite breaches SwiftLint's type-body length limit as the kit covers more
+/// protocols. Same intent: every Strict-tier law has a planted-bug detection.
+@Suite struct PlantedBugCollectionsDetectionTests {
+
+    // MARK: - Sequence Strict-tier planted bug
+
+    @Test func detectsLyingUnderestimatedCount() async throws {
+        let violation = await #expect(throws: ProtocolLawViolation.self) {
+            try await checkSequenceProtocolLaws(
+                for: LyingUnderestimatedCount.self,
+                using: Gen<LyingUnderestimatedCount>.lyingUnderestimated(),
+                options: LawCheckOptions(budget: .sanity),
+                laws: .ownOnly
+            )
+        }
+        let laws = violation?.results.map(\.protocolLaw) ?? []
+        #expect(
+            laws.contains("Sequence.underestimatedCountLowerBound"),
+            "expected underestimatedCountLowerBound; got: \(laws)"
+        )
+    }
+
+    // MARK: - Collection Strict-tier planted bugs
+
+    @Test func detectsCollectionCountConsistencyViolation() async throws {
+        let violation = await #expect(throws: ProtocolLawViolation.self) {
+            try await checkCollectionProtocolLaws(
+                for: OffByOneCountCollection.self,
+                using: Gen<OffByOneCountCollection>.offByOneCount(),
+                options: LawCheckOptions(budget: .sanity),
+                laws: .ownOnly
+            )
+        }
+        let laws = violation?.results.map(\.protocolLaw) ?? []
+        #expect(
+            laws.contains("Collection.countConsistency"),
+            "expected countConsistency; got: \(laws)"
+        )
+    }
+
+    @Test func detectsCollectionIndexValidityViolation() async throws {
+        let violation = await #expect(throws: ProtocolLawViolation.self) {
+            try await checkCollectionProtocolLaws(
+                for: DesyncedSubscriptCollection.self,
+                using: Gen<DesyncedSubscriptCollection>.desyncedSubscript(),
+                options: LawCheckOptions(budget: .sanity),
+                laws: .ownOnly
+            )
+        }
+        let laws = violation?.results.map(\.protocolLaw) ?? []
+        #expect(
+            laws.contains("Collection.indexValidity"),
+            "expected indexValidity; got: \(laws)"
+        )
+    }
+
+    // MARK: - SetAlgebra Strict-tier planted bugs (one per law)
+
+    @Test func detectsSetAlgebraUnionIdempotenceViolation() async throws {
+        let violation = await #expect(throws: ProtocolLawViolation.self) {
+            try await checkSetAlgebraProtocolLaws(
+                for: EmptyingUnion.self,
+                using: Gen<EmptyingUnion>.emptyingUnion(),
+                options: LawCheckOptions(budget: .sanity)
+            )
+        }
+        let laws = violation?.results.map(\.protocolLaw) ?? []
+        #expect(
+            laws.contains("SetAlgebra.unionIdempotence"),
+            "expected unionIdempotence; got: \(laws)"
+        )
+    }
+
+    @Test func detectsSetAlgebraIntersectionIdempotenceViolation() async throws {
+        let violation = await #expect(throws: ProtocolLawViolation.self) {
+            try await checkSetAlgebraProtocolLaws(
+                for: EmptyingIntersection.self,
+                using: Gen<EmptyingIntersection>.emptyingIntersection(),
+                options: LawCheckOptions(budget: .sanity)
+            )
+        }
+        let laws = violation?.results.map(\.protocolLaw) ?? []
+        #expect(
+            laws.contains("SetAlgebra.intersectionIdempotence"),
+            "expected intersectionIdempotence; got: \(laws)"
+        )
+    }
+
+    @Test func detectsSetAlgebraUnionCommutativityViolation() async throws {
+        let violation = await #expect(throws: ProtocolLawViolation.self) {
+            try await checkSetAlgebraProtocolLaws(
+                for: LeftBiasedUnion.self,
+                using: Gen<LeftBiasedUnion>.leftBiasedUnion(),
+                options: LawCheckOptions(budget: .standard)
+            )
+        }
+        let laws = violation?.results.map(\.protocolLaw) ?? []
+        #expect(
+            laws.contains("SetAlgebra.unionCommutativity"),
+            "expected unionCommutativity; got: \(laws)"
+        )
+    }
+
+    @Test func detectsSetAlgebraIntersectionCommutativityViolation() async throws {
+        let violation = await #expect(throws: ProtocolLawViolation.self) {
+            try await checkSetAlgebraProtocolLaws(
+                for: LeftBiasedIntersection.self,
+                using: Gen<LeftBiasedIntersection>.leftBiasedIntersection(),
+                options: LawCheckOptions(budget: .standard)
+            )
+        }
+        let laws = violation?.results.map(\.protocolLaw) ?? []
+        #expect(
+            laws.contains("SetAlgebra.intersectionCommutativity"),
+            "expected intersectionCommutativity; got: \(laws)"
+        )
+    }
+
+    @Test func detectsSetAlgebraEmptyIdentityViolation() async throws {
+        // EmptyingUnion violates emptyIdentity in addition to unionIdempotence.
+        // Both can surface; this test just asserts emptyIdentity is among them.
+        let violation = await #expect(throws: ProtocolLawViolation.self) {
+            try await checkSetAlgebraProtocolLaws(
+                for: EmptyingUnion.self,
+                using: Gen<EmptyingUnion>.emptyingUnion(),
+                options: LawCheckOptions(budget: .sanity)
+            )
+        }
+        let laws = violation?.results.map(\.protocolLaw) ?? []
+        #expect(
+            laws.contains("SetAlgebra.emptyIdentity"),
+            "expected emptyIdentity; got: \(laws)"
+        )
+    }
+}

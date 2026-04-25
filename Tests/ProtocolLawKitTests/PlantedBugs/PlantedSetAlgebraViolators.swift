@@ -130,3 +130,125 @@ extension Gen where Value == EmptyingIntersection {
             .map { EmptyingIntersection(Set($0)) }
     }
 }
+
+/// SetAlgebra wrapper whose `union(_:)` returns the empty set unconditionally.
+/// Violates unionIdempotence (`x.union(x) = empty ≠ x` when `x` is non-empty)
+/// and emptyIdentity (`x.union(Self()) = empty ≠ x`). Commutativity passes
+/// vacuously since both sides are empty.
+struct EmptyingUnion: SetAlgebra, Equatable, Sendable, CustomStringConvertible {
+    typealias Element = Int
+
+    var underlying: Set<Int>
+
+    init() { self.underlying = [] }
+    init(_ elements: Set<Int>) { self.underlying = elements }
+
+    func contains(_ member: Int) -> Bool { underlying.contains(member) }
+
+    // The bug: union always returns empty.
+    func union(_ other: EmptyingUnion) -> EmptyingUnion { EmptyingUnion() }
+
+    func intersection(_ other: EmptyingUnion) -> EmptyingUnion {
+        EmptyingUnion(underlying.intersection(other.underlying))
+    }
+    func symmetricDifference(_ other: EmptyingUnion) -> EmptyingUnion {
+        EmptyingUnion(underlying.symmetricDifference(other.underlying))
+    }
+
+    mutating func formUnion(_ other: EmptyingUnion) { underlying = [] }
+    mutating func formIntersection(_ other: EmptyingUnion) {
+        underlying.formIntersection(other.underlying)
+    }
+    mutating func formSymmetricDifference(_ other: EmptyingUnion) {
+        underlying.formSymmetricDifference(other.underlying)
+    }
+
+    @discardableResult
+    mutating func insert(
+        _ newMember: Int
+    ) -> (inserted: Bool, memberAfterInsert: Int) {
+        underlying.insert(newMember)
+    }
+    @discardableResult
+    mutating func remove(_ member: Int) -> Int? { underlying.remove(member) }
+    @discardableResult
+    mutating func update(with newMember: Int) -> Int? {
+        underlying.update(with: newMember)
+    }
+
+    static func == (lhs: EmptyingUnion, rhs: EmptyingUnion) -> Bool {
+        lhs.underlying == rhs.underlying
+    }
+
+    var description: String { "EU(\(underlying.sorted()))" }
+}
+
+extension Gen where Value == EmptyingUnion {
+    static func emptyingUnion() -> Generator<EmptyingUnion, some SendableSequenceType> {
+        Gen<Int>.int(in: 0...20)
+            .array(of: 1...4) // at least one element so idempotence violation is non-trivial
+            .map { EmptyingUnion(Set($0)) }
+    }
+}
+
+/// SetAlgebra wrapper whose `intersection(_:)` returns `self`, ignoring the
+/// right-hand side. Idempotence and emptyIdentity hold; commutativity fails:
+/// `a.intersection(b) = a`, `b.intersection(a) = b`.
+struct LeftBiasedIntersection: SetAlgebra, Equatable, Sendable, CustomStringConvertible {
+    typealias Element = Int
+
+    var underlying: Set<Int>
+
+    init() { self.underlying = [] }
+    init(_ elements: Set<Int>) { self.underlying = elements }
+
+    func contains(_ member: Int) -> Bool { underlying.contains(member) }
+
+    func union(_ other: LeftBiasedIntersection) -> LeftBiasedIntersection {
+        LeftBiasedIntersection(underlying.union(other.underlying))
+    }
+
+    // The bug: intersection returns self instead of the actual intersection.
+    func intersection(_ other: LeftBiasedIntersection) -> LeftBiasedIntersection { self }
+
+    func symmetricDifference(_ other: LeftBiasedIntersection) -> LeftBiasedIntersection {
+        LeftBiasedIntersection(underlying.symmetricDifference(other.underlying))
+    }
+
+    mutating func formUnion(_ other: LeftBiasedIntersection) {
+        underlying.formUnion(other.underlying)
+    }
+    mutating func formIntersection(_ other: LeftBiasedIntersection) {
+        // intentionally a no-op to mirror the lying intersection above
+    }
+    mutating func formSymmetricDifference(_ other: LeftBiasedIntersection) {
+        underlying.formSymmetricDifference(other.underlying)
+    }
+
+    @discardableResult
+    mutating func insert(
+        _ newMember: Int
+    ) -> (inserted: Bool, memberAfterInsert: Int) {
+        underlying.insert(newMember)
+    }
+    @discardableResult
+    mutating func remove(_ member: Int) -> Int? { underlying.remove(member) }
+    @discardableResult
+    mutating func update(with newMember: Int) -> Int? {
+        underlying.update(with: newMember)
+    }
+
+    static func == (lhs: LeftBiasedIntersection, rhs: LeftBiasedIntersection) -> Bool {
+        lhs.underlying == rhs.underlying
+    }
+
+    var description: String { "LBI(\(underlying.sorted()))" }
+}
+
+extension Gen where Value == LeftBiasedIntersection {
+    static func leftBiasedIntersection() -> Generator<LeftBiasedIntersection, some SendableSequenceType> {
+        Gen<Int>.int(in: 0...20)
+            .array(of: 1...4)
+            .map { LeftBiasedIntersection(Set($0)) }
+    }
+}
