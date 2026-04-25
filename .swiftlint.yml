@@ -27,11 +27,12 @@ function_parameter_count:
   warning: 8
   error: 10
 
-# Equatable/Hashable law functions inline several runner.runPerTrial calls;
-# the flat form reads better than extracting helpers per-law.
+# Equatable/Hashable/Comparable law functions inline several
+# runner.runPerTrial calls; the flat form reads better than extracting
+# helpers per-law (Comparable's four laws come in around 95 lines).
 function_body_length:
-  warning: 80
-  error: 120
+  warning: 100
+  error: 140
 
 line_length:
   warning: 140
