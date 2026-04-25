@@ -14,7 +14,8 @@ public func checkEquatableProtocolLaws<Value: Equatable & Sendable, Shrinker: Se
         trials: options.budget.trialCount,
         seed: options.seed,
         generator: generator,
-        environment: .current
+        environment: .current,
+        suppressions: options.suppressions
     )
     let results = [
         await checkReflexivity(runner: runner),

@@ -27,7 +27,8 @@ public func checkCodableProtocolLaws<
         trials: options.budget.trialCount,
         seed: options.seed,
         generator: generator,
-        environment: .current
+        environment: .current,
+        suppressions: options.suppressions
     )
     let lawName = "Codable.roundTripFidelity[\(config.codec.identifier)]"
     let codec = config.codec

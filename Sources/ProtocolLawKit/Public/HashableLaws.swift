@@ -27,7 +27,8 @@ public func checkHashableProtocolLaws<Value: Hashable & Sendable, Shrinker: Send
         trials: options.budget.trialCount,
         seed: options.seed,
         generator: generator,
-        environment: .current
+        environment: .current,
+        suppressions: options.suppressions
     )
     results.append(contentsOf: [
         await checkEqualityConsistency(runner: runner),
@@ -46,7 +47,8 @@ private func collectInheritedEquatable<Value: Hashable & Sendable, Shrinker: Sen
     let inheritedOptions = LawCheckOptions(
         budget: options.budget,
         enforcement: .default,
-        seed: options.seed
+        seed: options.seed,
+        suppressions: options.suppressions
     )
     do {
         return try await checkEquatableProtocolLaws(

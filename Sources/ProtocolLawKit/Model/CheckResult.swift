@@ -2,6 +2,13 @@ public struct CheckResult: Sendable, Hashable {
     public enum Outcome: Sendable, Hashable {
         case passed
         case failed(counterexample: String)
+
+        /// The check was skipped under a `.skip` suppression. `trials` will be 0.
+        case suppressed(reason: String)
+
+        /// The check failed, but a `.intentionalViolation` suppression matched —
+        /// the failure is the documented design and not a regression.
+        case expectedViolation(reason: String, counterexample: String)
     }
 
     public let protocolLaw: String
@@ -45,8 +52,14 @@ public struct CheckResult: Sendable, Hashable {
     }
 
     public var counterexample: String? {
-        if case .failed(let counterexample) = outcome { return counterexample }
-        return nil
+        switch outcome {
+        case .failed(let counterexample):
+            return counterexample
+        case .expectedViolation(_, let counterexample):
+            return counterexample
+        case .passed, .suppressed:
+            return nil
+        }
     }
 }
 

@@ -27,7 +27,8 @@ public func checkComparableProtocolLaws<Value: Comparable & Sendable, Shrinker: 
         trials: options.budget.trialCount,
         seed: options.seed,
         generator: generator,
-        environment: .current
+        environment: .current,
+        suppressions: options.suppressions
     )
     results.append(contentsOf: [
         await checkAntisymmetry(runner: runner),
@@ -47,7 +48,8 @@ private func collectInheritedEquatable<Value: Comparable & Sendable, Shrinker: S
     let inheritedOptions = LawCheckOptions(
         budget: options.budget,
         enforcement: .default,
-        seed: options.seed
+        seed: options.seed,
+        suppressions: options.suppressions
     )
     do {
         return try await checkEquatableProtocolLaws(
