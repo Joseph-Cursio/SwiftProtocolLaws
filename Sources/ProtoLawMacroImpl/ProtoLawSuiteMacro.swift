@@ -1,3 +1,4 @@
+import ProtoLawCore
 import SwiftDiagnostics
 import SwiftSyntax
 import SwiftSyntaxMacros

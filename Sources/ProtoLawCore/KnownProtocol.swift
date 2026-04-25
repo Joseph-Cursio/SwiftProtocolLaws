@@ -1,6 +1,12 @@
 /// Recognized stdlib protocols that ProtocolLawKit covers (PRD §4.3 v1
-/// scope). The macro emits `checkXxxProtocolLaws` calls only for these.
-internal enum KnownProtocol: String, CaseIterable, Hashable {
+/// scope). The macro and the discovery plugin both emit
+/// `checkXxxProtocolLaws` calls only for these.
+///
+/// `package`-visibility because both `ProtoLawMacroImpl` and
+/// `ProtoLawDiscoveryTool` consume this enum and they need a shared source
+/// of truth — but it's an implementation detail, not a public API of the
+/// shipped libraries.
+package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
     case equatable
     case hashable
     case comparable
@@ -13,7 +19,7 @@ internal enum KnownProtocol: String, CaseIterable, Hashable {
     /// Maps a single inheritance-clause type name to a `KnownProtocol`.
     /// `Encodable`/`Decodable` are intentionally absent — only the pair
     /// resolves to `.codable`, handled by `KnownProtocol.set(from:)`.
-    static func from(typeName: String) -> KnownProtocol? {
+    package static func from(typeName: String) -> KnownProtocol? {
         switch typeName {
         case "Equatable": return .equatable
         case "Hashable": return .hashable
@@ -30,7 +36,7 @@ internal enum KnownProtocol: String, CaseIterable, Hashable {
     /// Resolve a list of raw inherited-type names into the recognized
     /// `KnownProtocol` set, including the `Encodable + Decodable` →
     /// `.codable` pairing.
-    static func set(from typeNames: [String]) -> Set<KnownProtocol> {
+    package static func set(from typeNames: [String]) -> Set<KnownProtocol> {
         var result: Set<KnownProtocol> = []
         var hasEncodable = false
         var hasDecodable = false
@@ -56,7 +62,7 @@ internal enum KnownProtocol: String, CaseIterable, Hashable {
     /// - Hashable subsumes Equatable.
     /// - Comparable subsumes Equatable.
     /// - Collection subsumes Sequence subsumes IteratorProtocol.
-    static func mostSpecific(in protocols: Set<KnownProtocol>) -> Set<KnownProtocol> {
+    package static func mostSpecific(in protocols: Set<KnownProtocol>) -> Set<KnownProtocol> {
         var result = protocols
         for member in protocols {
             for subsumed in member.subsumedProtocols {
@@ -77,7 +83,7 @@ internal enum KnownProtocol: String, CaseIterable, Hashable {
 
     /// Function-name prefix for the kit's check call. The macro composes the
     /// final identifier as `check<prefixCapitalized>ProtocolLaws`.
-    var checkFunctionName: String {
+    package var checkFunctionName: String {
         switch self {
         case .equatable: return "checkEquatableProtocolLaws"
         case .hashable: return "checkHashableProtocolLaws"
@@ -92,7 +98,7 @@ internal enum KnownProtocol: String, CaseIterable, Hashable {
 
     /// `@Test func` name fragment — `<prefix>_<TypeName>` makes generated
     /// tests greppable in test output.
-    var testNameFragment: String {
+    package var testNameFragment: String {
         switch self {
         case .equatable: return "equatable"
         case .hashable: return "hashable"

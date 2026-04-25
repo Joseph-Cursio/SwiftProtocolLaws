@@ -44,6 +44,14 @@ let package = Package(
             ]
         ),
 
+        // Package-internal shared types (PRD §4.3 KnownProtocol) used by
+        // both the macro implementation and the discovery tool. Marked
+        // `package`-visibility — visible across our targets but not part
+        // of the shipped library surface.
+        .target(
+            name: "ProtoLawCore",
+            dependencies: []
+        ),
         // User-facing macro target — declarations only. Re-exports
         // ProtocolLawKit so users importing ProtoLawMacro can call the
         // generated `checkXxxProtocolLaws` functions without a second import.
@@ -59,6 +67,7 @@ let package = Package(
         .macro(
             name: "ProtoLawMacroImpl",
             dependencies: [
+                "ProtoLawCore",
                 .product(name: "SwiftSyntax", package: "swift-syntax"),
                 .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
                 .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
@@ -85,6 +94,7 @@ let package = Package(
         .executableTarget(
             name: "ProtoLawDiscoveryTool",
             dependencies: [
+                "ProtoLawCore",
                 .product(name: "SwiftSyntax", package: "swift-syntax"),
                 .product(name: "SwiftParser", package: "swift-syntax")
             ]
