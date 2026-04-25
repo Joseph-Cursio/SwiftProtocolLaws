@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository state
 
-**Pre-implementation.** As of this writing the repo contains only `docs/` — there is no Swift package, no `Package.swift`, no source files, no tests, no CI. Do not assume any build/test command works; verify with `ls` first. If asked to "build" or "run tests" today, the correct response is that scaffolding has not happened yet.
+**ProtocolLawKit M1–M4(partial) shipped.** The kit covers Equatable, Hashable, Comparable, Codable, IteratorProtocol, Sequence, Collection, SetAlgebra (PRD §4.3); the suppression / intentional-violation API (§4.7); and the public `PropertyBackend` abstraction (§4.5) with `SwiftPropertyBasedBackend` as the default. ProtoLawMacro (Contribution 2) has not started.
+
+**M4 second-backend deferred.** `SwiftQCBackend` is blocked on an upstream Swift 6.3 strict-concurrency issue in SwiftQC v1.0.0 (`Range+Arbitrary.swift:105` captures `var val1`/`val2` in a `@Sendable` closure — `#SendableClosureCaptures`). The PRD §4.5 closure-shaped abstraction is in place so wiring SwiftQC will be additive when upstream unblocks. See the comment in `Package.swift` and the doc-comment in `Sources/ProtocolLawKit/Public/PropertyBackend.swift`.
 
 The path `/Users/joecursio/xcode_projects/SwiftProtocolLaws` and `/Users/joecursio/xcode_projects/swiftProtocolLaws` resolve to the same directory (macOS case-insensitive HFS+/APFS). They are not two checkouts.
 
@@ -37,7 +39,7 @@ A future Claude implementing the package should follow these decisions rather th
 - **Layered ProtoLawMacro scope.** Core = conformance → test stubs (always on). Advisory = missing-conformance suggestions, cross-function discovery (off by default). Experimental = pattern warnings, Codable-derived generators (off by default). Don't put new features in Core without justification. PRD §5.2.
 - **Discovery is a Swift Package Plugin, not a macro.** The per-suite trait/macro is a macro; whole-module discovery is a build-tool plugin because macros can't read sibling files. PRD §9 Decision 4.
 - **`@ProtoLawSuite` is a Swift Testing custom Trait** (`@Test(.protocolLaws(...))`). Reuse the runner's reporting / filtering / parallelization rather than reinventing them. The freestanding `@ProtoLawSuite` macro form remains for non-Swift-Testing callers. PRD §9 Decision 5.
-- **`PropertyBackend` is internal until M4.** Public abstraction surface is shaped against two concrete backends (`swift-property-based` + SwiftQC), not designed in advance. Signature is `@Sendable (T) async throws -> Bool` returning `async throws -> CheckResult`. PRD §4.5.
+- **`PropertyBackend` is public as of M4.** Closure-shaped abstraction (`sample: (inout Xoshiro) -> Input`, `property: @Sendable (Input) async throws -> Bool`) per the M4 backend-survey seam recommendation. `SwiftPropertyBasedBackend` is the default. SwiftQC second backend is blocked on the upstream Swift 6.3 issue noted above.
 - **Pattern warnings, not contradiction detection.** §5.6 is a curated, named-pattern list (idempotent+involutive ⇒ identity, etc.). It does not aspire to soundness/completeness; new patterns require maintainer commits, not graph reasoning. PRD §5.6.
 - **Trial budget is part of the API.** `.sanity` (100) / `.standard` (1,000, default) / `.exhaustive` (10,000) / `.custom`. CI cost is a real constraint. PRD §4.4.
 - **Suppression is first-class.** Per-type, per-law, intentional-violation, and custom-equivalence APIs exist (PRD §4.7). This is the adoption-failure escape hatch.
@@ -51,10 +53,8 @@ A future Claude implementing the package should follow these decisions rather th
 - **Near-miss is defined per-protocol.** Don't invent a global definition; consult the §4.6 near-miss table. Backends that can't track near-misses report `nearMisses: nil`, not `[]`.
 - **Generator registry is an actor.** Concurrency-safe under Swift 6 strict concurrency; not `static var`. PRD §4.5 Actor-Isolated Types.
 
-## When implementation begins
+## Build & test
 
-There is no established build/test command yet. When scaffolding a Swift package here:
-
-- Use Swift Package Manager (`Package.swift`). The PRDs assume SPM and target swift-testing-style `@Test`/`@Suite` macros.
-- The global `~/CLAUDE.md` mandates `swift package clean && swift test` for Swift projects at session start; that becomes meaningful once a `Package.swift` exists.
-- `ProtocolLawKit` should land first and be usable standalone — `ProtoLawMacro` and `SwiftInfer` are downstream and should not be prerequisites for using protocol law checks.
+- `swift package clean && swift test` (per the global `~/CLAUDE.md`) on session start. The full suite runs in well under a second.
+- SwiftLint config lives at `.swiftlint.yml`; `swiftlint lint --quiet` should be silent.
+- `ProtocolLawKit` is the only product target today. ProtoLawMacro and SwiftInfer haven't started.
