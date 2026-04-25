@@ -73,14 +73,20 @@ internal enum PerLawDriver {
             sample: check.sample,
             property: wrappedProperty
         )
-        let raw = packageResult(
-            protocolLaw: protocolLaw,
-            tier: tier,
-            environment: environment,
-            backendResult: backendResult,
-            formatCounterexample: check.formatCounterexample,
+        let observed = ObservedSnapshots(
             nearMisses: observation.nearMissCollector?.snapshot(),
             coverageHints: coverageAccumulator?.snapshot()
+        )
+        let metadata = ResultMetadata(
+            protocolLaw: protocolLaw,
+            tier: tier,
+            environment: environment
+        )
+        let raw = packageResult(
+            metadata: metadata,
+            backendResult: backendResult,
+            formatCounterexample: check.formatCounterexample,
+            observed: observed
         )
         return LawSuppressionPolicy.rewriteIfIntentional(
             raw,
@@ -101,38 +107,52 @@ internal enum PerLawDriver {
         }
     }
 
+    /// Packaged observation snapshots for inclusion in the final
+    /// `CheckResult`. Bundling keeps `packageResult` under the
+    /// function-parameter-count lint while preserving the §4.6 nil/empty
+    /// distinction.
+    private struct ObservedSnapshots {
+        let nearMisses: [String]?
+        let coverageHints: CoverageHints?
+    }
+
+    /// Identity / context for the final `CheckResult` — bundled so
+    /// `packageResult` stays under the parameter-count lint.
+    private struct ResultMetadata {
+        let protocolLaw: String
+        let tier: StrictnessTier
+        let environment: Environment
+    }
+
     private static func packageResult<Input: Sendable>(
-        protocolLaw: String,
-        tier: StrictnessTier,
-        environment: Environment,
+        metadata: ResultMetadata,
         backendResult: BackendCheckResult<Input>,
         formatCounterexample: (Input, ErrorBox?) -> String,
-        nearMisses: [String]?,
-        coverageHints: CoverageHints?
+        observed: ObservedSnapshots
     ) -> CheckResult {
         switch backendResult {
         case .passed(let trialsRun, let initialSeed):
             return CheckResult(
-                protocolLaw: protocolLaw,
-                tier: tier,
+                protocolLaw: metadata.protocolLaw,
+                tier: metadata.tier,
                 trials: trialsRun,
                 seed: initialSeed,
-                environment: environment,
+                environment: metadata.environment,
                 outcome: .passed,
-                nearMisses: nearMisses,
-                coverageHints: coverageHints
+                nearMisses: observed.nearMisses,
+                coverageHints: observed.coverageHints
             )
         case .failed(let trialsRun, let initialSeed, let failingInput, let thrownError):
             let counterexample = formatCounterexample(failingInput, thrownError)
             return CheckResult(
-                protocolLaw: protocolLaw,
-                tier: tier,
+                protocolLaw: metadata.protocolLaw,
+                tier: metadata.tier,
                 trials: trialsRun,
                 seed: initialSeed,
-                environment: environment,
+                environment: metadata.environment,
                 outcome: .failed(counterexample: counterexample),
-                nearMisses: nearMisses,
-                coverageHints: coverageHints
+                nearMisses: observed.nearMisses,
+                coverageHints: observed.coverageHints
             )
         }
     }
