@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository state
 
-**ProtocolLawKit M1–M4(partial) shipped.** The kit covers Equatable, Hashable, Comparable, Codable, IteratorProtocol, Sequence, Collection, SetAlgebra (PRD §4.3); the suppression / intentional-violation API (§4.7); and the public `PropertyBackend` abstraction (§4.5) with `SwiftPropertyBasedBackend` as the default. ProtoLawMacro (Contribution 2) has not started.
+**ProtocolLawKit M1–M5 shipped (M4 second-backend partial).** The kit covers Equatable, Hashable, Comparable, Codable, IteratorProtocol, Sequence, Collection, SetAlgebra (PRD §4.3); the suppression / intentional-violation API (§4.7); the public `PropertyBackend` abstraction (§4.5) with `SwiftPropertyBasedBackend` as the default; and the M5 confidence-reporting upgrade — replay environment validation, near-miss tracking (Codable per-field via `Mirror`, Collection off-by-one), opt-in `CoverageClassifier` API with stdlib defaults, and formatter rendering of all three. ProtoLawMacro (Contribution 2) has not started.
 
 **M4 second-backend deferred.** `SwiftQCBackend` is blocked on an upstream Swift 6.3 strict-concurrency issue in SwiftQC v1.0.0 (`Range+Arbitrary.swift:105` captures `var val1`/`val2` in a `@Sendable` closure — `#SendableClosureCaptures`). The PRD §4.5 closure-shaped abstraction is in place so wiring SwiftQC will be additive when upstream unblocks. See the comment in `Package.swift` and the doc-comment in `Sources/ProtocolLawKit/Public/PropertyBackend.swift`.
 
