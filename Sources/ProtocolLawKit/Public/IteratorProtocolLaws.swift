@@ -21,6 +21,7 @@ public func checkIteratorProtocolLaws<S: Sequence & Sendable, Sh: SendableSequen
     options: LawCheckOptions = LawCheckOptions()
 ) async throws -> [CheckResult]
 where S.Element: Equatable & Sendable {
+    try ReplayEnvironmentValidator.verify(options)
     let results = [
         await PerLawDriver.run(
             protocolLaw: "IteratorProtocol.terminationStability",

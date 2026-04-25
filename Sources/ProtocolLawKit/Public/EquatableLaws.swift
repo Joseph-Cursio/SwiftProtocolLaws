@@ -10,6 +10,7 @@ public func checkEquatableProtocolLaws<Value: Equatable & Sendable, Shrinker: Se
     using generator: Generator<Value, Shrinker>,
     options: LawCheckOptions = LawCheckOptions()
 ) async throws -> [CheckResult] {
+    try ReplayEnvironmentValidator.verify(options)
     let results = [
         await checkReflexivity(generator: generator, options: options),
         await checkSymmetry(generator: generator, options: options),

@@ -15,6 +15,7 @@ public func checkComparableProtocolLaws<Value: Comparable & Sendable, Shrinker: 
     options: LawCheckOptions = LawCheckOptions(),
     laws: LawSelection = .all
 ) async throws -> [CheckResult] {
+    try ReplayEnvironmentValidator.verify(options)
     var results: [CheckResult] = []
     if laws == .all {
         results.append(contentsOf: await collectInheritedEquatable(

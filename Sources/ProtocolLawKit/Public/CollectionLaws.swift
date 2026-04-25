@@ -25,6 +25,7 @@ public func checkCollectionProtocolLaws<Value: Collection & Sendable, Shrinker: 
     laws: LawSelection = .all
 ) async throws -> [CheckResult]
 where Value.Element: Equatable & Sendable {
+    try ReplayEnvironmentValidator.verify(options)
     var results: [CheckResult] = []
     if laws == .all {
         results.append(contentsOf: await collectInheritedSequence(

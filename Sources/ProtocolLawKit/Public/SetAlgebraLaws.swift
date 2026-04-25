@@ -23,6 +23,7 @@ public func checkSetAlgebraProtocolLaws<
     using generator: Generator<Value, Shrinker>,
     options: LawCheckOptions = LawCheckOptions()
 ) async throws -> [CheckResult] {
+    try ReplayEnvironmentValidator.verify(options)
     let results = [
         await checkUnionIdempotence(generator: generator, options: options),
         await checkIntersectionIdempotence(generator: generator, options: options),

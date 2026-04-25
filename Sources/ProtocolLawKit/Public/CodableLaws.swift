@@ -23,6 +23,7 @@ public func checkCodableProtocolLaws<
     config: CodableLawConfig<Value> = CodableLawConfig(),
     options: LawCheckOptions = LawCheckOptions()
 ) async throws -> [CheckResult] {
+    try ReplayEnvironmentValidator.verify(options)
     let lawName = "Codable.roundTripFidelity[\(config.codec.identifier)]"
     let codec = config.codec
     let mode = config.mode
