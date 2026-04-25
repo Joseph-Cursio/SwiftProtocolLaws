@@ -1,3 +1,4 @@
+import SwiftDiagnostics
 import SwiftSyntax
 import SwiftSyntaxMacros
 
@@ -12,10 +13,12 @@ import SwiftSyntaxMacros
 ///    corresponding `checkXxxProtocolLaws(...)` against
 ///    `Self.<typeName lowerCamel>Gen`.
 ///
-/// `IteratorProtocol`-only conformers receive no emit because the kit's
-/// `checkIteratorProtocolLaws` is parameterized over a host `Sequence`
-/// (PRD §4.3 IteratorProtocol). When the type conforms to `Sequence` the
-/// inherited iterator laws still run via the kit's chain.
+/// Emits diagnostics for malformed args, malformed individual type
+/// elements, types not declared in the current file (with a hint about the
+/// upcoming Discovery plugin), and types whose conformances aren't
+/// recognized. `IteratorProtocol`-only conformers receive no emit because
+/// the kit's `checkIteratorProtocolLaws` is parameterized over a host
+/// `Sequence` (PRD §4.3 IteratorProtocol).
 public struct ProtoLawSuiteMacro: MemberMacro {
 
     public static func expansion(
@@ -23,37 +26,79 @@ public struct ProtoLawSuiteMacro: MemberMacro {
         providingMembersOf declaration: some DeclGroupSyntax,
         in context: some MacroExpansionContext
     ) throws -> [DeclSyntax] {
-        let typeNames = parseTypeNames(from: node)
+        let typeElements = parseTypeElements(from: node, in: context)
         guard let sourceFile = declaration.root.as(SourceFileSyntax.self) else {
             return []
         }
         var members: [DeclSyntax] = []
-        for typeName in typeNames {
-            guard let conformances = ConformanceScanner.conformances(of: typeName, in: sourceFile)
-            else { continue }
-            for conformance in stableOrder(conformances) where shouldEmit(conformance) {
-                members.append(emit(conformance: conformance, typeName: typeName))
+        for element in typeElements {
+            guard let conformances = ConformanceScanner.conformances(
+                of: element.typeName,
+                in: sourceFile
+            ) else {
+                context.diagnose(Diagnostic(
+                    node: element.node,
+                    message: ProtoLawDiagnostic.typeNotInFile
+                ))
+                continue
+            }
+            let emitSet = conformances.filter { $0 != .iteratorProtocol }
+            if emitSet.isEmpty {
+                context.diagnose(Diagnostic(
+                    node: element.node,
+                    message: ProtoLawDiagnostic.noKnownConformance
+                ))
+                continue
+            }
+            for conformance in stableOrder(emitSet) {
+                members.append(emit(conformance: conformance, typeName: element.typeName))
             }
         }
         return members
     }
 
-    /// Pulls bare type names out of the macro's `types:` array argument.
-    /// Accepts only `Identifier.self` literals; anything else (generic
-    /// parameters, `type(of:)`, type aliases) is silently dropped in M1
-    /// and surfaces as a `malformedArgs` diagnostic in commit 4.
-    private static func parseTypeNames(from node: AttributeSyntax) -> [String] {
-        guard case .argumentList(let arguments) = node.arguments else { return [] }
-        guard let typesArg = arguments.first(where: { $0.label?.text == "types" }) else {
+    /// Single recognized `Foo.self` element from the macro's `types:` array.
+    /// `node` is the original syntax for diagnostic anchoring.
+    private struct TypeElement {
+        let typeName: String
+        let node: Syntax
+    }
+
+    /// Parses the `types: [...]` argument into a list of recognized
+    /// `Foo.self` elements. Emits `malformedArgs` if the argument list
+    /// itself isn't shaped right; emits `malformedTypeElement` for each
+    /// element that isn't a metatype literal.
+    private static func parseTypeElements(
+        from node: AttributeSyntax,
+        in context: some MacroExpansionContext
+    ) -> [TypeElement] {
+        guard
+            case .argumentList(let arguments) = node.arguments,
+            let typesArg = arguments.first(where: { $0.label?.text == "types" }),
+            let arrayExpr = typesArg.expression.as(ArrayExprSyntax.self)
+        else {
+            context.diagnose(Diagnostic(
+                node: node,
+                message: ProtoLawDiagnostic.malformedArgs
+            ))
             return []
         }
-        guard let arrayExpr = typesArg.expression.as(ArrayExprSyntax.self) else { return [] }
         return arrayExpr.elements.compactMap { element in
-            guard let memberAccess = element.expression.as(MemberAccessExprSyntax.self),
-                  memberAccess.declName.baseName.text == "self",
-                  let baseExpr = memberAccess.base
-            else { return nil }
-            return baseExpr.trimmedDescription
+            guard
+                let memberAccess = element.expression.as(MemberAccessExprSyntax.self),
+                memberAccess.declName.baseName.text == "self",
+                let baseExpr = memberAccess.base
+            else {
+                context.diagnose(Diagnostic(
+                    node: element,
+                    message: ProtoLawDiagnostic.malformedTypeElement
+                ))
+                return nil
+            }
+            return TypeElement(
+                typeName: baseExpr.trimmedDescription,
+                node: Syntax(element)
+            )
         }
     }
 
@@ -61,14 +106,6 @@ public struct ProtoLawSuiteMacro: MemberMacro {
     /// the user reads a diff of generated tests, not a re-shuffle.
     private static func stableOrder(_ protocols: Set<KnownProtocol>) -> [KnownProtocol] {
         KnownProtocol.allCases.filter { protocols.contains($0) }
-    }
-
-    private static func shouldEmit(_ protocolEntry: KnownProtocol) -> Bool {
-        // IteratorProtocol-only conformers have no usable kit call; the
-        // kit's iterator suite is parameterized over a host Sequence.
-        // (PRD §4.3 IteratorProtocol.) Drop the standalone case to avoid
-        // emitting code that doesn't compile.
-        protocolEntry != .iteratorProtocol
     }
 
     private static func emit(conformance: KnownProtocol, typeName: String) -> DeclSyntax {
