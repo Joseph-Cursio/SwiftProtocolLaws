@@ -22,6 +22,7 @@ internal enum AggregateDriver {
         protocolLaw: String,
         tier: StrictnessTier,
         options: LawCheckOptions,
+        nearMissCollector: NearMissCollector? = nil,
         check: @Sendable (inout Xoshiro, Int) async throws -> Outcome
     ) async -> CheckResult {
         let environment = Environment.current(backend: options.backend)
@@ -58,7 +59,8 @@ internal enum AggregateDriver {
             trials: trials,
             seed: initialSeed,
             environment: environment,
-            outcome: outcome
+            outcome: outcome,
+            nearMisses: nearMissCollector?.snapshot()
         )
         return LawSuppressionPolicy.rewriteIfIntentional(
             raw,

@@ -13,6 +13,14 @@ import PropertyBased
 /// use the caller's predicate / per-field comparison and don't read `==`. Most
 /// Codable types in real Swift code are also Equatable, so requiring it keeps
 /// the signature simple.
+///
+/// **Near-miss tracking (M5).** Under `.semantic` and `.partial` modes the
+/// law can pass while individual fields disagree (the caller asked for
+/// equivalence rather than equality). When that happens, the kit walks the
+/// original/restored pair via `Mirror` and records each diverging field on
+/// `CheckResult.nearMisses`. Under `.strict`, a field-level diff IS the
+/// violation, so no near-miss tracking applies (the field is already in the
+/// counterexample).
 @discardableResult
 public func checkCodableProtocolLaws<
     Value: Codable & Equatable & Sendable,
@@ -27,6 +35,9 @@ public func checkCodableProtocolLaws<
     let lawName = "Codable.roundTripFidelity[\(config.codec.identifier)]"
     let codec = config.codec
     let mode = config.mode
+    let collector: NearMissCollector? = mode.tracksFieldLevelNearMisses
+        ? NearMissCollector()
+        : nil
     let result = await PerLawDriver.run(
         protocolLaw: lawName,
         tier: .conventional,
@@ -38,7 +49,15 @@ public func checkCodableProtocolLaws<
             property: { trial in
                 switch trial {
                 case .roundTripped(let original, let restored):
-                    return comparesEqual(original, restored, mode: mode)
+                    let passed = comparesEqual(original, restored, mode: mode)
+                    if passed, let collector {
+                        recordFieldDiffs(
+                            original: original,
+                            restored: restored,
+                            into: collector
+                        )
+                    }
+                    return passed
                 case .threw:
                     return false
                 }
@@ -46,7 +65,8 @@ public func checkCodableProtocolLaws<
             formatCounterexample: { trial, _ in
                 CodableTrial<Value>.format(trial: trial, mode: mode)
             }
-        )
+        ),
+        nearMissCollector: collector
     )
     let results = [result]
     try ProtocolLawViolation.throwIfViolations(in: results, enforcement: options.enforcement)
@@ -126,5 +146,44 @@ private func formatMismatch<Value>(
             }
         }
         return "x = \(original), restored = \(restored); .partial mode failure"
+    }
+}
+
+/// Mirror-walk both sides and record every field whose `String(describing:)`
+/// representations diverge. PRD §4.6: "values where decoded ≠ original on a
+/// single field, with the failing field's `KeyPath` reported." Mirror gives
+/// us labels rather than KeyPaths — KeyPaths require the caller to enumerate
+/// them — but the label-level signal is the actionable one for a reviewer
+/// reading test output.
+private func recordFieldDiffs<Value>(
+    original: Value,
+    restored: Value,
+    into collector: NearMissCollector
+) where Value: Sendable {
+    let originalChildren = Array(Mirror(reflecting: original).children)
+    let restoredChildren = Array(Mirror(reflecting: restored).children)
+    let count = Swift.min(originalChildren.count, restoredChildren.count)
+    for index in 0..<count {
+        let (label, originalValue) = originalChildren[index]
+        let (_, restoredValue) = restoredChildren[index]
+        let originalDesc = String(describing: originalValue)
+        let restoredDesc = String(describing: restoredValue)
+        if originalDesc == restoredDesc { continue }
+        let labelText = label ?? "<unlabeled[\(index)]>"
+        collector.record(
+            "field \(labelText): \"\(originalDesc)\" → \"\(restoredDesc)\""
+        )
+    }
+}
+
+extension CodableRoundTripMode {
+    /// `.semantic` and `.partial` can pass with field-level diffs; `.strict`
+    /// can't (any diff is the violation), so near-miss tracking is moot
+    /// there.
+    fileprivate var tracksFieldLevelNearMisses: Bool {
+        switch self {
+        case .strict: return false
+        case .semantic, .partial: return true
+        }
     }
 }
