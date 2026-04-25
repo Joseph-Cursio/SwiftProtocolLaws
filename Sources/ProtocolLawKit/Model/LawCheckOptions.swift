@@ -21,8 +21,8 @@ public struct LawCheckOptions: Sendable {
     public var suppressions: [LawSuppression]
 
     /// Property-based backend that drives the per-trial loop (PRD §4.5).
-    /// Default is `SwiftPropertyBasedBackend`. Swap in `SwiftQCBackend` to
-    /// route the kit's law checks through SwiftQC; aggregate-mode laws
+    /// Default is `SwiftPropertyBasedBackend` — the only backend v1 ships.
+    /// The protocol stays open for future alternatives; aggregate-mode laws
     /// (`Hashable.distribution`) bypass the backend.
     public var backend: any PropertyBackend
 
