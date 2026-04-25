@@ -34,20 +34,70 @@ where Value.Element: Equatable & Sendable {
             sequenceOptions: sequenceOptions
         ))
     }
-    let runner = TrialRunner(
-        trials: options.budget.trialCount,
-        seed: options.seed,
-        generator: generator,
-        environment: .current,
-        suppressions: options.suppressions
-    )
     results.append(contentsOf: [
-        await checkCountConsistency(runner: runner),
-        await checkIndexValidity(runner: runner),
-        await checkNonMutation(runner: runner)
+        await checkCount(generator: generator, options: options),
+        await checkIndexValidity(generator: generator, options: options),
+        await checkNonMutation(generator: generator, options: options)
     ])
     try ProtocolLawViolation.throwIfViolations(in: results, enforcement: options.enforcement)
     return results
+}
+
+private func checkCount<C: Collection & Sendable, Sh: SendableSequenceType>(
+    generator: Generator<C, Sh>,
+    options: LawCheckOptions
+) async -> CheckResult
+where C.Element: Equatable & Sendable {
+    await PerLawDriver.run(
+        protocolLaw: "Collection.countConsistency",
+        tier: .strict,
+        options: options,
+        check: LawCheck(
+            sample: { rng in generator.run(using: &rng) },
+            property: { sample in countCounterexample(for: sample) == nil },
+            formatCounterexample: { sample, _ in
+                countCounterexample(for: sample) ?? "<no counterexample>"
+            }
+        )
+    )
+}
+
+private func checkIndexValidity<C: Collection & Sendable, Sh: SendableSequenceType>(
+    generator: Generator<C, Sh>,
+    options: LawCheckOptions
+) async -> CheckResult
+where C.Element: Equatable & Sendable {
+    await PerLawDriver.run(
+        protocolLaw: "Collection.indexValidity",
+        tier: .strict,
+        options: options,
+        check: LawCheck(
+            sample: { rng in generator.run(using: &rng) },
+            property: { sample in indexValidityCounterexample(for: sample) == nil },
+            formatCounterexample: { sample, _ in
+                indexValidityCounterexample(for: sample) ?? "<no counterexample>"
+            }
+        )
+    )
+}
+
+private func checkNonMutation<C: Collection & Sendable, Sh: SendableSequenceType>(
+    generator: Generator<C, Sh>,
+    options: LawCheckOptions
+) async -> CheckResult
+where C.Element: Equatable & Sendable {
+    await PerLawDriver.run(
+        protocolLaw: "Collection.nonMutation",
+        tier: .conventional,
+        options: options,
+        check: LawCheck(
+            sample: { rng in generator.run(using: &rng) },
+            property: { sample in nonMutationCounterexample(for: sample) == nil },
+            formatCounterexample: { sample, _ in
+                nonMutationCounterexample(for: sample) ?? "<no counterexample>"
+            }
+        )
+    )
 }
 
 private func collectInheritedSequence<C: Collection & Sendable, Sh: SendableSequenceType>(
@@ -61,7 +111,8 @@ where C.Element: Equatable & Sendable {
         budget: options.budget,
         enforcement: .default,
         seed: options.seed,
-        suppressions: options.suppressions
+        suppressions: options.suppressions,
+        backend: options.backend
     )
     do {
         return try await checkSequenceProtocolLaws(
@@ -77,66 +128,38 @@ where C.Element: Equatable & Sendable {
     }
 }
 
-private func checkCountConsistency<C: Collection & Sendable, Sh: SendableSequenceType>(
-    runner: TrialRunner<C, Sh>
-) async -> CheckResult
-where C.Element: Equatable & Sendable {
-    await runner.runPerTrial(
-        protocolLaw: "Collection.countConsistency",
-        tier: .strict
-    ) { gen, rng in
-        let sample = gen.run(using: &rng)
-        let reportedCount = sample.count
-        // Count by hand — `Array(sample)` would trap before we get to compare
-        // when `count` lies (which is exactly the case we're trying to detect).
-        let cap = Swift.max(reportedCount &+ 1, 10_000)
-        let iteratedCount = manualIteratedCount(of: sample, cap: cap)
-        if reportedCount == iteratedCount { return .pass }
-        return .violation(
-            counterexample: "collection \(sample) reported count = \(reportedCount) "
-                + "but iteration yielded \(iteratedCount) elements"
-        )
+private func countCounterexample<C: Collection>(for sample: C) -> String? {
+    let reportedCount = sample.count
+    let cap = Swift.max(reportedCount &+ 1, 10_000)
+    let iteratedCount = manualIteratedCount(of: sample, cap: cap)
+    if reportedCount != iteratedCount {
+        return "collection \(sample) reported count = \(reportedCount) "
+            + "but iteration yielded \(iteratedCount) elements"
     }
+    return nil
 }
 
-private func checkIndexValidity<C: Collection & Sendable, Sh: SendableSequenceType>(
-    runner: TrialRunner<C, Sh>
-) async -> CheckResult
-where C.Element: Equatable & Sendable {
-    await runner.runPerTrial(
-        protocolLaw: "Collection.indexValidity",
-        tier: .strict
-    ) { gen, rng in
-        let sample = gen.run(using: &rng)
-        // Walk via index(after:) and compare each subscripted element to a
-        // manual iterator pass. Hand-rolled to avoid `Array(c)` trapping when
-        // a sibling law (countConsistency) is being violated.
-        let iterated = manualCollect(from: sample)
-        var index = sample.startIndex
-        var subscripted: [C.Element] = []
-        let cap = iterated.count &+ 1
-        var steps = 0
-        while index != sample.endIndex {
-            if steps > cap {
-                return .violation(
-                    counterexample: "collection \(sample) index walk exceeded \(cap) "
-                        + "steps without reaching endIndex — index(after:) likely "
-                        + "doesn't advance"
-                )
-            }
-            subscripted.append(sample[index])
-            index = sample.index(after: index)
-            steps += 1
+private func indexValidityCounterexample<C: Collection>(for sample: C) -> String?
+where C.Element: Equatable {
+    let iterated = manualCollect(from: sample)
+    var index = sample.startIndex
+    var subscripted: [C.Element] = []
+    let cap = iterated.count &+ 1
+    var steps = 0
+    while index != sample.endIndex {
+        if steps > cap {
+            return "collection \(sample) index walk exceeded \(cap) steps without "
+                + "reaching endIndex — index(after:) likely doesn't advance"
         }
-        if subscripted != iterated {
-            return .violation(
-                counterexample: "collection \(sample) sequence iteration "
-                    + "yielded \(iterated.prefix(8))… but index walk yielded "
-                    + "\(subscripted.prefix(8))…"
-            )
-        }
-        return .pass
+        subscripted.append(sample[index])
+        index = sample.index(after: index)
+        steps += 1
     }
+    if subscripted != iterated {
+        return "collection \(sample) sequence iteration yielded \(iterated.prefix(8))… "
+            + "but index walk yielded \(subscripted.prefix(8))…"
+    }
+    return nil
 }
 
 // Iterating over a value-type collection produces a copy and cannot mutate the
@@ -145,26 +168,15 @@ where C.Element: Equatable & Sendable {
 // collections that hold shared state. Comparable to Equatable.negationConsistency:
 // kept as defensive coverage, conventional tier so it doesn't fail-CI on the
 // common no-op case.
-private func checkNonMutation<C: Collection & Sendable, Sh: SendableSequenceType>(
-    runner: TrialRunner<C, Sh>
-) async -> CheckResult
-where C.Element: Equatable & Sendable {
-    await runner.runPerTrial(
-        protocolLaw: "Collection.nonMutation",
-        tier: .conventional
-    ) { gen, rng in
-        let sample = gen.run(using: &rng)
-        let pass1 = manualCollect(from: sample)
-        let pass2 = manualCollect(from: sample)
-        if pass1 != pass2 {
-            return .violation(
-                counterexample: "iterating collection \(sample) appears to perturb "
-                    + "its observable state: pass1 = \(pass1.prefix(8))…, "
-                    + "pass2 = \(pass2.prefix(8))…"
-            )
-        }
-        return .pass
+private func nonMutationCounterexample<C: Collection>(for sample: C) -> String?
+where C.Element: Equatable {
+    let pass1 = manualCollect(from: sample)
+    let pass2 = manualCollect(from: sample)
+    if pass1 != pass2 {
+        return "iterating collection \(sample) appears to perturb its observable state: "
+            + "pass1 = \(pass1.prefix(8))…, pass2 = \(pass2.prefix(8))…"
     }
+    return nil
 }
 
 /// Iterate via Sequence's `makeIterator()` until `nil`, capped to defend

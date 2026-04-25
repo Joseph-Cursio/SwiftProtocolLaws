@@ -10,63 +10,80 @@ public func checkEquatableProtocolLaws<Value: Equatable & Sendable, Shrinker: Se
     using generator: Generator<Value, Shrinker>,
     options: LawCheckOptions = LawCheckOptions()
 ) async throws -> [CheckResult] {
-    let runner = TrialRunner(
-        trials: options.budget.trialCount,
-        seed: options.seed,
-        generator: generator,
-        environment: .current,
-        suppressions: options.suppressions
-    )
     let results = [
-        await checkReflexivity(runner: runner),
-        await checkSymmetry(runner: runner),
-        await checkTransitivity(runner: runner),
-        await checkNegationConsistency(runner: runner)
+        await checkReflexivity(generator: generator, options: options),
+        await checkSymmetry(generator: generator, options: options),
+        await checkTransitivity(generator: generator, options: options),
+        await checkNegationConsistency(generator: generator, options: options)
     ]
     try ProtocolLawViolation.throwIfViolations(in: results, enforcement: options.enforcement)
     return results
 }
 
 private func checkReflexivity<Value: Equatable & Sendable, Shrinker: SendableSequenceType>(
-    runner: TrialRunner<Value, Shrinker>
+    generator: Generator<Value, Shrinker>,
+    options: LawCheckOptions
 ) async -> CheckResult {
-    await runner.runPerTrial(protocolLaw: "Equatable.reflexivity", tier: .strict) { gen, rng in
-        let sample = gen.run(using: &rng)
-        if sample == sample { return .pass }
-        return .violation(counterexample: "x = \(sample); x == x evaluated to false")
-    }
+    await PerLawDriver.run(
+        protocolLaw: "Equatable.reflexivity",
+        tier: .strict,
+        options: options,
+        check: LawCheck(
+            sample: { rng in generator.run(using: &rng) },
+            property: { sample in sample == sample },
+            formatCounterexample: { sample, _ in
+                "x = \(sample); x == x evaluated to false"
+            }
+        )
+    )
 }
 
 private func checkSymmetry<Value: Equatable & Sendable, Shrinker: SendableSequenceType>(
-    runner: TrialRunner<Value, Shrinker>
+    generator: Generator<Value, Shrinker>,
+    options: LawCheckOptions
 ) async -> CheckResult {
-    await runner.runPerTrial(protocolLaw: "Equatable.symmetry", tier: .strict) { gen, rng in
-        let first = gen.run(using: &rng)
-        let second = gen.run(using: &rng)
-        let forward = (first == second)
-        let reverse = (second == first)
-        if forward == reverse { return .pass }
-        return .violation(
-            counterexample: "x = \(first), y = \(second); x == y → \(forward), y == x → \(reverse)"
+    await PerLawDriver.run(
+        protocolLaw: "Equatable.symmetry",
+        tier: .strict,
+        options: options,
+        check: LawCheck(
+            sample: { rng in (generator.run(using: &rng), generator.run(using: &rng)) },
+            property: { input in
+                let (first, second) = input
+                return (first == second) == (second == first)
+            },
+            formatCounterexample: { input, _ in
+                let (first, second) = input
+                return "x = \(first), y = \(second); "
+                    + "x == y → \(first == second), y == x → \(second == first)"
+            }
         )
-    }
+    )
 }
 
 private func checkTransitivity<Value: Equatable & Sendable, Shrinker: SendableSequenceType>(
-    runner: TrialRunner<Value, Shrinker>
+    generator: Generator<Value, Shrinker>,
+    options: LawCheckOptions
 ) async -> CheckResult {
-    await runner.runPerTrial(protocolLaw: "Equatable.transitivity", tier: .strict) { gen, rng in
-        let first = gen.run(using: &rng)
-        let second = gen.run(using: &rng)
-        let third = gen.run(using: &rng)
-        if first == second && second == third && !(first == third) {
-            return .violation(
-                counterexample: "x = \(first), y = \(second), z = \(third); "
+    await PerLawDriver.run(
+        protocolLaw: "Equatable.transitivity",
+        tier: .strict,
+        options: options,
+        check: LawCheck(
+            sample: { rng in
+                (generator.run(using: &rng), generator.run(using: &rng), generator.run(using: &rng))
+            },
+            property: { input in
+                let (first, second, third) = input
+                return !(first == second && second == third) || (first == third)
+            },
+            formatCounterexample: { input, _ in
+                let (first, second, third) = input
+                return "x = \(first), y = \(second), z = \(third); "
                     + "x == y and y == z but x != z"
-            )
-        }
-        return .pass
-    }
+            }
+        )
+    )
 }
 
 // Defensive coverage. `!=` is dispatched through Equatable's protocol witness
@@ -75,16 +92,24 @@ private func checkTransitivity<Value: Equatable & Sendable, Shrinker: SendableSe
 // future Swift change makes `!=` independently overridable; today it always
 // passes.
 private func checkNegationConsistency<Value: Equatable & Sendable, Shrinker: SendableSequenceType>(
-    runner: TrialRunner<Value, Shrinker>
+    generator: Generator<Value, Shrinker>,
+    options: LawCheckOptions
 ) async -> CheckResult {
-    await runner.runPerTrial(protocolLaw: "Equatable.negationConsistency", tier: .strict) { gen, rng in
-        let first = gen.run(using: &rng)
-        let second = gen.run(using: &rng)
-        let nonEqual = (first != second)
-        let notEqual = !(first == second)
-        if nonEqual == notEqual { return .pass }
-        return .violation(
-            counterexample: "x = \(first), y = \(second); x != y → \(nonEqual), !(x == y) → \(notEqual)"
+    await PerLawDriver.run(
+        protocolLaw: "Equatable.negationConsistency",
+        tier: .strict,
+        options: options,
+        check: LawCheck(
+            sample: { rng in (generator.run(using: &rng), generator.run(using: &rng)) },
+            property: { input in
+                let (first, second) = input
+                return (first != second) == !(first == second)
+            },
+            formatCounterexample: { input, _ in
+                let (first, second) = input
+                return "x = \(first), y = \(second); "
+                    + "x != y → \(first != second), !(x == y) → \(!(first == second))"
+            }
         )
-    }
+    )
 }

@@ -23,18 +23,11 @@ public func checkComparableProtocolLaws<Value: Comparable & Sendable, Shrinker: 
             options: options
         ))
     }
-    let runner = TrialRunner(
-        trials: options.budget.trialCount,
-        seed: options.seed,
-        generator: generator,
-        environment: .current,
-        suppressions: options.suppressions
-    )
     results.append(contentsOf: [
-        await checkAntisymmetry(runner: runner),
-        await checkTransitivity(runner: runner),
-        await checkTotality(runner: runner),
-        await checkOperatorConsistency(runner: runner)
+        await checkAntisymmetry(generator: generator, options: options),
+        await checkTransitivity(generator: generator, options: options),
+        await checkTotality(generator: generator, options: options),
+        await checkOperatorConsistency(generator: generator, options: options)
     ])
     try ProtocolLawViolation.throwIfViolations(in: results, enforcement: options.enforcement)
     return results
@@ -49,7 +42,8 @@ private func collectInheritedEquatable<Value: Comparable & Sendable, Shrinker: S
         budget: options.budget,
         enforcement: .default,
         seed: options.seed,
-        suppressions: options.suppressions
+        suppressions: options.suppressions,
+        backend: options.backend
     )
     do {
         return try await checkEquatableProtocolLaws(
@@ -65,50 +59,72 @@ private func collectInheritedEquatable<Value: Comparable & Sendable, Shrinker: S
 }
 
 private func checkAntisymmetry<Value: Comparable & Sendable, Shrinker: SendableSequenceType>(
-    runner: TrialRunner<Value, Shrinker>
+    generator: Generator<Value, Shrinker>,
+    options: LawCheckOptions
 ) async -> CheckResult {
-    await runner.runPerTrial(protocolLaw: "Comparable.antisymmetry", tier: .strict) { gen, rng in
-        let first = gen.run(using: &rng)
-        let second = gen.run(using: &rng)
-        if first <= second && second <= first && !(first == second) {
-            return .violation(
-                counterexample: "x = \(first), y = \(second); x <= y and y <= x but x != y"
-            )
-        }
-        return .pass
-    }
+    await PerLawDriver.run(
+        protocolLaw: "Comparable.antisymmetry",
+        tier: .strict,
+        options: options,
+        check: LawCheck(
+            sample: { rng in (generator.run(using: &rng), generator.run(using: &rng)) },
+            property: { input in
+                let (first, second) = input
+                return !(first <= second && second <= first) || (first == second)
+            },
+            formatCounterexample: { input, _ in
+                let (first, second) = input
+                return "x = \(first), y = \(second); x <= y and y <= x but x != y"
+            }
+        )
+    )
 }
 
 private func checkTransitivity<Value: Comparable & Sendable, Shrinker: SendableSequenceType>(
-    runner: TrialRunner<Value, Shrinker>
+    generator: Generator<Value, Shrinker>,
+    options: LawCheckOptions
 ) async -> CheckResult {
-    await runner.runPerTrial(protocolLaw: "Comparable.transitivity", tier: .strict) { gen, rng in
-        let first = gen.run(using: &rng)
-        let second = gen.run(using: &rng)
-        let third = gen.run(using: &rng)
-        if first <= second && second <= third && !(first <= third) {
-            return .violation(
-                counterexample: "x = \(first), y = \(second), z = \(third); "
+    await PerLawDriver.run(
+        protocolLaw: "Comparable.transitivity",
+        tier: .strict,
+        options: options,
+        check: LawCheck(
+            sample: { rng in
+                (generator.run(using: &rng), generator.run(using: &rng), generator.run(using: &rng))
+            },
+            property: { input in
+                let (first, second, third) = input
+                return !(first <= second && second <= third) || (first <= third)
+            },
+            formatCounterexample: { input, _ in
+                let (first, second, third) = input
+                return "x = \(first), y = \(second), z = \(third); "
                     + "x <= y and y <= z but !(x <= z)"
-            )
-        }
-        return .pass
-    }
+            }
+        )
+    )
 }
 
 private func checkTotality<Value: Comparable & Sendable, Shrinker: SendableSequenceType>(
-    runner: TrialRunner<Value, Shrinker>
+    generator: Generator<Value, Shrinker>,
+    options: LawCheckOptions
 ) async -> CheckResult {
-    await runner.runPerTrial(protocolLaw: "Comparable.totality", tier: .conventional) { gen, rng in
-        let first = gen.run(using: &rng)
-        let second = gen.run(using: &rng)
-        if !(first <= second) && !(second <= first) {
-            return .violation(
-                counterexample: "x = \(first), y = \(second); neither x <= y nor y <= x (NaN-like)"
-            )
-        }
-        return .pass
-    }
+    await PerLawDriver.run(
+        protocolLaw: "Comparable.totality",
+        tier: .conventional,
+        options: options,
+        check: LawCheck(
+            sample: { rng in (generator.run(using: &rng), generator.run(using: &rng)) },
+            property: { input in
+                let (first, second) = input
+                return first <= second || second <= first
+            },
+            formatCounterexample: { input, _ in
+                let (first, second) = input
+                return "x = \(first), y = \(second); neither x <= y nor y <= x (NaN-like)"
+            }
+        )
+    )
 }
 
 // `<=`, `>`, `>=` are derived from `<` by Comparable's protocol witnesses, so
@@ -118,35 +134,41 @@ private func checkTotality<Value: Comparable & Sendable, Shrinker: SendableSeque
 // for both directions of a pair makes `x < y` and `!(x <= y)` simultaneously
 // true.
 private func checkOperatorConsistency<Value: Comparable & Sendable, Shrinker: SendableSequenceType>(
-    runner: TrialRunner<Value, Shrinker>
+    generator: Generator<Value, Shrinker>,
+    options: LawCheckOptions
 ) async -> CheckResult {
-    await runner.runPerTrial(
+    await PerLawDriver.run(
         protocolLaw: "Comparable.operatorConsistency",
-        tier: .strict
-    ) { gen, rng in
-        let first = gen.run(using: &rng)
-        let second = gen.run(using: &rng)
-        let lessThan = first < second
-        let greaterThan = first > second
-        let lessOrEqual = first <= second
-        let greaterOrEqual = first >= second
-        if greaterThan != (second < first) {
-            return .violation(
-                counterexample: "x = \(first), y = \(second); x > y → \(greaterThan) "
-                    + "but y < x → \(second < first)"
-            )
-        }
-        if greaterOrEqual != (second <= first) {
-            return .violation(
-                counterexample: "x = \(first), y = \(second); x >= y → \(greaterOrEqual) "
-                    + "but y <= x → \(second <= first)"
-            )
-        }
-        if lessThan && lessOrEqual == false {
-            return .violation(
-                counterexample: "x = \(first), y = \(second); x < y but !(x <= y)"
-            )
-        }
-        return .pass
+        tier: .strict,
+        options: options,
+        check: LawCheck(
+            sample: { rng in (generator.run(using: &rng), generator.run(using: &rng)) },
+            property: { input in operatorConsistencyCounterexample(for: input) == nil },
+            formatCounterexample: { input, _ in
+                operatorConsistencyCounterexample(for: input) ?? "<no counterexample>"
+            }
+        )
+    )
+}
+
+private func operatorConsistencyCounterexample<Value: Comparable>(
+    for input: (Value, Value)
+) -> String? {
+    let (first, second) = input
+    let lessThan = first < second
+    let greaterThan = first > second
+    let lessOrEqual = first <= second
+    let greaterOrEqual = first >= second
+    if greaterThan != (second < first) {
+        return "x = \(first), y = \(second); x > y → \(greaterThan) "
+            + "but y < x → \(second < first)"
     }
+    if greaterOrEqual != (second <= first) {
+        return "x = \(first), y = \(second); x >= y → \(greaterOrEqual) "
+            + "but y <= x → \(second <= first)"
+    }
+    if lessThan && !lessOrEqual {
+        return "x = \(first), y = \(second); x < y but !(x <= y)"
+    }
+    return nil
 }

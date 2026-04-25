@@ -1,8 +1,9 @@
 // Environment fingerprint per PRD §4.6.
 //
-// M1 records `swiftVersion` and `backendIdentity`. `generatorSchemaHash` is the
-// hash of the registered generator schema; the generator registry doesn't exist
-// until M3, so M1 ships a placeholder. Replay-mismatch validation logic is M5
+// Records `swiftVersion`, `backendIdentity`, and `generatorSchemaHash`. The
+// backend identity arrives via `PropertyBackend.identifier` from M4 onward;
+// the generator registry doesn't exist until ProtoLawMacro lands, so the
+// schema hash ships a placeholder. Replay-mismatch validation logic is M5
 // scope — recording the fingerprint now lets seeds carried in CI artifacts
 // remain meaningful once the validator lands, without a breaking API change.
 
@@ -17,10 +18,23 @@ public struct Environment: Sendable, Hashable, Codable {
         self.generatorSchemaHash = generatorSchemaHash
     }
 
+    /// Default environment, fingerprinted against the default backend
+    /// (`SwiftPropertyBasedBackend`). Used by tests that construct
+    /// `CheckResult` literals; production paths go through
+    /// `Environment.current(backend:)` so the recorded backend matches the
+    /// one that actually ran the check.
     public static var current: Environment {
         Environment(
             swiftVersion: detectedSwiftVersion,
-            backendIdentity: "swift-property-based",
+            backendIdentity: SwiftPropertyBasedBackend().identifier,
+            generatorSchemaHash: "m1-no-registry"
+        )
+    }
+
+    public static func current(backend: any PropertyBackend) -> Environment {
+        Environment(
+            swiftVersion: detectedSwiftVersion,
+            backendIdentity: backend.identifier,
             generatorSchemaHash: "m1-no-registry"
         )
     }
