@@ -3,14 +3,11 @@ import Foundation
 /// Whole-module conformance-discovery tool (PRD §5.3 Discovery Mode).
 ///
 /// Invoked by `ProtoLawDiscoveryPlugin` via `swift package protolawcheck
-/// discover --target <name>`. The plugin gathers source-file paths from the
-/// PluginContext and forwards them as positional arguments after a
-/// `--source-files` separator; this tool walks them, builds a
-/// `ConformanceMap`, and emits the generated test file.
-///
-/// Commit 1 ships the executable scaffold + argparse skeleton. Commits 3–5
-/// fill in the SwiftSyntax scanner, the emitter, and the suppression
-/// round-trip respectively.
+/// discover --target <name>`. The plugin gathers source-file paths from
+/// the PluginContext and forwards them as positional arguments after the
+/// `--source-files` separator. This tool walks them, builds a
+/// `ConformanceMap`, applies any suppression markers found in an existing
+/// output file, and writes the rendered output.
 @main
 struct ProtoLawDiscoveryTool {
     static func main() throws {
@@ -21,14 +18,15 @@ struct ProtoLawDiscoveryTool {
         }
 
         let invocation = try ToolInvocation(arguments: args)
-        let header = """
-            // ProtoLawDiscoveryTool scaffold (commit 1/6).
-            // target: \(invocation.target)
-            // output: \(invocation.outputPath)
-            // sourceFiles.count: \(invocation.sourceFiles.count)
-            // — module scanner, emitter, plugin wiring land in commits 3–5.
-            """
-        FileHandle.standardOutput.write(Data((header + "\n").utf8))
+        let map = ModuleScanner.scan(sourceFiles: invocation.sourceFiles)
+        let suppressions = SuppressionParser.parse(existingFileAt: invocation.outputPath)
+        let output = GeneratedFileEmitter.emit(
+            target: invocation.target,
+            map: map,
+            suppressions: suppressions
+        )
+        try writeOutput(output, to: invocation.outputPath)
+        printSummary(invocation: invocation, map: map, suppressions: suppressions)
     }
 
     static func printUsage() {
@@ -51,6 +49,36 @@ struct ProtoLawDiscoveryTool {
                 --source-files <paths>... Required. Source paths the plugin discovers.
             """
         FileHandle.standardOutput.write(Data((usage + "\n").utf8))
+    }
+
+    /// Writes `contents` to `path`, creating parent directories as needed.
+    private static func writeOutput(_ contents: String, to path: String) throws {
+        let url = URL(fileURLWithPath: path)
+        let parent = url.deletingLastPathComponent()
+        try FileManager.default.createDirectory(
+            at: parent,
+            withIntermediateDirectories: true
+        )
+        try contents.write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    private static func printSummary(
+        invocation: ToolInvocation,
+        map: ConformanceMap,
+        suppressions: Set<String>
+    ) {
+        var lines: [String] = []
+        lines.append("ProtoLawDiscoveryTool: wrote \(invocation.outputPath)")
+        lines.append("  target: \(invocation.target)")
+        lines.append("  source files scanned: \(invocation.sourceFiles.count)")
+        lines.append("  types detected: \(map.entries.count)")
+        if !map.parseFailures.isEmpty {
+            lines.append("  parse failures: \(map.parseFailures.count)")
+        }
+        if !suppressions.isEmpty {
+            lines.append("  suppressions preserved: \(suppressions.count)")
+        }
+        FileHandle.standardOutput.write(Data((lines.joined(separator: "\n") + "\n").utf8))
     }
 }
 
