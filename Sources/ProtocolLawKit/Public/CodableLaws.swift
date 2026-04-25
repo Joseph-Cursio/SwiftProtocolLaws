@@ -66,7 +66,7 @@ public func checkCodableProtocolLaws<
                 CodableTrial<Value>.format(trial: trial, mode: mode)
             }
         ),
-        nearMissCollector: collector
+        observation: PerLawDriver.Observation(nearMissCollector: collector)
     )
     let results = [result]
     try ProtocolLawViolation.throwIfViolations(in: results, enforcement: options.enforcement)

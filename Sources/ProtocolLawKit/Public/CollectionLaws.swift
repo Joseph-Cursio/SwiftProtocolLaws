@@ -74,7 +74,7 @@ where C.Element: Equatable & Sendable {
                 countDetail(for: sample)?.message ?? "<no counterexample>"
             }
         ),
-        nearMissCollector: collector
+        observation: PerLawDriver.Observation(nearMissCollector: collector)
     )
 }
 

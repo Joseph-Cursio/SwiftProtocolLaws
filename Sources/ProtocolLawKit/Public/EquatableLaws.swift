@@ -4,15 +4,21 @@ import PropertyBased
 ///
 /// All four laws are Strict tier — a violation is a bug. Equatable has no
 /// inherited protocol law suite, so `LawSelection` is not exposed here.
+///
+/// **Coverage hints (M5).** Optional `coverage:` classifier populates
+/// `CheckResult.coverageHints` on `Equatable.reflexivity` (the only
+/// unary-input law in this suite). Pair / triple-input laws (symmetry,
+/// transitivity, negationConsistency) silently ignore the classifier.
 @discardableResult
 public func checkEquatableProtocolLaws<Value: Equatable & Sendable, Shrinker: SendableSequenceType>(
     for type: Value.Type = Value.self,
     using generator: Generator<Value, Shrinker>,
-    options: LawCheckOptions = LawCheckOptions()
+    options: LawCheckOptions = LawCheckOptions(),
+    coverage: AnyCoverageClassifier<Value>? = nil
 ) async throws -> [CheckResult] {
     try ReplayEnvironmentValidator.verify(options)
     let results = [
-        await checkReflexivity(generator: generator, options: options),
+        await checkReflexivity(generator: generator, options: options, coverage: coverage),
         await checkSymmetry(generator: generator, options: options),
         await checkTransitivity(generator: generator, options: options),
         await checkNegationConsistency(generator: generator, options: options)
@@ -23,9 +29,16 @@ public func checkEquatableProtocolLaws<Value: Equatable & Sendable, Shrinker: Se
 
 private func checkReflexivity<Value: Equatable & Sendable, Shrinker: SendableSequenceType>(
     generator: Generator<Value, Shrinker>,
-    options: LawCheckOptions
+    options: LawCheckOptions,
+    coverage: AnyCoverageClassifier<Value>?
 ) async -> CheckResult {
-    await PerLawDriver.run(
+    let classify: (@Sendable (Value) -> (classes: Set<String>, boundaries: Set<String>))?
+    if let coverage {
+        classify = { coverage.classify($0) }
+    } else {
+        classify = nil
+    }
+    return await PerLawDriver.run(
         protocolLaw: "Equatable.reflexivity",
         tier: .strict,
         options: options,
@@ -35,7 +48,8 @@ private func checkReflexivity<Value: Equatable & Sendable, Shrinker: SendableSeq
             formatCounterexample: { sample, _ in
                 "x = \(sample); x == x evaluated to false"
             }
-        )
+        ),
+        observation: PerLawDriver.Observation(classify: classify)
     )
 }
 

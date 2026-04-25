@@ -18,11 +18,27 @@ internal enum AggregateDriver {
         case failed(counterexample: String)
     }
 
+    /// Per-aggregate observation hooks. Bundled so `run`'s parameter count
+    /// stays under the lint and individual call sites can opt into a single
+    /// concern without naming the others.
+    struct Observation: Sendable {
+        let nearMissCollector: NearMissCollector?
+        let coverageAccumulator: CoverageAccumulator?
+
+        init(
+            nearMissCollector: NearMissCollector? = nil,
+            coverageAccumulator: CoverageAccumulator? = nil
+        ) {
+            self.nearMissCollector = nearMissCollector
+            self.coverageAccumulator = coverageAccumulator
+        }
+    }
+
     static func run(
         protocolLaw: String,
         tier: StrictnessTier,
         options: LawCheckOptions,
-        nearMissCollector: NearMissCollector? = nil,
+        observation: Observation = Observation(),
         check: @Sendable (inout Xoshiro, Int) async throws -> Outcome
     ) async -> CheckResult {
         let environment = Environment.current(backend: options.backend)
@@ -60,7 +76,8 @@ internal enum AggregateDriver {
             seed: initialSeed,
             environment: environment,
             outcome: outcome,
-            nearMisses: nearMissCollector?.snapshot()
+            nearMisses: observation.nearMissCollector?.snapshot(),
+            coverageHints: observation.coverageAccumulator?.snapshot()
         )
         return LawSuppressionPolicy.rewriteIfIntentional(
             raw,

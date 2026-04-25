@@ -8,12 +8,19 @@ import PropertyBased
 /// Returned array order: Equatable laws (if `.all`) then Hashable laws —
 /// `equalityConsistency` (Strict), `stabilityWithinProcess` (Conventional),
 /// `distribution` (Heuristic).
+///
+/// **Coverage hints (M5).** Optional `coverage:` classifier populates
+/// `CheckResult.coverageHints` on `Hashable.stabilityWithinProcess` and
+/// `Hashable.distribution` (the unary-input laws). The pair-input
+/// `equalityConsistency` law silently ignores the classifier. When `.all`
+/// is set, the inherited Equatable suite also receives the classifier.
 @discardableResult
 public func checkHashableProtocolLaws<Value: Hashable & Sendable, Shrinker: SendableSequenceType>(
     for type: Value.Type = Value.self,
     using generator: Generator<Value, Shrinker>,
     options: LawCheckOptions = LawCheckOptions(),
-    laws: LawSelection = .all
+    laws: LawSelection = .all,
+    coverage: AnyCoverageClassifier<Value>? = nil
 ) async throws -> [CheckResult] {
     try ReplayEnvironmentValidator.verify(options)
     var results: [CheckResult] = []
@@ -21,13 +28,14 @@ public func checkHashableProtocolLaws<Value: Hashable & Sendable, Shrinker: Send
         results.append(contentsOf: await collectInheritedEquatable(
             for: type,
             using: generator,
-            options: options
+            options: options,
+            coverage: coverage
         ))
     }
     results.append(contentsOf: [
         await checkEqualityConsistency(generator: generator, options: options),
-        await checkStabilityWithinProcess(generator: generator, options: options),
-        await checkDistribution(generator: generator, options: options)
+        await checkStabilityWithinProcess(generator: generator, options: options, coverage: coverage),
+        await checkDistribution(generator: generator, options: options, coverage: coverage)
     ])
     try ProtocolLawViolation.throwIfViolations(in: results, enforcement: options.enforcement)
     return results
@@ -36,7 +44,8 @@ public func checkHashableProtocolLaws<Value: Hashable & Sendable, Shrinker: Send
 private func collectInheritedEquatable<Value: Hashable & Sendable, Shrinker: SendableSequenceType>(
     for type: Value.Type,
     using generator: Generator<Value, Shrinker>,
-    options: LawCheckOptions
+    options: LawCheckOptions,
+    coverage: AnyCoverageClassifier<Value>?
 ) async -> [CheckResult] {
     let inheritedOptions = LawCheckOptions(
         budget: options.budget,
@@ -49,7 +58,8 @@ private func collectInheritedEquatable<Value: Hashable & Sendable, Shrinker: Sen
         return try await checkEquatableProtocolLaws(
             for: type,
             using: generator,
-            options: inheritedOptions
+            options: inheritedOptions,
+            coverage: coverage
         )
     } catch let violation as ProtocolLawViolation {
         return violation.results
@@ -83,9 +93,16 @@ private func checkEqualityConsistency<Value: Hashable & Sendable, Shrinker: Send
 
 private func checkStabilityWithinProcess<Value: Hashable & Sendable, Shrinker: SendableSequenceType>(
     generator: Generator<Value, Shrinker>,
-    options: LawCheckOptions
+    options: LawCheckOptions,
+    coverage: AnyCoverageClassifier<Value>?
 ) async -> CheckResult {
-    await PerLawDriver.run(
+    let classify: (@Sendable (Value) -> (classes: Set<String>, boundaries: Set<String>))?
+    if let coverage {
+        classify = { coverage.classify($0) }
+    } else {
+        classify = nil
+    }
+    return await PerLawDriver.run(
         protocolLaw: "Hashable.stabilityWithinProcess",
         tier: .conventional,
         options: options,
@@ -96,7 +113,8 @@ private func checkStabilityWithinProcess<Value: Hashable & Sendable, Shrinker: S
                 "x = \(sample); hashValue returned \(sample.hashValue) "
                     + "then \(sample.hashValue) within the same process"
             }
-        )
+        ),
+        observation: PerLawDriver.Observation(classify: classify)
     )
 }
 
@@ -107,12 +125,15 @@ private func checkStabilityWithinProcess<Value: Hashable & Sendable, Shrinker: S
 // PropertyBackend protocol intentionally doesn't model whole-budget laws.
 private func checkDistribution<Value: Hashable & Sendable, Shrinker: SendableSequenceType>(
     generator: Generator<Value, Shrinker>,
-    options: LawCheckOptions
+    options: LawCheckOptions,
+    coverage: AnyCoverageClassifier<Value>?
 ) async -> CheckResult {
-    await AggregateDriver.run(
+    let accumulator: CoverageAccumulator? = coverage == nil ? nil : CoverageAccumulator()
+    return await AggregateDriver.run(
         protocolLaw: "Hashable.distribution",
         tier: .heuristic,
-        options: options
+        options: options,
+        observation: AggregateDriver.Observation(coverageAccumulator: accumulator)
     ) { rng, count in
         var hashes = Set<Int>()
         var lastSample: Value?
@@ -120,6 +141,10 @@ private func checkDistribution<Value: Hashable & Sendable, Shrinker: SendableSeq
             let sample = generator.run(using: &rng)
             lastSample = sample
             hashes.insert(sample.hashValue)
+            if let coverage, let accumulator {
+                let buckets = coverage.classify(sample)
+                accumulator.record(classes: buckets.classes, boundaries: buckets.boundaries)
+            }
         }
         let denominator = max(count, 1)
         let uniqueRatio = Double(hashes.count) / Double(denominator)
