@@ -75,6 +75,49 @@ let package = Package(
                 .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
                 .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax")
             ]
+        ),
+
+        // Whole-module discovery (PRD §5.3) — the cross-file form M1's
+        // peer macro can't implement, delivered as a CommandPlugin that
+        // walks all `.swift` files in a target and emits a generated test
+        // file. The plugin is intentionally thin; the executable tool
+        // does the actual SwiftSyntax work.
+        .executableTarget(
+            name: "ProtoLawDiscoveryTool",
+            dependencies: [
+                .product(name: "SwiftSyntax", package: "swift-syntax"),
+                .product(name: "SwiftParser", package: "swift-syntax")
+            ]
+        ),
+        .plugin(
+            name: "ProtoLawDiscoveryPlugin",
+            capability: .command(
+                intent: .custom(
+                    verb: "protolawcheck",
+                    description: """
+                        Generate ProtocolLawKit test files by walking a target's source files \
+                        and detecting stdlib protocol conformances.
+                        """
+                ),
+                permissions: [
+                    .writeToPackageDirectory(reason:
+                        "ProtoLawDiscoveryPlugin writes a generated test file (default: " +
+                        "Tests/<Target>Tests/ProtocolLawTests.generated.swift) listing the " +
+                        "checkXxxProtocolLaws calls for each detected conformance."
+                    )
+                ]
+            ),
+            dependencies: [
+                "ProtoLawDiscoveryTool"
+            ]
+        ),
+        .testTarget(
+            name: "ProtoLawDiscoveryToolTests",
+            dependencies: [
+                "ProtoLawDiscoveryTool",
+                .product(name: "SwiftSyntax", package: "swift-syntax"),
+                .product(name: "SwiftParser", package: "swift-syntax")
+            ]
         )
     ]
 )
