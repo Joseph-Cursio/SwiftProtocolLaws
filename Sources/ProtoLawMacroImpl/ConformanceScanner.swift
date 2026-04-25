@@ -11,46 +11,15 @@ internal enum ConformanceScanner {
         var foundDeclaration = false
 
         for statement in file.statements {
-            let decl = statement.item
-            switch decl.as(DeclSyntax.self)?.kind {
-            case .structDecl:
-                if let structDecl = decl.as(StructDeclSyntax.self),
-                   structDecl.name.text == typeName {
-                    foundDeclaration = true
-                    inheritedNames.append(contentsOf: names(in: structDecl.inheritanceClause))
-                }
-            case .classDecl:
-                if let classDecl = decl.as(ClassDeclSyntax.self),
-                   classDecl.name.text == typeName {
-                    foundDeclaration = true
-                    inheritedNames.append(contentsOf: names(in: classDecl.inheritanceClause))
-                }
-            case .enumDecl:
-                if let enumDecl = decl.as(EnumDeclSyntax.self),
-                   enumDecl.name.text == typeName {
-                    foundDeclaration = true
-                    inheritedNames.append(contentsOf: names(in: enumDecl.inheritanceClause))
-                }
-            case .actorDecl:
-                if let actorDecl = decl.as(ActorDeclSyntax.self),
-                   actorDecl.name.text == typeName {
-                    foundDeclaration = true
-                    inheritedNames.append(contentsOf: names(in: actorDecl.inheritanceClause))
-                }
-            case .extensionDecl:
-                if let extensionDecl = decl.as(ExtensionDeclSyntax.self),
-                   extendedTypeName(of: extensionDecl) == typeName {
-                    foundDeclaration = true
-                    // Skip extensions with a where clause — those are
-                    // conditional conformances, M3+ scope (PRD §4.4 generic
-                    // conformances). Adding the protocol here would falsely
-                    // claim the type unconditionally conforms.
-                    if extensionDecl.genericWhereClause == nil {
-                        inheritedNames.append(contentsOf: names(in: extensionDecl.inheritanceClause))
-                    }
-                }
-            default:
+            let match = inheritedNamesIfMatching(typeName: typeName, decl: statement.item)
+            switch match {
+            case .none:
                 continue
+            case .matchedNoConformances:
+                foundDeclaration = true
+            case .matchedWithConformances(let names):
+                foundDeclaration = true
+                inheritedNames.append(contentsOf: names)
             }
         }
 
@@ -58,15 +27,51 @@ internal enum ConformanceScanner {
         return KnownProtocol.mostSpecific(in: KnownProtocol.set(from: inheritedNames))
     }
 
-    /// Pulls the bare protocol names from an `InheritanceClauseSyntax`. The
-    /// extracted names are matched against `KnownProtocol.from(typeName:)`
-    /// — exact-match semantics, no generic-arg stripping (the kit's covered
-    /// protocols don't take generic arguments at the conformance site).
-    private static func names(in clause: InheritanceClauseSyntax?) -> [String] {
-        guard let clause else { return [] }
-        return clause.inheritedTypes.compactMap { inheritedType in
-            inheritedType.type.trimmedDescription
+    /// Outcome of inspecting a single top-level statement against the named
+    /// type. Distinguishes "not this type" from "this type, no conformances
+    /// declared here" — the latter still counts toward `foundDeclaration`
+    /// so we don't false-positive the `typeNotInFile` diagnostic on a
+    /// type that happens to declare no stdlib conformances.
+    private enum DeclMatch {
+        case none
+        case matchedNoConformances
+        case matchedWithConformances([String])
+    }
+
+    private static func inheritedNamesIfMatching(
+        typeName: String,
+        decl: CodeBlockItemSyntax.Item
+    ) -> DeclMatch {
+        if let structDecl = decl.as(StructDeclSyntax.self), structDecl.name.text == typeName {
+            return matched(clause: structDecl.inheritanceClause)
         }
+        if let classDecl = decl.as(ClassDeclSyntax.self), classDecl.name.text == typeName {
+            return matched(clause: classDecl.inheritanceClause)
+        }
+        if let enumDecl = decl.as(EnumDeclSyntax.self), enumDecl.name.text == typeName {
+            return matched(clause: enumDecl.inheritanceClause)
+        }
+        if let actorDecl = decl.as(ActorDeclSyntax.self), actorDecl.name.text == typeName {
+            return matched(clause: actorDecl.inheritanceClause)
+        }
+        if let extensionDecl = decl.as(ExtensionDeclSyntax.self),
+           extendedTypeName(of: extensionDecl) == typeName {
+            // Skip extensions with a where clause — those are conditional
+            // conformances (PRD §4.4 generic conformances), M3+ scope.
+            // Adding the protocol here would falsely claim unconditional
+            // conformance.
+            if extensionDecl.genericWhereClause != nil {
+                return .matchedNoConformances
+            }
+            return matched(clause: extensionDecl.inheritanceClause)
+        }
+        return .none
+    }
+
+    private static func matched(clause: InheritanceClauseSyntax?) -> DeclMatch {
+        guard let clause else { return .matchedNoConformances }
+        let names = clause.inheritedTypes.compactMap { $0.type.trimmedDescription }
+        return names.isEmpty ? .matchedNoConformances : .matchedWithConformances(names)
     }
 
     /// Bare type-name from an extension's `extendedType`. For
