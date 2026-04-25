@@ -13,6 +13,17 @@ import PropertyBased
 /// - `makeIteratorIndependence` (Conventional) — calling `makeIterator()`
 ///   does not perturb prior iterators or the sequence's observable state.
 ///   Suppressed by `passing: .singlePass`.
+///
+/// Near-miss tracking for `underestimatedCountLowerBound` is intentionally
+/// not wired (deferred). The PRD §4.6 criterion is "iterators that yielded a
+/// count off-by-one from `underestimatedCount`" — well-defined on the
+/// failing path. But every `Collection` (the common case) reports
+/// `underestimatedCount == count`, so the passing-side "tight margin"
+/// reading is vacuous, and the kit's existing planted-bug fixture
+/// (`LyingUnderestimatedCount`) produces diffs of magnitude 3–5, not
+/// off-by-one. Wiring this cleanly waits on either a real-world report or a
+/// targeted planted-bug fixture; until then the field stays nil per the PRD
+/// §4.6 "this law doesn't track" semantic.
 @discardableResult
 public func checkSequenceProtocolLaws<Value: Sequence & Sendable, Shrinker: SendableSequenceType>(
     for type: Value.Type = Value.self,

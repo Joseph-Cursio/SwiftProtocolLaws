@@ -16,6 +16,10 @@ import PropertyBased
 ///   passes. Trivially passes for value-type collections; meaningful for
 ///   reference-type collections that hold shared mutable state (relaxed for
 ///   lazy / view-like wrappers — see PRD §4.3).
+///
+/// **Near-miss tracking (M5).** `countConsistency` records "off-by-one"
+/// violations (the most common bug class) on the failing trial so the
+/// reviewer sees the diff magnitude in `CheckResult.nearMisses`.
 @discardableResult
 public func checkCollectionProtocolLaws<Value: Collection & Sendable, Shrinker: SendableSequenceType>(
     for type: Value.Type = Value.self,
@@ -49,17 +53,28 @@ private func checkCount<C: Collection & Sendable, Sh: SendableSequenceType>(
     options: LawCheckOptions
 ) async -> CheckResult
 where C.Element: Equatable & Sendable {
-    await PerLawDriver.run(
+    let collector = NearMissCollector()
+    return await PerLawDriver.run(
         protocolLaw: "Collection.countConsistency",
         tier: .strict,
         options: options,
         check: LawCheck(
             sample: { rng in generator.run(using: &rng) },
-            property: { sample in countCounterexample(for: sample) == nil },
+            property: { sample in
+                let detail = countDetail(for: sample)
+                if let detail, detail.isOffByOne {
+                    collector.record(
+                        "off-by-one: count = \(detail.reportedCount), "
+                            + "iterated = \(detail.iteratedCount) on \(sample)"
+                    )
+                }
+                return detail == nil
+            },
             formatCounterexample: { sample, _ in
-                countCounterexample(for: sample) ?? "<no counterexample>"
+                countDetail(for: sample)?.message ?? "<no counterexample>"
             }
-        )
+        ),
+        nearMissCollector: collector
     )
 }
 
@@ -129,15 +144,32 @@ where C.Element: Equatable & Sendable {
     }
 }
 
-private func countCounterexample<C: Collection>(for sample: C) -> String? {
+/// Detail record for a `count` mismatch — `nil` when the law holds. Returned
+/// from a single helper so the property closure, the formatter, and the
+/// near-miss recorder all see a consistent view.
+private struct CountMismatchDetail {
+    let reportedCount: Int
+    let iteratedCount: Int
+
+    var isOffByOne: Bool {
+        Swift.abs(reportedCount - iteratedCount) == 1
+    }
+
+    var message: String {
+        "collection reported count = \(reportedCount) "
+            + "but iteration yielded \(iteratedCount) elements"
+    }
+}
+
+private func countDetail<C: Collection>(for sample: C) -> CountMismatchDetail? {
     let reportedCount = sample.count
     let cap = Swift.max(reportedCount &+ 1, 10_000)
     let iteratedCount = manualIteratedCount(of: sample, cap: cap)
-    if reportedCount != iteratedCount {
-        return "collection \(sample) reported count = \(reportedCount) "
-            + "but iteration yielded \(iteratedCount) elements"
-    }
-    return nil
+    if reportedCount == iteratedCount { return nil }
+    return CountMismatchDetail(
+        reportedCount: reportedCount,
+        iteratedCount: iteratedCount
+    )
 }
 
 private func indexValidityCounterexample<C: Collection>(for sample: C) -> String?

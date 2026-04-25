@@ -89,6 +89,38 @@ import PropertyBased
         #expect(result.outcome == .passed)
         #expect(result.nearMisses == [])
     }
+
+    // MARK: - Collection.countConsistency records off-by-one diffs
+
+    @Test func collectionCountOffByOneIsRecordedAsNearMiss() async throws {
+        // OffByOneCountCollection lies count = stored + 1 — exactly the
+        // off-by-one bug class. The violation triggers (Strict tier) AND
+        // nearMisses carries the off-by-one tag.
+        let violation = await #expect(throws: ProtocolLawViolation.self) {
+            try await checkCollectionProtocolLaws(
+                for: OffByOneCountCollection.self,
+                using: Gen<OffByOneCountCollection>.offByOneCount(),
+                options: LawCheckOptions(budget: .sanity),
+                laws: .ownOnly
+            )
+        }
+        let countResult = try #require(
+            violation?.results.first { $0.protocolLaw == "Collection.countConsistency" }
+        )
+        let nearMisses = try #require(countResult.nearMisses)
+        #expect(
+            nearMisses.contains { $0.contains("off-by-one") },
+            "expected off-by-one tag; got: \(nearMisses)"
+        )
+    }
+
+    // Sequence.underestimatedCountLowerBound near-miss tracking is
+    // intentionally not wired in M5 — the PRD §4.6 criterion is "off-by-one
+    // on failure" but our existing planted bug fixture produces diffs of
+    // magnitude 3–5, and most stdlib `Sequence`s are also `Collection`s
+    // (where `underestimatedCount == count`, making any "tight" criterion
+    // vacuous). Tracking deferred until either a real-world report or a
+    // targeted planted-bug fixture surfaces.
 }
 
 // MARK: - Test fixtures
