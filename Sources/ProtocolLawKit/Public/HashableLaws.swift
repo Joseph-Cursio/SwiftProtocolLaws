@@ -1,6 +1,6 @@
 import PropertyBased
 
-/// Run `Hashable` protocol laws over `T` (PRD §4.3).
+/// Run `Hashable` protocol laws over `Value` (PRD §4.3).
 ///
 /// By default (`laws: .all`), the inherited `Equatable` suite runs first per
 /// PRD §4.3 inheritance semantics. Pass `laws: .ownOnly` to skip Equatable.
@@ -9,100 +9,123 @@ import PropertyBased
 /// `equalityConsistency` (Strict), `stabilityWithinProcess` (Conventional),
 /// `distribution` (Heuristic).
 @discardableResult
-public func checkHashableProtocolLaws<T: Hashable & Sendable, S: SendableSequenceType>(
-    for type: T.Type = T.self,
-    using generator: Generator<T, S>,
-    budget: TrialBudget = .standard,
-    enforcement: EnforcementMode = .default,
-    seed: Seed? = nil,
+public func checkHashableProtocolLaws<Value: Hashable & Sendable, Shrinker: SendableSequenceType>(
+    for type: Value.Type = Value.self,
+    using generator: Generator<Value, Shrinker>,
+    options: LawCheckOptions = LawCheckOptions(),
     laws: LawSelection = .all
 ) async throws -> [CheckResult] {
     var results: [CheckResult] = []
-
     if laws == .all {
-        // Run inherited Equatable suite without throwing — collect all results
-        // first, then escalate at the end so the caller sees the full picture.
-        do {
-            let equatableResults = try await checkEquatableProtocolLaws(
-                for: type,
-                using: generator,
-                budget: budget,
-                enforcement: .default,
-                seed: seed
-            )
-            results.append(contentsOf: equatableResults)
-        } catch let violation as ProtocolLawViolation {
-            results.append(contentsOf: violation.results)
-        }
+        results.append(contentsOf: await collectInheritedEquatable(
+            for: type,
+            using: generator,
+            options: options
+        ))
     }
-
-    let runner = TrialRunner()
-    let env = Environment.current
-    let trials = budget.trialCount
-
-    let equalityConsistency = await runner.runPerTrial(
-        protocolLaw: "Hashable.equalityConsistency",
-        tier: .strict,
-        trials: trials,
-        seed: seed,
+    let runner = TrialRunner(
+        trials: options.budget.trialCount,
+        seed: options.seed,
         generator: generator,
-        environment: env
+        environment: .current
+    )
+    results.append(contentsOf: [
+        await checkEqualityConsistency(runner: runner),
+        await checkStabilityWithinProcess(runner: runner),
+        await checkDistribution(runner: runner)
+    ])
+    try ProtocolLawViolation.throwIfViolations(in: results, enforcement: options.enforcement)
+    return results
+}
+
+private func collectInheritedEquatable<Value: Hashable & Sendable, Shrinker: SendableSequenceType>(
+    for type: Value.Type,
+    using generator: Generator<Value, Shrinker>,
+    options: LawCheckOptions
+) async -> [CheckResult] {
+    let inheritedOptions = LawCheckOptions(
+        budget: options.budget,
+        enforcement: .default,
+        seed: options.seed
+    )
+    do {
+        return try await checkEquatableProtocolLaws(
+            for: type,
+            using: generator,
+            options: inheritedOptions
+        )
+    } catch let violation as ProtocolLawViolation {
+        return violation.results
+    } catch {
+        return []
+    }
+}
+
+private func checkEqualityConsistency<Value: Hashable & Sendable, Shrinker: SendableSequenceType>(
+    runner: TrialRunner<Value, Shrinker>
+) async -> CheckResult {
+    await runner.runPerTrial(
+        protocolLaw: "Hashable.equalityConsistency",
+        tier: .strict
     ) { gen, rng in
-        let x = gen.run(using: &rng)
-        let y = gen.run(using: &rng)
-        if x == y && x.hashValue != y.hashValue {
-            return .violation(counterexample: "x = \(x), y = \(y); x == y but hashValues differ (\(x.hashValue) vs \(y.hashValue))")
+        let first = gen.run(using: &rng)
+        let second = gen.run(using: &rng)
+        if first == second && first.hashValue != second.hashValue {
+            return .violation(
+                counterexample: "x = \(first), y = \(second); x == y but hashValues differ "
+                    + "(\(first.hashValue) vs \(second.hashValue))"
+            )
         }
         return .pass
     }
+}
 
-    let stability = await runner.runPerTrial(
+private func checkStabilityWithinProcess<Value: Hashable & Sendable, Shrinker: SendableSequenceType>(
+    runner: TrialRunner<Value, Shrinker>
+) async -> CheckResult {
+    await runner.runPerTrial(
         protocolLaw: "Hashable.stabilityWithinProcess",
-        tier: .conventional,
-        trials: trials,
-        seed: seed,
-        generator: generator,
-        environment: env
+        tier: .conventional
     ) { gen, rng in
-        let x = gen.run(using: &rng)
-        let h1 = x.hashValue
-        let h2 = x.hashValue
-        if h1 == h2 { return .pass }
-        return .violation(counterexample: "x = \(x); hashValue returned \(h1) then \(h2) within the same process")
+        let sample = gen.run(using: &rng)
+        let firstHash = sample.hashValue
+        let secondHash = sample.hashValue
+        if firstHash == secondHash { return .pass }
+        return .violation(
+            counterexample: "x = \(sample); hashValue returned \(firstHash) "
+                + "then \(secondHash) within the same process"
+        )
     }
+}
 
-    let distribution = await runner.runAggregate(
+// Threshold of 0.10: a generator producing fewer than 10% unique hashes across
+// the trial budget signals a degenerate distribution. The ratio matches the
+// PRD §4.6 "hash distribution sanity" intent without claiming statistical
+// rigor — this is Heuristic tier.
+private func checkDistribution<Value: Hashable & Sendable, Shrinker: SendableSequenceType>(
+    runner: TrialRunner<Value, Shrinker>
+) async -> CheckResult {
+    await runner.runAggregate(
         protocolLaw: "Hashable.distribution",
-        tier: .heuristic,
-        trials: trials,
-        seed: seed,
-        generator: generator,
-        environment: env
+        tier: .heuristic
     ) { gen, rng, count in
         var hashes = Set<Int>()
-        var lastSample: T?
+        var lastSample: Value?
         for _ in 0..<count {
-            let x = gen.run(using: &rng)
-            lastSample = x
-            hashes.insert(x.hashValue)
+            let sample = gen.run(using: &rng)
+            lastSample = sample
+            hashes.insert(sample.hashValue)
         }
         let denominator = max(count, 1)
         let uniqueRatio = Double(hashes.count) / Double(denominator)
-        // Threshold of 0.10: a generator producing fewer than 10% unique
-        // hashes across the trial budget signals a degenerate distribution.
-        // The ratio matches the PRD §4.6 "hash distribution sanity" intent
-        // without claiming statistical rigor — this is Heuristic tier.
         if uniqueRatio < 0.10 {
             let sampleStr = lastSample.map { "\($0)" } ?? "<no samples>"
             let ratioStr = String(format: "%.3f", uniqueRatio)
-            let counter = "\(count) samples produced only \(hashes.count) unique hashValues "
-                + "(ratio \(ratioStr)); last sample: \(sampleStr)"
-            return .violation(counterexample: counter)
+            return .violation(
+                counterexample: "\(count) samples produced only \(hashes.count) unique "
+                    + "hashValues (ratio \(ratioStr)); last sample: \(sampleStr)"
+            )
         }
         return .pass
     }
-
-    results.append(contentsOf: [equalityConsistency, stability, distribution])
-    try ProtocolLawViolation.throwIfViolations(in: results, enforcement: enforcement)
-    return results
 }

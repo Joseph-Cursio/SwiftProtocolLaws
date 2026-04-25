@@ -8,11 +8,10 @@ import PropertyBased
         let results = try await checkComparableProtocolLaws(
             for: Int.self,
             using: TestGen.smallInt(),
-            budget: .sanity
+            options: LawCheckOptions(budget: .sanity)
         )
         for result in results {
-            #expect(!result.isViolation,
-                    "\(result.protocolLaw) should pass for Int — got: \(result.counterexample ?? "<no counter>")")
+            #expect(!result.isViolation, "\(result.protocolLaw) should pass for Int")
         }
     }
 
@@ -20,7 +19,7 @@ import PropertyBased
         let results = try await checkComparableProtocolLaws(
             for: String.self,
             using: TestGen.smallString(),
-            budget: .sanity
+            options: LawCheckOptions(budget: .sanity)
         )
         for result in results {
             #expect(!result.isViolation, "\(result.protocolLaw) should pass for String")
@@ -31,7 +30,7 @@ import PropertyBased
         let results = try await checkComparableProtocolLaws(
             for: Int.self,
             using: TestGen.smallInt(),
-            budget: .sanity
+            options: LawCheckOptions(budget: .sanity)
         )
         let laws = results.map(\.protocolLaw)
         let firstComparableIndex = laws.firstIndex { $0.hasPrefix("Comparable.") }
@@ -45,18 +44,18 @@ import PropertyBased
         let results = try await checkComparableProtocolLaws(
             for: Int.self,
             using: TestGen.smallInt(),
-            budget: .sanity,
+            options: LawCheckOptions(budget: .sanity),
             laws: .ownOnly
         )
         #expect(results.allSatisfy { $0.protocolLaw.hasPrefix("Comparable.") })
-        #expect(results.count == 4) // antisymmetry, transitivity, totality, operatorConsistency
+        #expect(results.count == 4)
     }
 
     @Test func tiersAreReportedAsDocumented() async throws {
         let results = try await checkComparableProtocolLaws(
             for: Int.self,
             using: TestGen.smallInt(),
-            budget: .sanity,
+            options: LawCheckOptions(budget: .sanity),
             laws: .ownOnly
         )
         let tiersByLaw = Dictionary(uniqueKeysWithValues: results.map { ($0.protocolLaw, $0.tier) })

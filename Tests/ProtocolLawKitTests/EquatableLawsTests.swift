@@ -8,11 +8,14 @@ import PropertyBased
         let results = try await checkEquatableProtocolLaws(
             for: Int.self,
             using: TestGen.smallInt(),
-            budget: .sanity
+            options: LawCheckOptions(budget: .sanity)
         )
         #expect(results.count == 4)
         for result in results {
-            #expect(!result.isViolation, "\(result.protocolLaw) should pass for Int — got: \(result.counterexample ?? "<no counter>")")
+            #expect(
+                !result.isViolation,
+                "\(result.protocolLaw) should pass for Int"
+            )
             #expect(result.tier == .strict)
         }
     }
@@ -21,7 +24,7 @@ import PropertyBased
         let results = try await checkEquatableProtocolLaws(
             for: String.self,
             using: TestGen.smallString(),
-            budget: .sanity
+            options: LawCheckOptions(budget: .sanity)
         )
         #expect(results.count == 4)
         for result in results {
@@ -33,7 +36,7 @@ import PropertyBased
         let results = try await checkEquatableProtocolLaws(
             for: Coordinate.self,
             using: Gen<Coordinate>.coordinate(),
-            budget: .sanity
+            options: LawCheckOptions(budget: .sanity)
         )
         #expect(results.count == 4)
         for result in results {
@@ -42,17 +45,15 @@ import PropertyBased
     }
 
     @Test func resultsCarryReplayableSeed() async throws {
+        let pinnedSeed = Seed(stateA: 1, stateB: 2, stateC: 3, stateD: 4)
         let results = try await checkEquatableProtocolLaws(
             for: Int.self,
             using: TestGen.smallInt(),
-            budget: .sanity,
-            seed: Seed(rawValue: (1, 2, 3, 4))
+            options: LawCheckOptions(budget: .sanity, seed: pinnedSeed)
         )
         #expect(!results.isEmpty)
         for result in results {
-            // The seed in each result is the rng state captured before that
-            // law's first pump — we passed (1,2,3,4) so each law's seed is (1,2,3,4).
-            #expect(result.seed == Seed(rawValue: (1, 2, 3, 4)))
+            #expect(result.seed == pinnedSeed)
             #expect(result.environment.backendIdentity == "swift-property-based")
         }
     }
@@ -61,7 +62,7 @@ import PropertyBased
         let results = try await checkEquatableProtocolLaws(
             for: Int.self,
             using: TestGen.smallInt(),
-            budget: .sanity
+            options: LawCheckOptions(budget: .sanity)
         )
         let laws = Set(results.map(\.protocolLaw))
         #expect(laws == [

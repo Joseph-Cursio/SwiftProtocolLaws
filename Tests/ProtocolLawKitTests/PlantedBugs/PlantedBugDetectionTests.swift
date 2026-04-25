@@ -15,7 +15,7 @@ import PropertyBased
             try await checkEquatableProtocolLaws(
                 for: AntiReflexiveEquatable.self,
                 using: Gen<AntiReflexiveEquatable>.antiReflexive(),
-                budget: .sanity
+                options: LawCheckOptions(budget: .sanity)
             )
         }
     }
@@ -25,14 +25,14 @@ import PropertyBased
             try await checkEquatableProtocolLaws(
                 for: PriorityCompareEquatable.self,
                 using: Gen<PriorityCompareEquatable>.priorityCompare(),
-                budget: .standard
+                options: LawCheckOptions(budget: .standard)
             )
         }
         let laws = violation?.results.map(\.protocolLaw) ?? []
-        // Should detect at least one of: reflexivity (priority == priority returns false unless reflexive trick),
-        // symmetry, transitivity, or negationConsistency.
-        #expect(laws.contains { $0.hasPrefix("Equatable.") },
-                "expected an Equatable law violation; got: \(laws)")
+        #expect(
+            laws.contains { $0.hasPrefix("Equatable.") },
+            "expected an Equatable law violation; got: \(laws)"
+        )
     }
 
     @Test func detectsNonTransitiveEquality() async throws {
@@ -40,12 +40,14 @@ import PropertyBased
             try await checkEquatableProtocolLaws(
                 for: RoundingEquatable.self,
                 using: Gen<RoundingEquatable>.rounding(),
-                budget: .standard
+                options: LawCheckOptions(budget: .standard)
             )
         }
         let laws = violation?.results.map(\.protocolLaw) ?? []
-        #expect(laws.contains("Equatable.transitivity") || laws.contains("Equatable.negationConsistency"),
-                "expected transitivity (or negation-consistency fallout) on RoundingEquatable; got: \(laws)")
+        #expect(
+            laws.contains("Equatable.transitivity") || laws.contains("Equatable.negationConsistency"),
+            "expected transitivity (or negation-consistency fallout) on RoundingEquatable; got: \(laws)"
+        )
     }
 
     // Note: Equatable.negationConsistency is structurally unviolable in Swift
@@ -59,30 +61,32 @@ import PropertyBased
             try await checkHashableProtocolLaws(
                 for: EqualButDifferentHash.self,
                 using: Gen<EqualButDifferentHash>.equalButDifferentHash(),
-                budget: .sanity,
+                options: LawCheckOptions(budget: .sanity),
                 laws: .ownOnly
             )
         }
         let laws = violation?.results.map(\.protocolLaw) ?? []
-        #expect(laws.contains("Hashable.equalityConsistency"),
-                "expected Hashable.equalityConsistency in violation set; got: \(laws)")
+        #expect(
+            laws.contains("Hashable.equalityConsistency"),
+            "expected Hashable.equalityConsistency in violation set; got: \(laws)"
+        )
     }
 
     // MARK: - Conventional tier escalation via enforcement: .strict
 
     @Test func unstableHasherDoesNotThrowByDefault() async throws {
-        // stabilityWithinProcess is Conventional — default enforcement records
-        // the violation but does not throw.
         let results = try await checkHashableProtocolLaws(
             for: UnstableHasher.self,
             using: Gen<UnstableHasher>.unstableHasher(),
-            budget: .sanity,
+            options: LawCheckOptions(budget: .sanity),
             laws: .ownOnly
         )
         let stability = results.first { $0.protocolLaw == "Hashable.stabilityWithinProcess" }
         #expect(stability != nil)
-        #expect(stability?.isViolation == true,
-                "expected stabilityWithinProcess to be reported as a violation even in default mode")
+        #expect(
+            stability?.isViolation == true,
+            "expected stabilityWithinProcess to be reported as a violation even in default mode"
+        )
         #expect(stability?.tier == .conventional)
     }
 
@@ -91,8 +95,7 @@ import PropertyBased
             try await checkHashableProtocolLaws(
                 for: UnstableHasher.self,
                 using: Gen<UnstableHasher>.unstableHasher(),
-                budget: .sanity,
-                enforcement: .strict,
+                options: LawCheckOptions(budget: .sanity, enforcement: .strict),
                 laws: .ownOnly
             )
         }
@@ -103,16 +106,17 @@ import PropertyBased
     // MARK: - Heuristic tier: distribution
 
     @Test func detectsDegenerateHashDistribution() async throws {
-        // Heuristic tier — does not throw under default enforcement.
         let results = try await checkHashableProtocolLaws(
             for: DegenerateHasher.self,
             using: Gen<DegenerateHasher>.degenerate(),
-            budget: .sanity,
+            options: LawCheckOptions(budget: .sanity),
             laws: .ownOnly
         )
         let distribution = results.first { $0.protocolLaw == "Hashable.distribution" }
-        #expect(distribution?.isViolation == true,
-                "expected DegenerateHasher to violate Hashable.distribution")
+        #expect(
+            distribution?.isViolation == true,
+            "expected DegenerateHasher to violate Hashable.distribution"
+        )
         #expect(distribution?.tier == .heuristic)
         #expect(distribution?.counterexample?.contains("unique hashValues") == true)
     }
@@ -120,20 +124,19 @@ import PropertyBased
     // MARK: - Inherited Equatable suite re-collection (laws: .all path)
 
     @Test func collectsInheritedEquatableViolationsWhenLawsIsAll() async throws {
-        // When laws == .all, checkHashableProtocolLaws runs the Equatable
-        // suite first. If Equatable throws, the catch branch re-collects its
-        // results so the final report reflects every violated law.
         let violation = await #expect(throws: ProtocolLawViolation.self) {
             try await checkHashableProtocolLaws(
                 for: ReflexivityBreakingHashable.self,
                 using: Gen<ReflexivityBreakingHashable>.reflexivityBreaking(),
-                budget: .sanity,
+                options: LawCheckOptions(budget: .sanity),
                 laws: .all
             )
         }
         let laws = violation?.results.map(\.protocolLaw) ?? []
-        #expect(laws.contains("Equatable.reflexivity"),
-                "expected the inherited Equatable.reflexivity violation in the report; got: \(laws)")
+        #expect(
+            laws.contains("Equatable.reflexivity"),
+            "expected the inherited Equatable.reflexivity violation; got: \(laws)"
+        )
     }
 
     // MARK: - Comparable Strict-tier planted bugs
@@ -143,13 +146,15 @@ import PropertyBased
             try await checkComparableProtocolLaws(
                 for: BucketedOrder.self,
                 using: Gen<BucketedOrder>.bucketedOrder(),
-                budget: .standard,
+                options: LawCheckOptions(budget: .standard),
                 laws: .ownOnly
             )
         }
         let laws = violation?.results.map(\.protocolLaw) ?? []
-        #expect(laws.contains("Comparable.antisymmetry"),
-                "expected antisymmetry in violation set; got: \(laws)")
+        #expect(
+            laws.contains("Comparable.antisymmetry"),
+            "expected antisymmetry in violation set; got: \(laws)"
+        )
     }
 
     @Test func detectsOperatorConsistencyViolation() async throws {
@@ -157,17 +162,15 @@ import PropertyBased
             try await checkComparableProtocolLaws(
                 for: AlwaysLessThan.self,
                 using: Gen<AlwaysLessThan>.alwaysLessThan(),
-                budget: .sanity,
+                options: LawCheckOptions(budget: .sanity),
                 laws: .ownOnly
             )
         }
         let laws = violation?.results.map(\.protocolLaw) ?? []
-        // AlwaysLessThan's broken `<` makes derived `<=` inconsistent with
-        // the underlying `<`. Antisymmetry's premise is vacuously satisfied
-        // (both `<=` checks are false), so operatorConsistency is the law
-        // that fires first.
-        #expect(laws.contains("Comparable.operatorConsistency"),
-                "expected operatorConsistency in violation set; got: \(laws)")
+        #expect(
+            laws.contains("Comparable.operatorConsistency"),
+            "expected operatorConsistency in violation set; got: \(laws)"
+        )
     }
 
     @Test func detectsCyclicOrderTransitivity() async throws {
@@ -175,13 +178,11 @@ import PropertyBased
             try await checkComparableProtocolLaws(
                 for: CyclicOrder.self,
                 using: Gen<CyclicOrder>.cyclicOrder(),
-                budget: .standard,
+                options: LawCheckOptions(budget: .standard),
                 laws: .ownOnly
             )
         }
         let laws = violation?.results.map(\.protocolLaw) ?? []
-        // Cyclic order trips antisymmetry first (e.g. C0 <= C1 and C1 <= C0
-        // when C2 is excluded), but at minimum the framework must throw.
         #expect(!laws.isEmpty)
         #expect(laws.allSatisfy { $0.hasPrefix("Comparable.") })
     }
@@ -193,10 +194,8 @@ import PropertyBased
             try await checkCodableProtocolLaws(
                 for: DroppingFieldRecord.self,
                 using: Gen<DroppingFieldRecord>.droppingFieldRecord(),
-                mode: .strict,
-                codec: .json,
-                budget: .sanity,
-                enforcement: .strict // round-trip is Conventional; opt in
+                config: CodableLawConfig(mode: .strict, codec: .json),
+                options: LawCheckOptions(budget: .sanity, enforcement: .strict)
             )
         }
         let laws = violation?.results.map(\.protocolLaw) ?? []
@@ -204,31 +203,25 @@ import PropertyBased
     }
 
     @Test func droppingFieldPassesPartialModeForRetainedFieldOnly() async throws {
-        // .partial(fields: [\.id]) only checks id, which round-trips fine.
-        // The dropped `secret` field doesn't trigger a violation under this
-        // mode — that's the whole point of .partial.
         let results = try await checkCodableProtocolLaws(
             for: DroppingFieldRecord.self,
             using: Gen<DroppingFieldRecord>.droppingFieldRecord(),
-            mode: .partial(fields: [\DroppingFieldRecord.id]),
-            codec: .json,
-            budget: .sanity
+            config: CodableLawConfig(mode: .partial(fields: [\DroppingFieldRecord.id])),
+            options: LawCheckOptions(budget: .sanity)
         )
-        #expect(!results[0].isViolation,
-                "partial mode listing only \\.id should ignore the dropped secret field")
+        #expect(
+            !results[0].isViolation,
+            "partial mode listing only \\.id should ignore the dropped secret field"
+        )
     }
 
     @Test func droppingFieldFailsPartialModeWhenSecretIsListed() async throws {
-        // Listing the dropped field in .partial(fields:) should detect the
-        // violation. Round-trip is Conventional, so we need .strict enforcement.
         let violation = await #expect(throws: ProtocolLawViolation.self) {
             try await checkCodableProtocolLaws(
                 for: DroppingFieldRecord.self,
                 using: Gen<DroppingFieldRecord>.droppingFieldRecord(),
-                mode: .partial(fields: [\DroppingFieldRecord.secret]),
-                codec: .json,
-                budget: .sanity,
-                enforcement: .strict
+                config: CodableLawConfig(mode: .partial(fields: [\DroppingFieldRecord.secret])),
+                options: LawCheckOptions(budget: .sanity, enforcement: .strict)
             )
         }
         let laws = violation?.results.map(\.protocolLaw) ?? []

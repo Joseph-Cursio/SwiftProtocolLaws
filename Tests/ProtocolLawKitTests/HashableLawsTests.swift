@@ -8,10 +8,10 @@ import PropertyBased
         let results = try await checkHashableProtocolLaws(
             for: Int.self,
             using: TestGen.smallInt(),
-            budget: .sanity
+            options: LawCheckOptions(budget: .sanity)
         )
         for result in results {
-            #expect(!result.isViolation, "\(result.protocolLaw) failed for Int: \(result.counterexample ?? "<no counter>")")
+            #expect(!result.isViolation, "\(result.protocolLaw) failed for Int")
         }
     }
 
@@ -19,10 +19,10 @@ import PropertyBased
         let results = try await checkHashableProtocolLaws(
             for: Coordinate.self,
             using: Gen<Coordinate>.coordinate(),
-            budget: .sanity
+            options: LawCheckOptions(budget: .sanity)
         )
         for result in results {
-            #expect(!result.isViolation, "\(result.protocolLaw) failed for Coordinate: \(result.counterexample ?? "<no counter>")")
+            #expect(!result.isViolation, "\(result.protocolLaw) failed for Coordinate")
         }
     }
 
@@ -30,10 +30,9 @@ import PropertyBased
         let results = try await checkHashableProtocolLaws(
             for: Int.self,
             using: TestGen.smallInt(),
-            budget: .sanity
+            options: LawCheckOptions(budget: .sanity)
         )
         let laws = results.map(\.protocolLaw)
-        // Equatable's four laws appear before any Hashable law
         let firstHashableIndex = laws.firstIndex { $0.hasPrefix("Hashable.") }
         #expect(firstHashableIndex != nil)
         let equatableLaws = laws[..<firstHashableIndex!]
@@ -45,18 +44,18 @@ import PropertyBased
         let results = try await checkHashableProtocolLaws(
             for: Int.self,
             using: TestGen.smallInt(),
-            budget: .sanity,
+            options: LawCheckOptions(budget: .sanity),
             laws: .ownOnly
         )
         #expect(results.allSatisfy { $0.protocolLaw.hasPrefix("Hashable.") })
-        #expect(results.count == 3) // equalityConsistency, stabilityWithinProcess, distribution
+        #expect(results.count == 3)
     }
 
     @Test func tiersAreReportedAsDocumented() async throws {
         let results = try await checkHashableProtocolLaws(
             for: Int.self,
             using: TestGen.smallInt(),
-            budget: .sanity,
+            options: LawCheckOptions(budget: .sanity),
             laws: .ownOnly
         )
         let tiersByLaw = Dictionary(uniqueKeysWithValues: results.map { ($0.protocolLaw, $0.tier) })

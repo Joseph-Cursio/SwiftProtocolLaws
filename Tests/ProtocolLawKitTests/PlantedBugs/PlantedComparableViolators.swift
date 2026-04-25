@@ -61,8 +61,11 @@ struct CyclicOrder: Comparable, Sendable, CustomStringConvertible {
 
     static func < (lhs: CyclicOrder, rhs: CyclicOrder) -> Bool {
         // 0 < 1, 1 < 2, 2 < 0 (cycle)
-        let l = lhs.bucket, r = rhs.bucket
-        return (l == 0 && r == 1) || (l == 1 && r == 2) || (l == 2 && r == 0)
+        let lhsBucket = lhs.bucket
+        let rhsBucket = rhs.bucket
+        return (lhsBucket == 0 && rhsBucket == 1)
+            || (lhsBucket == 1 && rhsBucket == 2)
+            || (lhsBucket == 2 && rhsBucket == 0)
     }
 
     var description: String { "C\(bucket)" }

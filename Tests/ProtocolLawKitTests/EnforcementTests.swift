@@ -21,7 +21,7 @@ import PropertyBased
             protocolLaw: "Equatable.symmetry",
             tier: .strict,
             trials: 5,
-            seed: Seed(rawValue: (1, 2, 3, 4)),
+            seed: Seed(stateA: 1, stateB: 2, stateC: 3, stateD: 4),
             environment: .current,
             outcome: .failed(counterexample: "x = 1, y = 2; …")
         )

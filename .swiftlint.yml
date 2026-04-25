@@ -7,35 +7,8 @@ excluded:
   - docs
   - Package.swift
 
-# Property-based law-checking code uses short mathematical identifiers
-# (x, y, z, xy, yx, h1, h2, n) idiomatically — and the Xoshiro RNG's seed
-# is a fixed 4-UInt64 tuple from the upstream library. Tune defaults to fit.
+# Idiomatic two-letter identifier name we use; everything else complies
+# with the default 3-character minimum.
 identifier_name:
-  min_length: 1
   excluded:
     - id
-
-large_tuple:
-  warning: 4
-  error: 5
-
-# checkXxxProtocolLaws and TrialRunner.run methods are intentionally
-# parameter-rich (protocolLaw, tier, trials, seed, generator, environment,
-# enforcement, laws, body). Splitting them into config structs would add
-# ceremony without clarity at this scale.
-function_parameter_count:
-  warning: 8
-  error: 10
-
-# Equatable/Hashable/Comparable law functions inline several
-# runner.runPerTrial calls; the flat form reads better than extracting
-# helpers per-law (Comparable's four laws come in around 95 lines).
-function_body_length:
-  warning: 100
-  error: 140
-
-line_length:
-  warning: 140
-  error: 200
-  ignores_comments: true
-  ignores_urls: true

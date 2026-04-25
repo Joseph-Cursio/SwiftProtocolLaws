@@ -4,7 +4,7 @@ import PropertyBased
 @testable import ProtocolLawKit
 
 private struct Invoice: Codable, Equatable, Sendable {
-    let id: Int
+    let identifier: Int
     let amount: Int
     let memo: String
 }
@@ -15,8 +15,8 @@ extension Gen where Value == Invoice {
             Gen<Int>.int(in: 0...10_000),
             Gen<Int>.int(in: -1_000...1_000),
             Gen<Character>.letterOrNumber.string(of: 0...8)
-        ).map { id, amount, memo in
-            Invoice(id: id, amount: amount, memo: memo)
+        ).map { identifier, amount, memo in
+            Invoice(identifier: identifier, amount: amount, memo: memo)
         }
     }
 }
@@ -27,9 +27,8 @@ extension Gen where Value == Invoice {
         let results = try await checkCodableProtocolLaws(
             for: Int.self,
             using: TestGen.smallInt(),
-            mode: .strict,
-            codec: .json,
-            budget: .sanity
+            config: CodableLawConfig(mode: .strict, codec: .json),
+            options: LawCheckOptions(budget: .sanity)
         )
         #expect(results.count == 1)
         #expect(!results[0].isViolation)
@@ -41,35 +40,29 @@ extension Gen where Value == Invoice {
         let results = try await checkCodableProtocolLaws(
             for: Invoice.self,
             using: Gen<Invoice>.invoice(),
-            mode: .strict,
-            codec: .json,
-            budget: .sanity
+            config: CodableLawConfig(mode: .strict, codec: .json),
+            options: LawCheckOptions(budget: .sanity)
         )
-        #expect(!results[0].isViolation,
-                "Invoice should round-trip under JSON: \(results[0].counterexample ?? "<no counter>")")
+        #expect(!results[0].isViolation, "Invoice should round-trip under JSON")
     }
 
     @Test func customStructRoundTripsUnderBinaryPlist() async throws {
         let results = try await checkCodableProtocolLaws(
             for: Invoice.self,
             using: Gen<Invoice>.invoice(),
-            mode: .strict,
-            codec: .binaryPlist,
-            budget: .sanity
+            config: CodableLawConfig(mode: .strict, codec: .binaryPlist),
+            options: LawCheckOptions(budget: .sanity)
         )
         #expect(!results[0].isViolation)
         #expect(results[0].protocolLaw == "Codable.roundTripFidelity[PropertyList(binary)]")
     }
 
     @Test func semanticEquivalenceModeUsesCallerPredicate() async throws {
-        // Permissive predicate that always returns true — should pass even
-        // for types whose strict round-trip would normally pass too.
         let results = try await checkCodableProtocolLaws(
             for: Invoice.self,
             using: Gen<Invoice>.invoice(),
-            mode: .semantic(equivalent: { _, _ in true }),
-            codec: .json,
-            budget: .sanity
+            config: CodableLawConfig(mode: .semantic(equivalent: { _, _ in true })),
+            options: LawCheckOptions(budget: .sanity)
         )
         #expect(!results[0].isViolation)
     }
@@ -78,9 +71,8 @@ extension Gen where Value == Invoice {
         let results = try await checkCodableProtocolLaws(
             for: Invoice.self,
             using: Gen<Invoice>.invoice(),
-            mode: .partial(fields: [\Invoice.id, \Invoice.amount]),
-            codec: .json,
-            budget: .sanity
+            config: CodableLawConfig(mode: .partial(fields: [\Invoice.identifier, \Invoice.amount])),
+            options: LawCheckOptions(budget: .sanity)
         )
         #expect(!results[0].isViolation)
     }

@@ -19,15 +19,15 @@ struct DroppingFieldRecord: Codable, Equatable, Sendable, CustomStringConvertibl
     }
 
     init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        self.id = try c.decode(Int.self, forKey: .id)
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(Int.self, forKey: .id)
         self.secret = "REDACTED" // <-- silently overrides whatever was encoded
     }
 
     func encode(to encoder: Encoder) throws {
-        var c = encoder.container(keyedBy: CodingKeys.self)
-        try c.encode(id, forKey: .id)
-        try c.encode(secret, forKey: .secret)
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(secret, forKey: .secret)
     }
 
     var description: String { "DFR(id:\(id), secret:\"\(secret)\")" }

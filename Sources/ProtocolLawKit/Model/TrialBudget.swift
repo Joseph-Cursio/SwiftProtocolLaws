@@ -8,8 +8,8 @@ public enum TrialBudget: Sendable, Hashable {
         switch self {
         case .sanity: return 100
         case .standard: return 1_000
-        case .exhaustive(let n): return n
-        case .custom(let n): return n
+        case .exhaustive(let count): return count
+        case .custom(let count): return count
         }
     }
 }

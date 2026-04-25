@@ -5,7 +5,7 @@ extension Gen where Value == Coordinate {
     /// hashable tests).
     static func coordinate() -> Generator<Coordinate, some SendableSequenceType> {
         zip(Gen<Int>.int(in: -50...50), Gen<Int>.int(in: -50...50))
-            .map { Coordinate(x: $0, y: $1) }
+            .map { Coordinate(easting: $0, northing: $1) }
     }
 }
 

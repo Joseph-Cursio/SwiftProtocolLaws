@@ -8,7 +8,7 @@ import PropertyBased
         let results = try await checkEquatableProtocolLaws(
             for: Int.self,
             using: TestGen.smallInt(),
-            budget: .sanity
+            options: LawCheckOptions(budget: .sanity)
         )
         for result in results where !result.isViolation {
             #expect(result.trials == 100)
@@ -19,7 +19,7 @@ import PropertyBased
         let results = try await checkEquatableProtocolLaws(
             for: Int.self,
             using: TestGen.smallInt(),
-            budget: .standard
+            options: LawCheckOptions(budget: .standard)
         )
         for result in results where !result.isViolation {
             #expect(result.trials == 1_000)
@@ -30,7 +30,7 @@ import PropertyBased
         let results = try await checkEquatableProtocolLaws(
             for: Int.self,
             using: TestGen.smallInt(),
-            budget: .custom(trials: 250)
+            options: LawCheckOptions(budget: .custom(trials: 250))
         )
         for result in results where !result.isViolation {
             #expect(result.trials == 250)
@@ -41,7 +41,7 @@ import PropertyBased
         let results = try await checkEquatableProtocolLaws(
             for: Int.self,
             using: TestGen.smallInt(),
-            budget: .exhaustive(500) // override to keep this test fast
+            options: LawCheckOptions(budget: .exhaustive(500))
         )
         for result in results where !result.isViolation {
             #expect(result.trials == 500)

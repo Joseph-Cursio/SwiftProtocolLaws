@@ -4,17 +4,17 @@ import Foundation
 /// green-path tests. Hand-written `Equatable`/`Hashable` so the law checker
 /// is exercising real implementations rather than synthesized ones.
 struct Coordinate: Equatable, Hashable, Sendable, CustomStringConvertible {
-    let x: Int
-    let y: Int
+    let easting: Int
+    let northing: Int
 
     static func == (lhs: Coordinate, rhs: Coordinate) -> Bool {
-        lhs.x == rhs.x && lhs.y == rhs.y
+        lhs.easting == rhs.easting && lhs.northing == rhs.northing
     }
 
     func hash(into hasher: inout Hasher) {
-        hasher.combine(x)
-        hasher.combine(y)
+        hasher.combine(easting)
+        hasher.combine(northing)
     }
 
-    var description: String { "(\(x), \(y))" }
+    var description: String { "(\(easting), \(northing))" }
 }

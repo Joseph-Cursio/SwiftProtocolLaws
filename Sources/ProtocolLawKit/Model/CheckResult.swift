@@ -45,7 +45,7 @@ public struct CheckResult: Sendable, Hashable {
     }
 
     public var counterexample: String? {
-        if case .failed(let c) = outcome { return c }
+        if case .failed(let counterexample) = outcome { return counterexample }
         return nil
     }
 }
