@@ -1,0 +1,60 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Repository state
+
+**Pre-implementation.** As of this writing the repo contains only `docs/` — there is no Swift package, no `Package.swift`, no source files, no tests, no CI. Do not assume any build/test command works; verify with `ls` first. If asked to "build" or "run tests" today, the correct response is that scaffolding has not happened yet.
+
+The path `/Users/joecursio/xcode_projects/SwiftProtocolLaws` and `/Users/joecursio/xcode_projects/swiftProtocolLaws` resolve to the same directory (macOS case-insensitive HFS+/APFS). They are not two checkouts.
+
+## What this repo is
+
+A design / proposal repository for two related Swift packages:
+
+- **SwiftProtocolLaws** — `ProtocolLawKit` (a runtime library of property-based protocol law checks for Swift Standard Library protocols: `Equatable`, `Hashable`, `Comparable`, `Codable`, `Collection`, `SetAlgebra`) plus `ProtoLawMacro` (a SwiftSyntax-based layer that detects conformances and generates `checkXxxProtocolLaws(...)` test stubs). See `docs/SwiftProtocolLaws PRD.md`.
+- **SwiftInfer** — downstream of SwiftProtocolLaws. `TemplateEngine` (signature-pattern matcher that proposes round-trip / idempotence / commutativity / etc. tests) and `TestLifter` (lifts existing XCTest / Swift Testing methods into generalized property tests). See `docs/SwiftInferProperties.md`.
+
+The intended dependency direction is one-way: `SwiftInfer → SwiftProtocolLaws (PropertyBackend) → swift-property-based | SwiftQC`. The PRDs propose `swift-property-based` as the default backend.
+
+## Where to look
+
+| Question | File |
+|---|---|
+| Product scope, milestones, success criteria | `docs/SwiftProtocolLaws PRD.md` (v0.2, current), `docs/SwiftInferProperties.md` |
+| What v0.2 changed vs the original proposal | Appendix A of the current PRD; `docs/SwiftProtocolLaws PRD v0.1.md` is the preserved original |
+| Which protocols and what protocol laws each one carries (with strictness tiers) | `docs/Swift Standard Library Protocols.md` (reference) and §4.3 of the SwiftProtocolLaws PRD |
+| External pushback that drove v0.2 | `docs/ChatGPT critique.md`, `docs/Copilot critique.md`, `docs/Gemini critique.md` |
+
+The critiques drove the v0.1 → v0.2 revision. v0.2 closes most of what they raised; the section below is now load-bearing context, not a punch list of unresolved tensions.
+
+## Design decisions baked into v0.2
+
+A future Claude implementing the package should follow these decisions rather than re-litigate them. They live in the PRD; this is a quick map.
+
+- **Strictness tiers per protocol law.** Strict / Conventional / Heuristic. Conventional and Heuristic violations do not fail tests by default — only when the caller passes `.strict`. PRD §4.2.
+- **Generator derivation is opt-in and visible.** `using:` requires an explicit `Gen<T>` by default; `.derived` walks a priority list (CaseIterable → memberwise-Arbitrary → RawRepresentable → Codable round-trip), and the *only* fallback when nothing matches is a non-compiling `.todo` stub. Silent green tests from weak generators are the failure mode being prevented. PRD §5.7.
+- **Layered ProtoLawMacro scope.** Core = conformance → test stubs (always on). Advisory = missing-conformance suggestions, cross-function discovery (off by default). Experimental = pattern warnings, Codable-derived generators (off by default). Don't put new features in Core without justification. PRD §5.2.
+- **Discovery is a Swift Package Plugin, not a macro.** The per-suite trait/macro is a macro; whole-module discovery is a build-tool plugin because macros can't read sibling files. PRD §9 Decision 4.
+- **`@ProtoLawSuite` is a Swift Testing custom Trait** (`@Test(.protocolLaws(...))`). Reuse the runner's reporting / filtering / parallelization rather than reinventing them. The freestanding `@ProtoLawSuite` macro form remains for non-Swift-Testing callers. PRD §9 Decision 5.
+- **`PropertyBackend` is internal until M4.** Public abstraction surface is shaped against two concrete backends (`swift-property-based` + SwiftQC), not designed in advance. Signature is `@Sendable (T) async throws -> Bool` returning `async throws -> CheckResult`. PRD §4.5.
+- **Pattern warnings, not contradiction detection.** §5.6 is a curated, named-pattern list (idempotent+involutive ⇒ identity, etc.). It does not aspire to soundness/completeness; new patterns require maintainer commits, not graph reasoning. PRD §5.6.
+- **Trial budget is part of the API.** `.sanity` (100) / `.standard` (1,000, default) / `.exhaustive` (10,000) / `.custom`. CI cost is a real constraint. PRD §4.4.
+- **Suppression is first-class.** Per-type, per-law, intentional-violation, and custom-equivalence APIs exist (PRD §4.7). This is the adoption-failure escape hatch.
+- **Validation gate before 1.0.** Must catch a real semantic bug in 5+ popular open-source Swift packages. PRD §8. Don't ship 1.0 without that.
+- **Framework self-test gate (every CI run).** Planted-bug suite asserts the framework catches every Strict violation; ProtocolLawKit eats its own dog food. PRD §8.
+- **Inheritance is implicit by default.** `checkHashableProtocolLaws` runs Equatable's laws automatically; `checkComparable` runs Equatable's; `checkCollection` runs Sequence's and IteratorProtocol's. Property tests are too slow to make "remember to chain inherited suites" the caller's responsibility — forgetting is a silent way to miss real bugs. Opt-out via `laws: .ownOnly`. The Discovery plugin emits the most-specific call per type (one `checkComparable`, not separate `checkEquatable` + `checkComparable`) so generated tests don't double-run inherited laws. PRD §4.3.
+- **Coverage scope is tiered, not exhaustive.** v1 = the 8 protocols in §4.3 (incl. `Sequence`/`IteratorProtocol`). v1.1 candidates and permanently-out-of-scope protocols are enumerated in §4.3 Coverage Scope, cross-referenced to `docs/Swift Standard Library Protocols.md`. Don't quietly add new protocols to Core; add them to Coverage Scope first.
+- **Generic conformances need explicit bindings.** `@LawGenerator(bindings: [Container<Int>.self, Container<String>.self])` — the plugin does not enumerate the unbounded generic instantiation space. PRD §4.4 Generic Conformances.
+- **`Codable.partial(fields:)` uses `PartialKeyPath`, not strings.** Type-safe, refactor-safe. PRD §4.3.
+- **Replay seeds carry an environment fingerprint.** Swift version + backend version + generator-schema hash. A stale seed fails loudly instead of silently replaying as a different test. PRD §4.6.
+- **Near-miss is defined per-protocol.** Don't invent a global definition; consult the §4.6 near-miss table. Backends that can't track near-misses report `nearMisses: nil`, not `[]`.
+- **Generator registry is an actor.** Concurrency-safe under Swift 6 strict concurrency; not `static var`. PRD §4.5 Actor-Isolated Types.
+
+## When implementation begins
+
+There is no established build/test command yet. When scaffolding a Swift package here:
+
+- Use Swift Package Manager (`Package.swift`). The PRDs assume SPM and target swift-testing-style `@Test`/`@Suite` macros.
+- The global `~/CLAUDE.md` mandates `swift package clean && swift test` for Swift projects at session start; that becomes meaningful once a `Package.swift` exists.
+- `ProtocolLawKit` should land first and be usable standalone — `ProtoLawMacro` and `SwiftInfer` are downstream and should not be prerequisites for using protocol law checks.
