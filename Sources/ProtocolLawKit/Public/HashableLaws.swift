@@ -94,7 +94,10 @@ public func checkHashableProtocolLaws<T: Hashable & Sendable, S: SendableSequenc
         // without claiming statistical rigor — this is Heuristic tier.
         if uniqueRatio < 0.10 {
             let sampleStr = lastSample.map { "\($0)" } ?? "<no samples>"
-            return .violation(counterexample: "\(count) samples produced only \(hashes.count) unique hashValues (ratio \(String(format: "%.3f", uniqueRatio))); last sample: \(sampleStr)")
+            let ratioStr = String(format: "%.3f", uniqueRatio)
+            let counter = "\(count) samples produced only \(hashes.count) unique hashValues "
+                + "(ratio \(ratioStr)); last sample: \(sampleStr)"
+            return .violation(counterexample: counter)
         }
         return .pass
     }
