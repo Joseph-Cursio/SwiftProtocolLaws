@@ -99,4 +99,40 @@ import PropertyBased
         let laws = violation?.results.map(\.protocolLaw) ?? []
         #expect(laws.contains("Hashable.stabilityWithinProcess"))
     }
+
+    // MARK: - Heuristic tier: distribution
+
+    @Test func detectsDegenerateHashDistribution() async throws {
+        // Heuristic tier — does not throw under default enforcement.
+        let results = try await checkHashableProtocolLaws(
+            for: DegenerateHasher.self,
+            using: Gen<DegenerateHasher>.degenerate(),
+            budget: .sanity,
+            laws: .ownOnly
+        )
+        let distribution = results.first { $0.protocolLaw == "Hashable.distribution" }
+        #expect(distribution?.isViolation == true,
+                "expected DegenerateHasher to violate Hashable.distribution")
+        #expect(distribution?.tier == .heuristic)
+        #expect(distribution?.counterexample?.contains("unique hashValues") == true)
+    }
+
+    // MARK: - Inherited Equatable suite re-collection (laws: .all path)
+
+    @Test func collectsInheritedEquatableViolationsWhenLawsIsAll() async throws {
+        // When laws == .all, checkHashableProtocolLaws runs the Equatable
+        // suite first. If Equatable throws, the catch branch re-collects its
+        // results so the final report reflects every violated law.
+        let violation = await #expect(throws: ProtocolLawViolation.self) {
+            try await checkHashableProtocolLaws(
+                for: ReflexivityBreakingHashable.self,
+                using: Gen<ReflexivityBreakingHashable>.reflexivityBreaking(),
+                budget: .sanity,
+                laws: .all
+            )
+        }
+        let laws = violation?.results.map(\.protocolLaw) ?? []
+        #expect(laws.contains("Equatable.reflexivity"),
+                "expected the inherited Equatable.reflexivity violation in the report; got: \(laws)")
+    }
 }

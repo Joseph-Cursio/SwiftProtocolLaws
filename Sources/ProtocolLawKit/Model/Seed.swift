@@ -14,9 +14,7 @@ public struct Seed: Sendable, Hashable, CustomStringConvertible {
     }
 
     public init?(base64: String) {
-        var rng = Xoshiro(seed: (0, 0, 0, 0))
-        guard let restored = Xoshiro(seed: base64) else { return nil }
-        rng = restored
+        guard let rng = Xoshiro(seed: base64) else { return nil }
         self.rawValue = rng.currentState
     }
 

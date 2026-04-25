@@ -54,3 +54,51 @@ extension Gen where Value == UnstableHasher {
         Gen<Int>.int(in: 0...100).map { UnstableHasher(value: $0) }
     }
 }
+
+/// Violates Hashable.distribution (Heuristic tier): every value hashes to the
+/// same final integer because `hash(into:)` only ever combines a constant.
+/// equalityConsistency holds (equal `value`s hash equal); stability holds
+/// (deterministic). Used to verify the distribution-violation reporting path
+/// and the `TrialRunner.runAggregate` violation-packaging branch.
+struct DegenerateHasher: Hashable, Sendable, CustomStringConvertible {
+    let value: Int
+
+    static func == (lhs: DegenerateHasher, rhs: DegenerateHasher) -> Bool {
+        lhs.value == rhs.value
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(0) // every instance hashes identically
+    }
+
+    var description: String { "DH(\(value))" }
+}
+
+extension Gen where Value == DegenerateHasher {
+    static func degenerate() -> Generator<DegenerateHasher, some SendableSequenceType> {
+        Gen<Int>.int(in: 0...1_000).map { DegenerateHasher(value: $0) }
+    }
+}
+
+/// A Hashable type whose Equatable witness violates reflexivity. Used to
+/// exercise the inherited-Equatable-violation re-collection branch in
+/// `checkHashableProtocolLaws(..., laws: .all)`.
+struct ReflexivityBreakingHashable: Hashable, Sendable, CustomStringConvertible {
+    let value: Int
+
+    static func == (lhs: ReflexivityBreakingHashable, rhs: ReflexivityBreakingHashable) -> Bool {
+        false
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(value)
+    }
+
+    var description: String { "RBH(\(value))" }
+}
+
+extension Gen where Value == ReflexivityBreakingHashable {
+    static func reflexivityBreaking() -> Generator<ReflexivityBreakingHashable, some SendableSequenceType> {
+        Gen<Int>.int(in: 0...50).map { ReflexivityBreakingHashable(value: $0) }
+    }
+}
