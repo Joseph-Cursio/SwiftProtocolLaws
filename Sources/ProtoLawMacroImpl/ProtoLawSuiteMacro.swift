@@ -2,104 +2,94 @@ import SwiftDiagnostics
 import SwiftSyntax
 import SwiftSyntaxMacros
 
-/// `@ProtoLawSuite(types: [...])` member macro implementation.
+/// `@ProtoLawSuite` peer macro implementation.
 ///
-/// For each named type in the macro's `types:` argument:
-/// 1. Locates the type's declaration (and any extensions) in the surrounding
-///    source file via `ConformanceScanner`.
-/// 2. Filters the recognized stdlib conformances down to the most-specific
-///    set per PRD §4.3 inheritance semantics.
-/// 3. Emits one `@Test func` per surviving conformance, calling the
-///    corresponding `checkXxxProtocolLaws(...)` against
-///    `Self.<typeName lowerCamel>Gen`.
+/// Given a type declaration, reads its inheritance clause, filters down to
+/// the most-specific recognized stdlib conformances (PRD §4.3 inheritance
+/// rule), and emits a peer `@Suite` struct of `@Test func` methods — one
+/// per surviving conformance, calling the corresponding
+/// `checkXxxProtocolLaws(...)` against `<TypeName>.gen()`.
 ///
-/// Emits diagnostics for malformed args, malformed individual type
-/// elements, types not declared in the current file (with a hint about the
-/// upcoming Discovery plugin), and types whose conformances aren't
-/// recognized. `IteratorProtocol`-only conformers receive no emit because
-/// the kit's `checkIteratorProtocolLaws` is parameterized over a host
-/// `Sequence` (PRD §4.3 IteratorProtocol).
-public struct ProtoLawSuiteMacro: MemberMacro {
+/// `IteratorProtocol`-only conformers receive no emit because the kit's
+/// `checkIteratorProtocolLaws` is parameterized over a host `Sequence`.
+public struct ProtoLawSuiteMacro: PeerMacro {
 
     public static func expansion(
         of node: AttributeSyntax,
-        providingMembersOf declaration: some DeclGroupSyntax,
+        providingPeersOf declaration: some DeclSyntaxProtocol,
         in context: some MacroExpansionContext
     ) throws -> [DeclSyntax] {
-        let typeElements = parseTypeElements(from: node, in: context)
-        guard let sourceFile = declaration.root.as(SourceFileSyntax.self) else {
-            return []
-        }
-        var members: [DeclSyntax] = []
-        for element in typeElements {
-            guard let conformances = ConformanceScanner.conformances(
-                of: element.typeName,
-                in: sourceFile
-            ) else {
-                context.diagnose(Diagnostic(
-                    node: element.node,
-                    message: ProtoLawDiagnostic.typeNotInFile
-                ))
-                continue
-            }
-            let emitSet = conformances.filter { $0 != .iteratorProtocol }
-            if emitSet.isEmpty {
-                context.diagnose(Diagnostic(
-                    node: element.node,
-                    message: ProtoLawDiagnostic.noKnownConformance
-                ))
-                continue
-            }
-            for conformance in stableOrder(emitSet) {
-                members.append(emit(conformance: conformance, typeName: element.typeName))
-            }
-        }
-        return members
-    }
-
-    /// Single recognized `Foo.self` element from the macro's `types:` array.
-    /// `node` is the original syntax for diagnostic anchoring.
-    private struct TypeElement {
-        let typeName: String
-        let node: Syntax
-    }
-
-    /// Parses the `types: [...]` argument into a list of recognized
-    /// `Foo.self` elements. Emits `malformedArgs` if the argument list
-    /// itself isn't shaped right; emits `malformedTypeElement` for each
-    /// element that isn't a metatype literal.
-    private static func parseTypeElements(
-        from node: AttributeSyntax,
-        in context: some MacroExpansionContext
-    ) -> [TypeElement] {
-        guard
-            case .argumentList(let arguments) = node.arguments,
-            let typesArg = arguments.first(where: { $0.label?.text == "types" }),
-            let arrayExpr = typesArg.expression.as(ArrayExprSyntax.self)
-        else {
+        guard let target = TargetDecl(declaration: declaration) else {
             context.diagnose(Diagnostic(
-                node: node,
-                message: ProtoLawDiagnostic.malformedArgs
+                node: declaration,
+                message: ProtoLawDiagnostic.nonTypeDecl
             ))
             return []
         }
-        return arrayExpr.elements.compactMap { element in
-            guard
-                let memberAccess = element.expression.as(MemberAccessExprSyntax.self),
-                memberAccess.declName.baseName.text == "self",
-                let baseExpr = memberAccess.base
-            else {
-                context.diagnose(Diagnostic(
-                    node: element,
-                    message: ProtoLawDiagnostic.malformedTypeElement
-                ))
+        let inheritedNames = inheritedTypeNames(of: target.inheritanceClause)
+        let conformances = KnownProtocol.set(from: inheritedNames)
+        let mostSpecific = KnownProtocol.mostSpecific(in: conformances)
+        let emitSet = mostSpecific.filter { $0 != .iteratorProtocol }
+        if emitSet.isEmpty {
+            context.diagnose(Diagnostic(
+                node: declaration,
+                message: ProtoLawDiagnostic.noKnownConformance
+            ))
+            return []
+        }
+        return [emitPeerSuite(typeName: target.name, conformances: emitSet)]
+    }
+
+    /// One of the four type-decl shapes a peer macro can attach to. Bundles
+    /// the type name + inheritance clause so the rest of the expansion is
+    /// kind-agnostic.
+    private struct TargetDecl {
+        let name: String
+        let inheritanceClause: InheritanceClauseSyntax?
+
+        init?(declaration: some DeclSyntaxProtocol) {
+            if let structDecl = declaration.as(StructDeclSyntax.self) {
+                self.name = structDecl.name.text
+                self.inheritanceClause = structDecl.inheritanceClause
+            } else if let classDecl = declaration.as(ClassDeclSyntax.self) {
+                self.name = classDecl.name.text
+                self.inheritanceClause = classDecl.inheritanceClause
+            } else if let enumDecl = declaration.as(EnumDeclSyntax.self) {
+                self.name = enumDecl.name.text
+                self.inheritanceClause = enumDecl.inheritanceClause
+            } else if let actorDecl = declaration.as(ActorDeclSyntax.self) {
+                self.name = actorDecl.name.text
+                self.inheritanceClause = actorDecl.inheritanceClause
+            } else {
                 return nil
             }
-            return TypeElement(
-                typeName: baseExpr.trimmedDescription,
-                node: Syntax(element)
-            )
         }
+    }
+
+    private static func inheritedTypeNames(of clause: InheritanceClauseSyntax?) -> [String] {
+        guard let clause else { return [] }
+        return clause.inheritedTypes.compactMap { $0.type.trimmedDescription }
+    }
+
+    private static func emitPeerSuite(
+        typeName: String,
+        conformances: Set<KnownProtocol>
+    ) -> DeclSyntax {
+        let testMethods = stableOrder(conformances).map { conformance in
+            emitTest(conformance: conformance, typeName: typeName)
+        }.joined(separator: "\n\n    ")
+        // No `@Suite` annotation: Swift Testing's macro can't be reliably
+        // composed inside our peer expansion — its private file-scope
+        // symbols don't resolve from within another macro's emitted scope.
+        // Bare `@Test` methods inside a struct are still discovered by the
+        // Swift Testing runner; users who want a named suite annotation
+        // can apply `@Suite("custom name")` manually to the emitted type
+        // (or wrap the type in another that's @Suite-annotated).
+        return """
+            struct \(raw: typeName)ProtocolLawTests {
+                \(raw: testMethods)
+            }
+            """
     }
 
     /// Stable iteration order so the emit is deterministic across runs —
@@ -108,26 +98,16 @@ public struct ProtoLawSuiteMacro: MemberMacro {
         KnownProtocol.allCases.filter { protocols.contains($0) }
     }
 
-    private static func emit(conformance: KnownProtocol, typeName: String) -> DeclSyntax {
+    private static func emitTest(conformance: KnownProtocol, typeName: String) -> String {
         let testFuncName = "\(conformance.testNameFragment)_\(typeName)"
-        let generatorMember = generatorName(for: typeName)
         let checkFn = conformance.checkFunctionName
         return """
-            @Test func \(raw: testFuncName)() async throws {
-                try await \(raw: checkFn)(
-                    for: \(raw: typeName).self,
-                    using: Self.\(raw: generatorMember)
-                )
-            }
+            @Test func \(testFuncName)() async throws {
+                    try await \(checkFn)(
+                        for: \(typeName).self,
+                        using: \(typeName).gen()
+                    )
+                }
             """
-    }
-
-    /// Convention: `<TypeName>` → `<typeName>Gen` (first letter lowercased).
-    /// `Foo` → `fooGen`, `URLLoader` → `uRLLoaderGen`. Imperfect for
-    /// acronyms but consistent and grep-able. M3's generator derivation
-    /// removes the convention requirement.
-    private static func generatorName(for typeName: String) -> String {
-        guard let first = typeName.first else { return "gen" }
-        return first.lowercased() + typeName.dropFirst() + "Gen"
     }
 }

@@ -1,33 +1,45 @@
 @_exported import ProtocolLawKit
 
-/// Member macro that detects each named type's stdlib protocol conformances
-/// (PRD §4.3) by scanning the same source file, then expands to `@Test func`
-/// methods calling the appropriate `checkXxxProtocolLaws` for each match.
+/// Peer macro that attaches to a type declaration, reads its inheritance
+/// clause, and emits a sibling `@Suite` struct of `@Test func` methods —
+/// one per recognized stdlib protocol the type conforms to (PRD §4.3).
 ///
-/// Cross-file types aren't supported here by design — macros are file-local
-/// (PRD §9 Decision 4); whole-module scanning ships in M2 as a Swift Package
-/// Plugin. For each named type that *isn't* in the surrounding file, the
-/// macro emits an error diagnostic suggesting the plugin.
+/// The peer-macro shape is required by Swift's macro model: macro
+/// implementations see only the syntax of their decoratee, not the
+/// surrounding file. PRD §9 Decision 4 already separates whole-module
+/// discovery into the upcoming Swift Package Plugin (M2). The PRD's
+/// `[Foo.self, Bar.self]`-on-a-test-suite form can't be implemented as
+/// a macro for that same reason; it lives on the plugin side.
 ///
-/// Generators are looked up by convention as `Self.<typeName lowerCamel>Gen`.
-/// The macro doesn't validate this at expansion time — a missing generator
-/// surfaces as a "cannot find Self.fooGen" compile error in the expansion,
-/// matching PRD §5.7's "compile error beats silent fallthrough" stance.
-/// Real generator derivation lands in M3.
-///
-/// The macro adds **only** test methods. The user retains control of the
-/// surrounding `@Suite` annotation:
+/// Generator-name convention: the macro emits `\(TypeName).gen()` —
+/// users define a static `gen()` method on the type (or via an extension
+/// in the same module). A missing generator surfaces as a "cannot find
+/// `Foo.gen`" compile error, matching PRD §5.7's "compile error beats
+/// silent fallthrough" stance. Real generator derivation lands in M3.
 ///
 /// ```swift
-/// @Suite
-/// @ProtoLawSuite(types: [Foo.self, Bar.self])
-/// struct ConformanceLaws {
-///     static let fooGen = Gen.foo()
-///     static let barGen = Gen.bar()
+/// @ProtoLawSuite
+/// struct Foo: Equatable, Hashable {
+///     let value: Int
+/// }
+///
+/// extension Foo {
+///     static func gen() -> Generator<Foo, some SendableSequenceType> {
+///         // ...
+///     }
 /// }
 /// ```
-@attached(member, names: arbitrary)
-public macro ProtoLawSuite(types: [Any.Type]) = #externalMacro(
+///
+/// Expands (as a peer of `Foo`) to:
+/// ```swift
+/// @Suite struct FooProtocolLawTests {
+///     @Test func hashable_Foo() async throws {
+///         try await checkHashableProtocolLaws(for: Foo.self, using: Foo.gen())
+///     }
+/// }
+/// ```
+@attached(peer, names: suffixed(ProtocolLawTests))
+public macro ProtoLawSuite() = #externalMacro(
     module: "ProtoLawMacroImpl",
     type: "ProtoLawSuiteMacro"
 )

@@ -4,40 +4,28 @@ import SwiftDiagnostics
 /// has a stable `MessageID.id` so users can suppress per-rule via
 /// upstream tooling.
 internal enum ProtoLawDiagnostic: String, DiagnosticMessage {
-    /// The macro's `types:` argument couldn't be parsed as
-    /// `[Identifier.self, ...]`.
-    case malformedArgs
+    /// Macro applied to a non-type declaration (function, property,
+    /// extension, etc.). Compilers usually reject the attachment before
+    /// the macro runs, but we surface a clear message for the cases
+    /// where the attribute slips through.
+    case nonTypeDecl
 
-    /// A `types:` element isn't a `Foo.self` literal — generics, type-of
-    /// expressions, and aliases aren't supported in M1.
-    case malformedTypeElement
-
-    /// Named type's declaration isn't in the same source file. Cross-file
-    /// scanning is the M2 Discovery plugin (PRD §5.3).
-    case typeNotInFile
-
-    /// Type found but conforms to no recognized stdlib protocol — nothing
+    /// The decoratee conforms to no recognized stdlib protocol — nothing
     /// to emit.
     case noKnownConformance
 
     var message: String {
         switch self {
-        case .malformedArgs:
-            return "@ProtoLawSuite expects `types: [SomeType.self, ...]`. "
-                + "Pass an array literal of metatype expressions."
-        case .malformedTypeElement:
-            return "Each element of `types:` must be a metatype literal "
-                + "(e.g. `Foo.self`). Generic parameters, `type(of:)`, and "
-                + "type aliases aren't supported in M1."
-        case .typeNotInFile:
-            return "Type not declared in this file. @ProtoLawSuite scans the "
-                + "current file for declarations and extensions; cross-file "
-                + "discovery is the upcoming Swift Package Plugin (PRD §5.3)."
+        case .nonTypeDecl:
+            return "@ProtoLawSuite must decorate a struct, class, enum, or actor."
         case .noKnownConformance:
             return "Type has no recognized stdlib protocol conformance — no "
                 + "law checks emitted. Recognized protocols: Equatable, "
                 + "Hashable, Comparable, Codable, Sequence, Collection, "
-                + "SetAlgebra."
+                + "SetAlgebra. Conformances declared via extensions outside "
+                + "the type's primary declaration aren't visible to the macro "
+                + "(it sees only the decoratee's syntax); upcoming whole-module "
+                + "discovery (PRD §5.3) handles those cases."
         }
     }
 
@@ -47,10 +35,8 @@ internal enum ProtoLawDiagnostic: String, DiagnosticMessage {
 
     var severity: DiagnosticSeverity {
         switch self {
-        case .malformedArgs, .malformedTypeElement, .typeNotInFile:
-            return .error
-        case .noKnownConformance:
-            return .warning
+        case .nonTypeDecl: return .error
+        case .noKnownConformance: return .warning
         }
     }
 }
