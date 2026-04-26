@@ -23,15 +23,15 @@ The path `/Users/joecursio/xcode_projects/SwiftProtocolLaws` and `/Users/joecurs
 A design / proposal repository for two related Swift packages:
 
 - **SwiftProtocolLaws** — `ProtocolLawKit` (a runtime library of property-based protocol law checks for Swift Standard Library protocols: `Equatable`, `Hashable`, `Comparable`, `Codable`, `Collection`, `SetAlgebra`) plus `ProtoLawMacro` (a SwiftSyntax-based layer that detects conformances and generates `checkXxxProtocolLaws(...)` test stubs). See `docs/SwiftProtocolLaws PRD.md`.
-- **SwiftInfer** — downstream of SwiftProtocolLaws. `TemplateEngine` (signature-pattern matcher that proposes round-trip / idempotence / commutativity / etc. tests) and `TestLifter` (lifts existing XCTest / Swift Testing methods into generalized property tests). See `docs/SwiftInferProperties.md`.
+- **SwiftInferProperties** — downstream of SwiftProtocolLaws. `TemplateEngine` (signature-pattern matcher that proposes round-trip / idempotence / commutativity / etc. tests) and `TestLifter` (lifts existing XCTest / Swift Testing methods into generalized property tests). See `docs/SwiftInferProperties PRD.md`.
 
-The intended dependency direction is one-way: `SwiftInfer → SwiftProtocolLaws (PropertyBackend) → swift-property-based`. v1 ships `swift-property-based` as the single backend; see the "Single-backend by design" note above.
+The intended dependency direction is one-way: `SwiftInferProperties → SwiftProtocolLaws (PropertyBackend) → swift-property-based`. v1 ships `swift-property-based` as the single backend; see the "Single-backend by design" note above.
 
 ## Where to look
 
 | Question | File |
 |---|---|
-| Product scope, milestones, success criteria | `docs/SwiftProtocolLaws PRD.md` (v0.3, current), `docs/SwiftInferProperties.md` |
+| Product scope, milestones, success criteria | `docs/SwiftProtocolLaws PRD.md` (v0.3, current), `docs/SwiftInferProperties PRD.md` |
 | What v0.3 changed vs v0.2 | Appendix A of the current PRD (§8 calibration + SetAlgebra symmetric-difference expansion) |
 | What v0.2 changed vs the original proposal | Appendix B of the current PRD; `docs/SwiftProtocolLaws PRD v0.1.md` is the preserved original |
 | Which protocols and what protocol laws each one carries (with strictness tiers) | `docs/Swift Standard Library Protocols.md` (reference) and §4.3 of the SwiftProtocolLaws PRD |
@@ -66,4 +66,4 @@ A future Claude implementing the package should follow these decisions rather th
 
 - `swift package clean && swift test` (per the global `~/CLAUDE.md`) on session start. The full suite runs in well under a second.
 - SwiftLint config lives at `.swiftlint.yml`; `swiftlint lint --quiet` should be silent.
-- `ProtocolLawKit` is the only product target today. ProtoLawMacro and SwiftInfer haven't started.
+- `ProtocolLawKit` and `ProtoLawMacro` are the shipped product targets (M1–M5 and M1–M3 respectively). `SwiftInferProperties` is forward-looking proposal-status — no code yet, see `docs/SwiftInferProperties PRD.md`.

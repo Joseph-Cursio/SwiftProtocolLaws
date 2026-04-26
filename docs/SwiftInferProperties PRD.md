@@ -1,6 +1,6 @@
 # Product Requirements Document
 
-## SwiftInfer: Type-Directed Property Inference for Swift
+## SwiftInferProperties: Type-Directed Property Inference for Swift
 
 **Version:** 0.1 Draft  
 **Status:** Proposal  
@@ -13,9 +13,9 @@
 
 SwiftProtocolLaws addresses the lowest-hanging fruit in automated property testing: if a type declares a protocol, verify that the implementation satisfies the protocol’s semantic laws. That project is intentionally scoped to the *explicit* — conformances the developer has already declared.
 
-SwiftInfer addresses what comes next: the *implicit*. Properties that are meaningful and testable, but are not encoded in any protocol declaration. They live in the structure of function signatures, in the relationships between functions, and in the patterns visible in existing unit tests.
+SwiftInferProperties addresses what comes next: the *implicit*. Properties that are meaningful and testable, but are not encoded in any protocol declaration. They live in the structure of function signatures, in the relationships between functions, and in the patterns visible in existing unit tests.
 
-This document proposes **SwiftInfer**, a Swift package delivering two contributions:
+This document proposes **SwiftInferProperties**, a Swift package delivering two contributions:
 
 - **Contribution 1 — TemplateEngine**: A library of named property templates matched against function signatures via SwiftSyntax, emitting candidate property tests for human review.
 - **Contribution 2 — TestLifter**: A tool that analyzes existing XCTest and Swift Testing unit test suites, identifies structural patterns in the tests, and suggests generalized property tests derived from those patterns.
@@ -60,11 +60,11 @@ func testRoundTrip() {
 
 encodes the round-trip property for one specific input. The general property — `decode(encode(x)) == x` for *all* `x` — is right there, but it takes a deliberate step to lift it. Most developers don’t take that step because nothing prompts them to and the activation energy is nonzero.
 
-### 2.3 The Gap SwiftInfer Fills
+### 2.3 The Gap SwiftInferProperties Fills
 
 SwiftProtocolLaws handles: *“you declared a protocol, does your implementation honor its laws?”*
 
-SwiftInfer handles: *“given what your code looks like and what your tests say, what properties are you implicitly claiming?”*
+SwiftInferProperties handles: *“given what your code looks like and what your tests say, what properties are you implicitly claiming?”*
 
 Together they cover the automated end of the property inference spectrum, from explicit protocol contracts down through structural inference to test-guided generalization.
 
@@ -93,7 +93,7 @@ Together they cover the automated end of the property inference spectrum, from e
 
 ## 4. Confidence Model
 
-SwiftInfer assigns every suggestion a confidence tier. This is surfaced in all output and governs how aggressively suggestions are promoted.
+SwiftInferProperties assigns every suggestion a confidence tier. This is surfaced in all output and governs how aggressively suggestions are promoted.
 
 |Tier  |Label       |Meaning                                         |Example                                       |
 |------|------------|------------------------------------------------|----------------------------------------------|
@@ -447,7 +447,7 @@ TestLifter mitigates this through:
 
 ```
 ┌──────────────────────────────────────────────────────┐
-│                    SwiftInfer                        │
+│                 SwiftInferProperties                 │
 │                                                      │
 │  ┌─────────────────┐      ┌───────────────────────┐  │
 │  │  TemplateEngine │      │      TestLifter        │  │
@@ -469,7 +469,7 @@ TestLifter mitigates this through:
 ┌──────────────────────▼──────────────────────────────┐
 │                 SwiftProtocolLaws                    │
 │            PropertyBackend abstraction               │
-│         swift-property-based / SwiftQC               │
+│       swift-property-based (single v1 backend)       │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -477,18 +477,18 @@ TestLifter mitigates this through:
 
 ## 8. Relationship to SwiftProtocolLaws
 
-SwiftInfer is explicitly downstream of SwiftProtocolLaws and does not duplicate its concerns:
+SwiftInferProperties is explicitly downstream of SwiftProtocolLaws and does not duplicate its concerns:
 
 |Concern                                      |Handled By                          |
 |---------------------------------------------|------------------------------------|
 |Protocol semantic law verification           |SwiftProtocolLaws (ProtocolLawKit)                  |
 |Protocol conformance detection               |SwiftProtocolLaws (ProtoLawMacro)                |
 |Missing protocol suggestions                 |SwiftProtocolLaws (ProtoLawMacro)                |
-|Structural property inference from signatures|SwiftInfer (TemplateEngine)         |
-|Property inference from unit tests           |SwiftInfer (TestLifter)             |
+|Structural property inference from signatures|SwiftInferProperties (TemplateEngine)         |
+|Property inference from unit tests           |SwiftInferProperties (TestLifter)             |
 |Test execution backend                       |SwiftProtocolLaws (PropertyBackend) — shared|
 
-SwiftInfer reuses SwiftProtocolLaws’ `PropertyBackend` abstraction directly. Generator registrations made in SwiftProtocolLaws (e.g., a `Gen<MyType>` registered for law checking) are visible to SwiftInfer’s generator inference, avoiding duplication.
+SwiftInferProperties reuses SwiftProtocolLaws’ `PropertyBackend` abstraction directly. Generator registrations made in SwiftProtocolLaws (e.g., a `Gen<MyType>` registered for law checking) are visible to SwiftInferProperties’s generator inference, avoiding duplication.
 
 -----
 
@@ -523,7 +523,7 @@ SwiftInfer reuses SwiftProtocolLaws’ `PropertyBackend` abstraction directly. G
 
 ## 11. Open Questions
 
-1. **Separate package or monorepo?** Should SwiftInfer be a separate package from SwiftProtocolLaws, or a set of additional targets in the same repository? Separate packages preserve independent versioning; a monorepo simplifies shared abstractions.
+1. **Separate package or monorepo?** Should SwiftInferProperties be a separate package from SwiftProtocolLaws, or a set of additional targets in the same repository? Separate packages preserve independent versioning; a monorepo simplifies shared abstractions.
 2. **TemplateEngine as compiler plugin vs. CLI?** The discovery CLI is the right model for whole-module scanning, but should TemplateEngine also expose a compiler plugin mode for incremental per-file suggestions during development?
 3. **TestLifter and Swift Testing vs. XCTest?** Swift Testing’s `@Test` macro makes test body parsing harder than XCTest’s method-based structure. Should M1 target XCTest only, with Swift Testing support deferred?
 4. **Community template contributions:** The template registry is the most valuable long-term artifact. Should it be designed as an extensible registry that third parties can contribute to, or kept curated and closed for quality control?
