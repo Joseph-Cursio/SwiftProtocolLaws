@@ -38,10 +38,18 @@ struct ProtoLawDiscoveryPlugin: CommandPlugin {
             "--target", target,
             "--output", outputPath
         ] + ["--source-files"] + sourceFiles
-        try process.run()
-        process.waitUntilExit()
-        if process.terminationStatus != 0 {
-            throw PluginError.toolFailed(status: process.terminationStatus)
+        let status: Int32 = try await withCheckedThrowingContinuation { continuation in
+            process.terminationHandler = { proc in
+                continuation.resume(returning: proc.terminationStatus)
+            }
+            do {
+                try process.run()
+            } catch {
+                continuation.resume(throwing: error)
+            }
+        }
+        if status != 0 {
+            throw PluginError.toolFailed(status: status)
         }
     }
 
