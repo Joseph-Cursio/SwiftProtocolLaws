@@ -2,7 +2,7 @@ import Testing
 import PropertyBased
 @testable import ProtocolLawKit
 
-@Suite struct ComparableLawsTests {
+struct ComparableLawsTests {
 
     @Test func intsPassAllLaws() async throws {
         let results = try await checkComparableProtocolLaws(

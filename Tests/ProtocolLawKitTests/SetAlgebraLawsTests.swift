@@ -2,7 +2,7 @@ import Testing
 import PropertyBased
 @testable import ProtocolLawKit
 
-@Suite struct SetAlgebraLawsTests {
+struct SetAlgebraLawsTests {
 
     @Test func setOfIntPassesAllLaws() async throws {
         let results = try await checkSetAlgebraProtocolLaws(

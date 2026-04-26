@@ -1,7 +1,7 @@
 import Testing
 @testable import ProtoLawCore
 
-@Suite struct DerivationStrategistTests {
+struct DerivationStrategistTests {
 
     // MARK: - Strategy A: user-provided gen() wins unconditionally
 

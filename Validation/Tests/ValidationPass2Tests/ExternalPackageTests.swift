@@ -18,7 +18,7 @@ import ProtocolLawKit
 /// Both are tiny but representative: a wrapper-around-a-primitive and a
 /// closed-set state type. If either harbored a hash/equality-consistency
 /// bug, the kit's Strict-tier checks would surface it.
-@Suite struct ExternalPackageTests {
+struct ExternalPackageTests {
 
     // MARK: - ExitCode
 

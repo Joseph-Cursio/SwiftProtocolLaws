@@ -2,7 +2,7 @@ import Testing
 import PropertyBased
 @testable import ProtocolLawKit
 
-@Suite struct ReplayValidationTests {
+struct ReplayValidationTests {
 
     // MARK: - Pass-through when no expected env supplied
 

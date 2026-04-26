@@ -3,7 +3,7 @@ import Testing
 @testable import ProtoLawDiscoveryTool
 @testable import ProtoLawCore
 
-@Suite struct ModuleScannerTests {
+struct ModuleScannerTests {
 
     // MARK: - Single-file conformances
 

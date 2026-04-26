@@ -2,7 +2,7 @@ import Testing
 import PropertyBased
 @testable import ProtocolLawKit
 
-@Suite struct EnforcementTests {
+struct EnforcementTests {
 
     @Test func defaultEnforcementOnlyThrowsOnStrictTier() {
         #expect(EnforcementMode.default.shouldThrow(for: .strict))

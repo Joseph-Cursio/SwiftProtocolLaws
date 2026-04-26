@@ -2,7 +2,7 @@ import Testing
 import PropertyBased
 @testable import ProtocolLawKit
 
-@Suite struct CollectionLawsTests {
+struct CollectionLawsTests {
 
     @Test func arrayPassesAllLawsIncludingInheritedSequenceAndIterator() async throws {
         let results = try await checkCollectionProtocolLaws(

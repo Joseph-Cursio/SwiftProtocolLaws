@@ -2,7 +2,7 @@ import Testing
 @testable import ProtoLawDiscoveryTool
 @testable import ProtoLawCore
 
-@Suite struct EmitterGoldenTests {
+struct EmitterGoldenTests {
 
     /// Convenience builder. Most existing emitter tests want `.userGen`
     /// (the M1 default — emitter spells `<TypeName>.gen()`); the new M3

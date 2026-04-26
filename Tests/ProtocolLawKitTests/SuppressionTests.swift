@@ -2,7 +2,7 @@ import Testing
 import PropertyBased
 @testable import ProtocolLawKit
 
-@Suite struct SuppressionTests {
+struct SuppressionTests {
 
     // MARK: - LawIdentifier matching
 

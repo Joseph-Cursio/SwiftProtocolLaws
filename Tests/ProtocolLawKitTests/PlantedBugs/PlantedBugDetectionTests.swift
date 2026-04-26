@@ -6,7 +6,7 @@ import PropertyBased
 /// the framework catches it. If any of these regress green-on-buggy, the
 /// framework has lost the ability to detect that class of violation and
 /// shouldn't be released.
-@Suite struct PlantedBugDetectionTests {
+struct PlantedBugDetectionTests {
 
     // MARK: - Equatable Strict-tier planted bugs
 

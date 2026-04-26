@@ -6,7 +6,7 @@ import PropertyBased
 /// Collection, SetAlgebra). Split from `PlantedBugDetectionTests` so neither
 /// suite breaches SwiftLint's type-body length limit as the kit covers more
 /// protocols. Same intent: every Strict-tier law has a planted-bug detection.
-@Suite struct PlantedBugCollectionsDetectionTests {
+struct PlantedBugCollectionsDetectionTests {
 
     // MARK: - Sequence Strict-tier planted bug
 

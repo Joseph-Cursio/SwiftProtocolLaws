@@ -10,7 +10,7 @@ nonisolated(unsafe) let testMacros: [String: Macro.Type] = [
     "ProtoLawSuite": ProtoLawSuiteMacro.self
 ]
 
-@Suite struct MacroExpansionTests {
+struct MacroExpansionTests {
 
     @Test func equatableConformancesEmitsPeerSuite() {
         assertMacroExpansion(

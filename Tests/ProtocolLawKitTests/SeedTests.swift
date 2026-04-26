@@ -1,7 +1,7 @@
 import Testing
 @testable import ProtocolLawKit
 
-@Suite struct SeedTests {
+struct SeedTests {
 
     @Test func roundTripsThroughBase64() throws {
         let original = Seed(stateA: 12_345, stateB: 67_890, stateC: 11_111, stateD: 22_222)

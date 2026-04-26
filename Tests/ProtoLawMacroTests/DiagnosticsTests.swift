@@ -3,7 +3,7 @@ import SwiftSyntaxMacrosTestSupport
 import Testing
 @testable import ProtoLawMacroImpl
 
-@Suite struct DiagnosticsTests {
+struct DiagnosticsTests {
 
     @Test func typeWithNoStdlibConformanceEmitsWarning() {
         assertMacroExpansion(

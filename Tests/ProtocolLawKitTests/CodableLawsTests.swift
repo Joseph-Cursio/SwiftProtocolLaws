@@ -21,7 +21,7 @@ extension Gen where Value == Invoice {
     }
 }
 
-@Suite struct CodableLawsTests {
+struct CodableLawsTests {
 
     @Test func intRoundTripsUnderStrict() async throws {
         let results = try await checkCodableProtocolLaws(

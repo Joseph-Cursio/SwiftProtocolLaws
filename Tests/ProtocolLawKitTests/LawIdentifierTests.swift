@@ -17,7 +17,7 @@ import Testing
 /// four `symmetricDifference*` laws to `SetAlgebraLaws.swift` but did not
 /// extend `SetAlgebraLaw`, so callers had to fall back to the un-typesafe
 /// `LawIdentifier(protocolName:lawName:)` initializer.
-@Suite struct LawIdentifierTests {
+struct LawIdentifierTests {
 
     // MARK: - Factory methods produce well-formed qualified names
 

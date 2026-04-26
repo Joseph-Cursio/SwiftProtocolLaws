@@ -3,7 +3,7 @@ import Testing
 import PropertyBased
 @testable import ProtocolLawKit
 
-@Suite struct NearMissTests {
+struct NearMissTests {
 
     // MARK: - Codable .semantic mode records field-level diffs as near-misses
 

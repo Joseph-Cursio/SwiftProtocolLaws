@@ -3,7 +3,7 @@ import SwiftSyntaxMacrosTestSupport
 import Testing
 @testable import ProtoLawMacroImpl
 
-@Suite struct MacroExpansionMultiTypeTests {
+struct MacroExpansionMultiTypeTests {
 
     @Test func setAlgebraEmitsBothEquatableAndSetAlgebra() {
         assertMacroExpansion(

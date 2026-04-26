@@ -1,7 +1,7 @@
 import Testing
 @testable import ProtoLawDiscoveryTool
 
-@Suite struct SuppressionParserTests {
+struct SuppressionParserTests {
 
     @Test func extractsSingleMarker() {
         let text = """

@@ -2,7 +2,7 @@ import Testing
 import PropertyBased
 @testable import ProtocolLawKit
 
-@Suite struct CoverageHintsTests {
+struct CoverageHintsTests {
 
     // MARK: - Stdlib classifiers — direct tests of classify()
 

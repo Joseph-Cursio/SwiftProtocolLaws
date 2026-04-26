@@ -2,7 +2,7 @@ import Testing
 import PropertyBased
 @testable import ProtocolLawKit
 
-@Suite struct EquatableLawsTests {
+struct EquatableLawsTests {
 
     @Test func intsPassAllStrictLaws() async throws {
         let results = try await checkEquatableProtocolLaws(

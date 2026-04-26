@@ -55,7 +55,7 @@ import ProtocolLawKit
 /// `hummingbird`); the only candidate that survived rejection was this
 /// dead-code typo. See `Validation/FINDINGS.md` Pass 3 for the
 /// rationale and the proposed §8 rewrite.
-@Suite struct SwiftCollectionsRetroactiveTests {
+struct SwiftCollectionsRetroactiveTests {
 
     // MARK: - The empirical finding
 

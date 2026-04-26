@@ -1,7 +1,7 @@
 import Testing
 @testable import ProtoLawDiscoveryTool
 
-@Suite struct ToolInvocationTests {
+struct ToolInvocationTests {
 
     @Test func parsesMinimalInvocation() throws {
         let invocation = try ToolInvocation(arguments: [
