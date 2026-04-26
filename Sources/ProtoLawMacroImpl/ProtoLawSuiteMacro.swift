@@ -46,6 +46,12 @@ public struct ProtoLawSuiteMacro: PeerMacro {
             hasUserGen: target.hasUserGen
         )
         let strategy = DerivationStrategist.strategy(for: shape)
+        if case .todo(let reason) = strategy {
+            context.diagnose(Diagnostic(
+                node: declaration,
+                message: ProtoLawDiagnostic.cannotDeriveGenerator(reason: reason)
+            ))
+        }
         return [emitPeerSuite(typeName: target.name, conformances: emitSet, strategy: strategy)]
     }
 

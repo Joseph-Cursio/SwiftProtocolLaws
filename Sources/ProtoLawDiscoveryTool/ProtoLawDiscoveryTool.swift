@@ -78,6 +78,18 @@ struct ProtoLawDiscoveryTool {
         if !suppressions.isEmpty {
             lines.append("  suppressions preserved: \(suppressions.count)")
         }
+        // PRD §5.7 weak-generator telemetry — list types that need a
+        // user-supplied gen() because no derivation strategy applied.
+        let todoEntries = map.entries.filter { entry in
+            if case .todo = entry.derivationStrategy { return true }
+            return false
+        }
+        if !todoEntries.isEmpty {
+            lines.append("  types needing manual gen() (\(todoEntries.count)):")
+            for entry in todoEntries {
+                lines.append("    - \(entry.typeName)")
+            }
+        }
         FileHandle.standardOutput.write(Data((lines.joined(separator: "\n") + "\n").utf8))
     }
 }
