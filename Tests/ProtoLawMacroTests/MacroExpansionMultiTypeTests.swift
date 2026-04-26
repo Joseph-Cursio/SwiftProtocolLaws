@@ -132,7 +132,10 @@ import Testing
         )
     }
 
-    @Test func enumWithStdlibConformanceEmits() {
+    @Test func stringRawRepresentableEnumDerivesGenerator() {
+        // M3: enum + recognized stdlib raw type → derived generator
+        // (Gen.<RawType>...compactMap { TypeName(rawValue: $0) }) instead
+        // of the user's <TypeName>.gen() reference.
         assertMacroExpansion(
             """
             @ProtoLawSuite
@@ -149,14 +152,79 @@ import Testing
                 @Test func equatable_Direction() async throws {
                         try await checkEquatableProtocolLaws(
                             for: Direction.self,
-                            using: Direction.gen()
+                            using: Gen<Character>.letterOrNumber.string(of: 0...8)
+                                .compactMap { Direction(rawValue: $0) }
                         )
                     }
 
                 @Test func codable_Direction() async throws {
                         try await checkCodableProtocolLaws(
                             for: Direction.self,
-                            using: Direction.gen()
+                            using: Gen<Character>.letterOrNumber.string(of: 0...8)
+                                .compactMap { Direction(rawValue: $0) }
+                        )
+                    }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
+    @Test func caseIterableEnumDerivesAllCasesGenerator() {
+        assertMacroExpansion(
+            """
+            @ProtoLawSuite
+            enum Status: CaseIterable, Equatable {
+                case pending, active, archived
+            }
+            """,
+            expandedSource: """
+            enum Status: CaseIterable, Equatable {
+                case pending, active, archived
+            }
+
+            struct StatusProtocolLawTests {
+                @Test func equatable_Status() async throws {
+                        try await checkEquatableProtocolLaws(
+                            for: Status.self,
+                            using: Gen<Status>.element(of: Status.allCases)
+                        )
+                    }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
+    @Test func userGenInBodyOverridesDerivation() {
+        // Even on a CaseIterable enum, defining `static func gen()` in the
+        // type's primary body wins — the user's intent is the highest-
+        // priority strategy in PRD §5.7.
+        assertMacroExpansion(
+            """
+            @ProtoLawSuite
+            enum Status: CaseIterable, Equatable {
+                case pending, active
+
+                static func gen() -> Generator<Status, some SendableSequenceType> {
+                    Gen.element(of: Status.allCases)
+                }
+            }
+            """,
+            expandedSource: """
+            enum Status: CaseIterable, Equatable {
+                case pending, active
+
+                static func gen() -> Generator<Status, some SendableSequenceType> {
+                    Gen.element(of: Status.allCases)
+                }
+            }
+
+            struct StatusProtocolLawTests {
+                @Test func equatable_Status() async throws {
+                        try await checkEquatableProtocolLaws(
+                            for: Status.self,
+                            using: Status.gen()
                         )
                     }
             }
