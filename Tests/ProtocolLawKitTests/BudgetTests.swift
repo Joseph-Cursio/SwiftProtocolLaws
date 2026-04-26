@@ -10,7 +10,9 @@ import PropertyBased
             using: TestGen.smallInt(),
             options: LawCheckOptions(budget: .sanity)
         )
-        for result in results where !result.isViolation {
+        let nonViolations = results.filter { !$0.isViolation }
+        try #require(nonViolations.isEmpty == false)
+        for result in nonViolations {
             #expect(result.trials == 100)
         }
     }
@@ -21,7 +23,9 @@ import PropertyBased
             using: TestGen.smallInt(),
             options: LawCheckOptions(budget: .standard)
         )
-        for result in results where !result.isViolation {
+        let nonViolations = results.filter { !$0.isViolation }
+        try #require(nonViolations.isEmpty == false)
+        for result in nonViolations {
             #expect(result.trials == 1_000)
         }
     }
@@ -32,7 +36,9 @@ import PropertyBased
             using: TestGen.smallInt(),
             options: LawCheckOptions(budget: .custom(trials: 250))
         )
-        for result in results where !result.isViolation {
+        let nonViolations = results.filter { !$0.isViolation }
+        try #require(nonViolations.isEmpty == false)
+        for result in nonViolations {
             #expect(result.trials == 250)
         }
     }
@@ -43,7 +49,9 @@ import PropertyBased
             using: TestGen.smallInt(),
             options: LawCheckOptions(budget: .exhaustive(500))
         )
-        for result in results where !result.isViolation {
+        let nonViolations = results.filter { !$0.isViolation }
+        try #require(nonViolations.isEmpty == false)
+        for result in nonViolations {
             #expect(result.trials == 500)
         }
         #expect(TrialBudget.exhaustive().trialCount == 10_000)
