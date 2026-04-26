@@ -225,4 +225,4 @@ Both should be silent on a clean checkout.
 
 ## License
 
-TBD before 1.0 — likely MIT or Apache 2.0 to match the surrounding Swift ecosystem.
+MIT — see [LICENSE](LICENSE).
