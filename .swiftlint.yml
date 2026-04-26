@@ -4,6 +4,7 @@ included:
 
 excluded:
   - .build
+  - Validation/.build
   - docs
   - Package.swift
 

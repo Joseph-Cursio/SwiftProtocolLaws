@@ -252,3 +252,88 @@ extension Gen where Value == LeftBiasedIntersection {
             .map { LeftBiasedIntersection(Set($0)) }
     }
 }
+
+/// SetAlgebra wrapper whose `symmetricDifference(_:)` returns the
+/// intersection. Mirrors the pre-fix `swift-collections@35349601` `_Bitmap`
+/// bug, where `symmetricDifference` was implemented as `&` (intersection)
+/// rather than `^` (xor). Violates:
+///
+/// - `symmetricDifferenceSelfIsEmpty` — `x △ x` returns `x ∩ x = x`,
+///   not the empty set, whenever `x` is non-empty.
+/// - `symmetricDifferenceEmptyIdentity` — `x △ ∅` returns `x ∩ ∅ = ∅`,
+///   not `x`, whenever `x` is non-empty.
+/// - `symmetricDifferenceDefinition` — `x △ y` returns `x ∩ y`, not
+///   `(x ∪ y) \ (x ∩ y)`, whenever the two sets differ.
+///
+/// Commutativity is *not* violated: `x ∩ y == y ∩ x`. That's why the kit's
+/// original five-law SetAlgebra suite (which had only `*Commutativity` and
+/// `*Idempotence` for union/intersection plus `emptyIdentity`) couldn't
+/// catch the real-world bug — none of those laws exercise the symmetric
+/// difference operation.
+struct BuggySymmetricDifference: SetAlgebra, Equatable, Sendable, CustomStringConvertible {
+    typealias Element = Int
+
+    var underlying: Set<Int>
+
+    init() { self.underlying = [] }
+    init(_ elements: Set<Int>) { self.underlying = elements }
+
+    func contains(_ member: Int) -> Bool { underlying.contains(member) }
+
+    func union(_ other: BuggySymmetricDifference) -> BuggySymmetricDifference {
+        BuggySymmetricDifference(underlying.union(other.underlying))
+    }
+    func intersection(_ other: BuggySymmetricDifference) -> BuggySymmetricDifference {
+        BuggySymmetricDifference(underlying.intersection(other.underlying))
+    }
+
+    // The bug: symmetricDifference returns the intersection.
+    func symmetricDifference(_ other: BuggySymmetricDifference) -> BuggySymmetricDifference {
+        BuggySymmetricDifference(underlying.intersection(other.underlying))
+    }
+
+    mutating func formUnion(_ other: BuggySymmetricDifference) {
+        underlying.formUnion(other.underlying)
+    }
+    mutating func formIntersection(_ other: BuggySymmetricDifference) {
+        underlying.formIntersection(other.underlying)
+    }
+    mutating func formSymmetricDifference(_ other: BuggySymmetricDifference) {
+        underlying.formIntersection(other.underlying)
+    }
+
+    @discardableResult
+    mutating func insert(
+        _ newMember: Int
+    ) -> (inserted: Bool, memberAfterInsert: Int) {
+        underlying.insert(newMember)
+    }
+    @discardableResult
+    mutating func remove(_ member: Int) -> Int? { underlying.remove(member) }
+    @discardableResult
+    mutating func update(with newMember: Int) -> Int? {
+        underlying.update(with: newMember)
+    }
+
+    static func == (
+        lhs: BuggySymmetricDifference,
+        rhs: BuggySymmetricDifference
+    ) -> Bool {
+        lhs.underlying == rhs.underlying
+    }
+
+    var description: String { "BSD(\(underlying.sorted()))" }
+}
+
+extension Gen where Value == BuggySymmetricDifference {
+    /// Generator for `BuggySymmetricDifference`. The element range produces
+    /// occasional disjoint pairs and occasional overlapping pairs — both are
+    /// needed to expose every law the bug violates (`x △ x` exercises the
+    /// idempotent case, `x △ ∅` requires non-empty `x`, the definition law
+    /// fires on partial overlap).
+    static func buggySymmetricDifference() -> Generator<BuggySymmetricDifference, some SendableSequenceType> {
+        Gen<Int>.int(in: 0...20)
+            .array(of: 1...4)
+            .map { BuggySymmetricDifference(Set($0)) }
+    }
+}

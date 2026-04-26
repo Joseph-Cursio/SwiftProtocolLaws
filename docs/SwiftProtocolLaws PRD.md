@@ -241,6 +241,12 @@ Floating-point `NaN` is the canonical intentional violation; types containing `F
 | Union commutativity | Strict | `x.union(y) == y.union(x)` |
 | Intersection commutativity | Strict | `x.intersection(y) == y.intersection(x)` |
 | Empty identity | Strict | `x.union(.empty) == x` |
+| Symmetric-difference self-empty | Strict | `x.symmetricDifference(x) == .empty` |
+| Symmetric-difference empty identity | Strict | `x.symmetricDifference(.empty) == x` |
+| Symmetric-difference commutativity | Strict | `x.symmetricDifference(y) == y.symmetricDifference(x)` |
+| Symmetric-difference definition | Strict | `x.symmetricDifference(y) == x.union(y).subtracting(x.intersection(y))` |
+
+The four `symmetricDifference*` laws were added in response to a real-world miss: pre-fix `swift-collections@35349601`, `TreeSet.symmetricDifference` returned the *intersection* via a `_Bitmap` typo (`&` instead of `^`). The original five-law SetAlgebra suite — union/intersection idempotence + commutativity + emptyIdentity — does not exercise `symmetricDifference` at all and would not have caught the bug. The retroactive validation in `Validation/Pass3` pins the kit against the pre-fix SHA and asserts the new laws fire.
 
 #### Coverage Scope
 

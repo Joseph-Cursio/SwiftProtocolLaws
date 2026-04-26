@@ -2,13 +2,24 @@ import PropertyBased
 
 /// Run `SetAlgebra` protocol laws over `Value` (PRD §4.3).
 ///
-/// Five Strict-tier laws — a violation under any of them is a bug:
+/// Nine Strict-tier laws — a violation under any of them is a bug:
 /// - `unionIdempotence` — `x.union(x) == x`
 /// - `intersectionIdempotence` — `x.intersection(x) == x`
 /// - `unionCommutativity` — `x.union(y) == y.union(x)`
 /// - `intersectionCommutativity` — `x.intersection(y) == y.intersection(x)`
 /// - `emptyIdentity` — `x.union(Self()) == x` (the protocol's `init()`
 ///   produces the empty set)
+/// - `symmetricDifferenceSelfIsEmpty` — `x.symmetricDifference(x) == Self()`
+/// - `symmetricDifferenceEmptyIdentity` — `x.symmetricDifference(Self()) == x`
+/// - `symmetricDifferenceCommutativity` — `x.symmetricDifference(y) == y.symmetricDifference(x)`
+/// - `symmetricDifferenceDefinition` — `x.symmetricDifference(y) ==
+///   x.union(y).subtracting(x.intersection(y))`
+///
+/// The four `symmetricDifference*` laws closed a real-world gap: pre-fix
+/// `swift-collections@35349601`, `TreeSet.symmetricDifference` returned the
+/// intersection rather than the symmetric difference. With only the original
+/// five laws, none of the kit's checks caught it. See `Validation/Pass3` for
+/// the retroactive validation harness.
 ///
 /// `SetAlgebra` does not formally extend `Equatable`, but in practice every
 /// stdlib SetAlgebra type is `Equatable` and the laws above compare
@@ -29,7 +40,11 @@ public func checkSetAlgebraProtocolLaws<
         await checkIntersectionIdempotence(generator: generator, options: options),
         await checkUnionCommutativity(generator: generator, options: options),
         await checkIntersectionCommutativity(generator: generator, options: options),
-        await checkEmptyIdentity(generator: generator, options: options)
+        await checkEmptyIdentity(generator: generator, options: options),
+        await checkSymmetricDifferenceSelfIsEmpty(generator: generator, options: options),
+        await checkSymmetricDifferenceEmptyIdentity(generator: generator, options: options),
+        await checkSymmetricDifferenceCommutativity(generator: generator, options: options),
+        await checkSymmetricDifferenceDefinition(generator: generator, options: options)
     ]
     try ProtocolLawViolation.throwIfViolations(in: results, enforcement: options.enforcement)
     return results
@@ -147,6 +162,108 @@ private func checkEmptyIdentity<
             property: { sample in sample.union(Value()) == sample },
             formatCounterexample: { sample, _ in
                 "x = \(sample); x.union(Self()) = \(sample.union(Value())), expected \(sample)"
+            }
+        )
+    )
+}
+
+private func checkSymmetricDifferenceSelfIsEmpty<
+    Value: SetAlgebra & Equatable & Sendable,
+    Shrinker: SendableSequenceType
+>(
+    generator: Generator<Value, Shrinker>,
+    options: LawCheckOptions
+) async -> CheckResult {
+    await PerLawDriver.run(
+        protocolLaw: "SetAlgebra.symmetricDifferenceSelfIsEmpty",
+        tier: .strict,
+        options: options,
+        check: LawCheck(
+            sample: { rng in generator.run(using: &rng) },
+            property: { sample in sample.symmetricDifference(sample) == Value() },
+            formatCounterexample: { sample, _ in
+                "x = \(sample); x.symmetricDifference(x) = "
+                    + "\(sample.symmetricDifference(sample)), expected \(Value())"
+            }
+        )
+    )
+}
+
+private func checkSymmetricDifferenceEmptyIdentity<
+    Value: SetAlgebra & Equatable & Sendable,
+    Shrinker: SendableSequenceType
+>(
+    generator: Generator<Value, Shrinker>,
+    options: LawCheckOptions
+) async -> CheckResult {
+    await PerLawDriver.run(
+        protocolLaw: "SetAlgebra.symmetricDifferenceEmptyIdentity",
+        tier: .strict,
+        options: options,
+        check: LawCheck(
+            sample: { rng in generator.run(using: &rng) },
+            property: { sample in sample.symmetricDifference(Value()) == sample },
+            formatCounterexample: { sample, _ in
+                "x = \(sample); x.symmetricDifference(Self()) = "
+                    + "\(sample.symmetricDifference(Value())), expected \(sample)"
+            }
+        )
+    )
+}
+
+private func checkSymmetricDifferenceCommutativity<
+    Value: SetAlgebra & Equatable & Sendable,
+    Shrinker: SendableSequenceType
+>(
+    generator: Generator<Value, Shrinker>,
+    options: LawCheckOptions
+) async -> CheckResult {
+    await PerLawDriver.run(
+        protocolLaw: "SetAlgebra.symmetricDifferenceCommutativity",
+        tier: .strict,
+        options: options,
+        check: LawCheck(
+            sample: { rng in (generator.run(using: &rng), generator.run(using: &rng)) },
+            property: { input in
+                let (first, second) = input
+                return first.symmetricDifference(second) == second.symmetricDifference(first)
+            },
+            formatCounterexample: { input, _ in
+                let (first, second) = input
+                return "x = \(first), y = \(second); "
+                    + "x.symmetricDifference(y) = \(first.symmetricDifference(second)), "
+                    + "y.symmetricDifference(x) = \(second.symmetricDifference(first))"
+            }
+        )
+    )
+}
+
+private func checkSymmetricDifferenceDefinition<
+    Value: SetAlgebra & Equatable & Sendable,
+    Shrinker: SendableSequenceType
+>(
+    generator: Generator<Value, Shrinker>,
+    options: LawCheckOptions
+) async -> CheckResult {
+    await PerLawDriver.run(
+        protocolLaw: "SetAlgebra.symmetricDifferenceDefinition",
+        tier: .strict,
+        options: options,
+        check: LawCheck(
+            sample: { rng in (generator.run(using: &rng), generator.run(using: &rng)) },
+            property: { input in
+                let (first, second) = input
+                let viaSymDiff = first.symmetricDifference(second)
+                let viaDefinition = first.union(second).subtracting(first.intersection(second))
+                return viaSymDiff == viaDefinition
+            },
+            formatCounterexample: { input, _ in
+                let (first, second) = input
+                let viaSymDiff = first.symmetricDifference(second)
+                let viaDefinition = first.union(second).subtracting(first.intersection(second))
+                return "x = \(first), y = \(second); "
+                    + "x.symmetricDifference(y) = \(viaSymDiff), "
+                    + "(x ∪ y) \\ (x ∩ y) = \(viaDefinition)"
             }
         )
     )

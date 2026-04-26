@@ -138,4 +138,28 @@ import PropertyBased
             "expected emptyIdentity; got: \(laws)"
         )
     }
+
+    @Test func detectsSetAlgebraSymmetricDifferenceViolation() async throws {
+        // BuggySymmetricDifference returns intersection from `symmetricDifference`,
+        // mirroring the pre-fix swift-collections@35349601 _Bitmap bug. Three of
+        // the four symmetricDifference* laws fire (selfIsEmpty, emptyIdentity,
+        // definition); commutativity passes vacuously since `&` is commutative.
+        let violation = await #expect(throws: ProtocolLawViolation.self) {
+            try await checkSetAlgebraProtocolLaws(
+                for: BuggySymmetricDifference.self,
+                using: Gen<BuggySymmetricDifference>.buggySymmetricDifference(),
+                options: LawCheckOptions(budget: .sanity)
+            )
+        }
+        let laws = violation?.results.map(\.protocolLaw) ?? []
+        let symDiffLaws = Set(laws).intersection([
+            "SetAlgebra.symmetricDifferenceSelfIsEmpty",
+            "SetAlgebra.symmetricDifferenceEmptyIdentity",
+            "SetAlgebra.symmetricDifferenceDefinition"
+        ])
+        #expect(
+            !symDiffLaws.isEmpty,
+            "expected at least one symmetricDifference* law to fire; got: \(laws)"
+        )
+    }
 }

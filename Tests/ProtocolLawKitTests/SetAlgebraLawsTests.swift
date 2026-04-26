@@ -16,6 +16,10 @@ import PropertyBased
         #expect(names.contains("SetAlgebra.unionCommutativity"))
         #expect(names.contains("SetAlgebra.intersectionCommutativity"))
         #expect(names.contains("SetAlgebra.emptyIdentity"))
+        #expect(names.contains("SetAlgebra.symmetricDifferenceSelfIsEmpty"))
+        #expect(names.contains("SetAlgebra.symmetricDifferenceEmptyIdentity"))
+        #expect(names.contains("SetAlgebra.symmetricDifferenceCommutativity"))
+        #expect(names.contains("SetAlgebra.symmetricDifferenceDefinition"))
         #expect(results.allSatisfy { $0.outcome == .passed })
     }
 

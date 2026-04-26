@@ -114,3 +114,107 @@ The PRD §8 1.0 gate ("at least one real semantic conformance bug in 5+ popular 
 - Targeting types specifically *suspected* of having issues — places where custom equality or Codable round-trip is implemented manually, where the prior-art property test coverage is thin.
 
 For v1's purposes, the validation infrastructure is shipped and a non-trivial slice of it is exercised against real external code. Bug-hunting can happen incrementally as the kit gets adopted.
+
+## Pass 3: git-archaeology + retroactive validation
+
+Pass 2 confirmed the kit composes with external code but did not catch a real bug. Pass 3 inverts the search: instead of running the kit forward against current code and hoping a bug surfaces, scan the *git history* of popular Swift packages for fix commits that look like protocol-law violations, then check out the pre-fix SHA and try to retroactively catch the bug.
+
+### Survey scope
+
+Searched four full-history Swift packages — combined ~5,200 commits:
+
+| Package | Commits | Conformance fixes worth inspecting |
+|---|---|---|
+| `swift-argument-parser` | 515 | 0 (synthesized + parser/decoder bugs only) |
+| `swift-aws-lambda-runtime` | 434 | 0 (correct on arrival; no patches) |
+| `swift-collections` | 1,873 | 1 candidate (`35349601`) |
+| `swift-nio` | 2,605 | 0 (internal types or non-law methods) |
+| `hummingbird` | 973 | 0 (Codable surface is small) |
+
+Search strategy: `git log --grep="hash|equ|codable|encode|decode|comparable|round.?trip|symmet|transit|consist"`, then diff inspection on every promising candidate. Rejection categories that came up repeatedly:
+
+- *Adding* missing conformance (not a bug fix)
+- Bugs in `internal`/`fileprivate` types (no public surface to test)
+- Bugs in custom `KeyedDecodingContainerProtocol` implementations (decoder internals, not a value type's `init(from:)`/`encode(to:)`)
+- Pure refactors that preserved semantics
+- Bugs in user-named methods (e.g. `BitSet.isEqualSet(to:)`) that aren't the protocol's `==` / `hash(into:)` / `<` / Codable round-trip
+
+### The candidate: `swift-collections@35349601`
+
+> "Typo: symmetric difference should be the xor, not intersection. Otherwise it is the same as the intersection."
+
+```diff
+- internal func symmetricDifference(_ other: Self) -> Self {
+-   Self(_value: _value & other._value)
+- }
++ internal func symmetricDifference(_ other: Self) -> Self {
++   Self(_value: _value ^ other._value)
++ }
+```
+
+Apple added a regression test in the same commit:
+
+```swift
+let left: TreeSet<Int> = [1, 3]
+let right: TreeSet<Int> = [2, 3]
+let result = left.symmetricDifference(right)
+expectEqualSets(result, [1, 2])
+```
+
+This is on a public type (`TreeSet`), the bug is on a SetAlgebra-required method, the description names a real algebraic violation. Worth wiring up.
+
+**Kit-coverage gap discovered along the way.** The kit's original five-law SetAlgebra suite — `unionIdempotence`, `intersectionIdempotence`, `unionCommutativity`, `intersectionCommutativity`, `emptyIdentity` — does not exercise `symmetricDifference` at all. Even with the bug observable, none of those laws would have fired on it. Closing this gap meant adding four `symmetricDifference*` laws to PRD §4.3 SetAlgebra:
+
+- `symmetricDifferenceSelfIsEmpty` — `x △ x == .empty`
+- `symmetricDifferenceEmptyIdentity` — `x △ .empty == x`
+- `symmetricDifferenceCommutativity` — `x △ y == y △ x`
+- `symmetricDifferenceDefinition` — `x △ y == x.union(y).subtracting(x.intersection(y))`
+
+The new laws ship in `SetAlgebraLaws.swift` and are guarded by a `BuggySymmetricDifference` planted bug whose `symmetricDifference` returns the intersection (mirroring the exact pre-fix shape).
+
+### What Pass 3 found
+
+`Validation/Tests/ValidationPass3Tests/SwiftCollectionsRetroactiveTests.swift` pins `swift-collections` to revision `8e5e4a8f` — the parent of `35349601`, where the buggy `_Bitmap.symmetricDifference` is in place. Running the kit there produced an unexpected result: **`TreeSet<Int>` passes every kit law, including all four new `symmetricDifference*` laws.**
+
+Apple's own regression test inputs (`[1,3].symmetricDifference([2,3])`) also produce the *correct* answer `[1,2]` at the buggy SHA — not the intersection `[3]` the bug would suggest.
+
+Tracing the public dispatch:
+
+- `TreeSet.symmetricDifference` calls `_HashNode.symmetricDifference`
+- `_HashNode.symmetricDifference` calls `_HashNode._symmetricDifference`
+- `_symmetricDifference` calls `_symmetricDifference_slow*`
+- The slow-path implementations build the result element-by-element via structural traversal in `_HashNode+Structural symmetricDifference.swift`
+
+`_Bitmap.symmetricDifference` is **never called** from this path. A grep across `Sources/HashTreeCollections/` confirms it has no callers outside its own definition. The buggy method is dead code at this SHA.
+
+Apple's commit was correct fix-on-sight cleanup of a real typo, but the typo was in unreachable code. The "regression test" added in the fix commit guards against future code that might begin calling `_Bitmap.symmetricDifference` — not against an observable user-facing bug.
+
+The Pass 3 test target therefore asserts what's empirically true: at the buggy SHA, the kit reports no violation, faithfully reflecting the public semantics. This is the kit doing its job — *not* false-positiving on dead code.
+
+### What this means for PRD §8
+
+The §8 1.0 gate as written ("must catch a real semantic conformance bug in 5+ popular Swift packages") may be miscalibrated. The empirical evidence:
+
+1. Across four full-history Apple/SSWG/community Swift packages (~5,200 commits), exactly one candidate fix-commit looked plausible.
+2. That one candidate, on closer inspection, was a fix to dead code — the bug was never observable through the public API.
+3. The kit *correctly* reports no violation at the buggy SHA. There is no false-positive failure mode here.
+
+Combined with the structural reasons Apple-maintained Swift code is mostly clean — heavy reliance on synthesized conformances, hand-written impls landing correct on first commit, scrutiny in code review — the conclusion is that closing §8 against well-tested packages is unlikely *not* because the kit is weak, but because the population of historical kit-detectable bugs in well-tested packages is approximately empty.
+
+**Proposed §8 rewrite (open for discussion, not yet committed):** Replace the bug-catch criterion with the following:
+
+- The kit's planted-bug self-test gate (already required by §8) catches every Strict-tier law violation across all 8 covered protocols. ✓ (currently 26 planted-bug detection tests)
+- Pass 1 (scan-only discovery against ≥4 real packages) demonstrates the discovery plugin handles real codebases. ✓
+- Pass 2 (actual law checks against ≥1 external package's public types) demonstrates the kit composes with external SwiftPM deps. ✓
+- Pass 3 (git-archaeology) documents the search effort and any candidate bugs found, regardless of whether the kit catches them. ✓
+- The kit ships v1 honestly: the value prop is *prevention* (catch bugs in new code as it's written), not retroactive *discovery* in already-shipped code.
+
+The current §8 wording was an aspirational stretch goal in PRD v0.2; the Pass 3 evidence is grounds for a v0.3 PRD revision that calibrates §8 to reality.
+
+### How to re-run Pass 3
+
+```bash
+cd Validation && swift test --filter SwiftCollectionsRetroactiveTests
+```
+
+If `swift-collections` ever gains a public observation path through `_Bitmap.symmetricDifference`, the `treeSetPassesAllLawsAtBuggySHA` test will start failing — re-evaluate at that point.
