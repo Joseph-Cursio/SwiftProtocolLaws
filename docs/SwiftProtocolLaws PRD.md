@@ -28,7 +28,7 @@ Several recent shifts in the Swift ecosystem make this proposal feasible *and* t
 
 - Swift macros (SE-0382 et al.) are stable enough to support compile-time generation reliably.
 - Swift Testing supersedes XCTest as the official testing system, with a trait system that this proposal can integrate with rather than work around.
-- `swift-property-based` and SwiftQC are both active enough to serve as backends without bootstrapping our own generator/shrinking infrastructure.
+- `swift-property-based` is active and battle-tested enough to serve as the backend without bootstrapping our own generator/shrinking infrastructure. SwiftQC exists as a second active package (different shrinking and async semantics) that demonstrates the abstraction surface is generalizable, even if v1 ships single-backend by design.
 - The protocol surface itself has expanded (`Sendable`, `Identifiable`, `AdditiveArithmetic`, `Actor`) — more conformance contracts in flight, more value in checking them.
 - Apple's broader correctness push (SwiftData, structured concurrency, ownership) signals an audience already attuned to "the compiler can't catch everything we care about."
 
@@ -81,7 +81,7 @@ Adjacent ecosystems already solve this:
 - **Rust** has `proptest` plus the `arbitrary` derive macro: type-directed generator synthesis bundled with a property runner.
 - **Haskell** has QuickCheck plus community law libraries (`quickcheck-classes`, `checkers`) that ship the algebraic-law checks for `Eq`, `Ord`, `Functor`, `Monoid`, etc.
 
-Swift has neither piece. The Swift property-based testing ecosystem has two active packages (`swift-property-based`, SwiftQC) providing generation and shrinking infrastructure, but no protocol law library and no static-analysis layer connecting conformance declarations to property test generation. This gap is unoccupied.
+Swift has neither piece. The Swift property-based testing ecosystem has active packages (`swift-property-based`, SwiftQC) providing generation and shrinking infrastructure, but no protocol law library and no static-analysis layer connecting conformance declarations to property test generation. This gap is unoccupied.
 
 -----
 
@@ -381,9 +381,9 @@ public protocol PropertyBackend {
 }
 ```
 
-The default implementation wraps `swift-property-based`. Alternative implementations can target SwiftQC or future backends without changing protocol law definitions.
+The single shipped implementation wraps `swift-property-based`. The abstraction stays public so a future second backend (e.g., a SwiftQC adapter once that package's Swift 6 support matures) can drop in without changing protocol law definitions.
 
-**Deferred public abstraction.** Only two property-based backends in the Swift ecosystem are viable today (`swift-property-based`, SwiftQC), and their shrinking and async semantics differ. The protocol above is *internal* through M3. The public abstraction surface is finalized at M4 alongside the second backend implementation, so the API is shaped against two concrete implementations rather than one.
+**Single-backend by design.** v1 ships only `SwiftPropertyBasedBackend` and deliberately does not chase a second concrete implementation. The protocol above was *internal* through M3 and made public at M4. The public surface — `@Sendable (T) async throws -> Bool` property closures, explicit `Seed` and `Environment` types, near-miss reporting hooks — was shaped against `swift-property-based` as the canonical implementation, with SwiftQC's documented shrinking and async semantics serving as the design check that the surface generalizes. Shipping the second backend was scoped out of v1: see `CLAUDE.md` "Single-backend by design" for the rationale (`swift-property-based` is best-of-breed; SwiftQC v1.0.0 also has an unrelated Swift 6.3 build issue at this writing). The abstraction is real, public, and ready for a second backend the moment one becomes a useful addition rather than a parity exercise.
 
 #### Actor-Isolated and Sendable Types
 
@@ -481,7 +481,7 @@ Suppressions appear in the test report so reviewers can spot policy drift, and C
 | M1 | `Equatable` and `Hashable` protocol laws (Strict tier only), `swift-property-based` backend, diagnostic output, trial budgets |
 | M2 | `Comparable` and `Codable` protocol laws; `Codable` strict/semantic/partial modes; Conventional tier introduced |
 | M3 | `Collection` and `SetAlgebra` protocol laws; suppression and intentional-violation API |
-| M4 | `PropertyBackend` public abstraction; SwiftQC backend; finalized async/throws/Sendable property signature |
+| M4 | `PropertyBackend` public abstraction; finalized async/throws/Sendable property signature (single-backend by design — see §4.5) |
 | M5 | Confidence reporting upgrade — near-miss tracking, coverage hints, "not a proof" messaging, Heuristic tier |
 
 -----
@@ -679,8 +679,8 @@ When derivation falls back to `.todo` or emits a "weak generator" warning, the d
                  │ runs via
 ┌────────────────▼────────────────────────────────┐
 │                 PropertyBackend                 │
-│  swift-property-based (default)                 │
-│  SwiftQC (M4)                                   │
+│  swift-property-based (the single v1 backend)   │
+│  Public abstraction surface (since M4)          │
 │  async / throws / Sendable property closures    │
 └─────────────────────────────────────────────────┘
 ```
@@ -775,6 +775,7 @@ v0.3 is a tightly-scoped revision: one criterion rewritten, one protocol's law s
 **Tier 3 — wording / scope catch-ups:**
 
 - **§8 framework self-test gate** retained verbatim from v0.2. v0.3 does not change the kit's CI guarantees; it changes only how 1.0-readiness is *measured against external code*.
+- **§4.5 / §4.8 / §6 SwiftQC reconciliation.** The "Single-backend by design" decision (commit `74fb9f2`, made between v0.2 and v0.3) dropped the planned SwiftQC second backend; the PRD's M4 row, the §4.5 "Deferred public abstraction" paragraph, and the §6 architecture diagram all still listed SwiftQC as a shipped or imminently-shipping backend. v0.3 reconciles these: the M4 row drops "SwiftQC backend"; §4.5 reframes around "single-backend by design" with SwiftQC's semantics as a design check rather than a planned implementation; §6 replaces the SwiftQC line in the diagram with an "abstraction is public since M4" note. No API or scope change.
 - **Appendix A renumbering.** The v0.2 → v0.1 changelog moves to Appendix B. v0.3's changelog (this section) takes the Appendix A slot, so a reader of the latest PRD encounters the most recent calibration first.
 
 **What v0.3 does *not* change:**
