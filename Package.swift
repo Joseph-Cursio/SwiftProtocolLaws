@@ -42,13 +42,18 @@ let package = Package(
             ]
         ),
 
-        // Package-internal shared types (PRD §4.3 KnownProtocol) used by
-        // both the macro implementation and the discovery tool. Marked
+        // Package-internal shared types (PRD §4.3 KnownProtocol +
+        // §5.7 generator-derivation strategist) used by both the macro
+        // implementation and the discovery tool. Marked
         // `package`-visibility — visible across our targets but not part
         // of the shipped library surface.
         .target(
             name: "ProtoLawCore",
             dependencies: []
+        ),
+        .testTarget(
+            name: "ProtoLawCoreTests",
+            dependencies: ["ProtoLawCore"]
         ),
         // User-facing macro target — declarations only. Re-exports
         // ProtocolLawKit so users importing ProtoLawMacro can call the
