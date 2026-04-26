@@ -31,7 +31,7 @@ extension Gen where Value == Invoice {
             options: LawCheckOptions(budget: .sanity)
         )
         #expect(results.count == 1)
-        #expect(!results[0].isViolation)
+        #expect(results[0].isViolation == false)
         #expect(results[0].tier == .conventional)
         #expect(results[0].protocolLaw == "Codable.roundTripFidelity[JSON]")
     }
@@ -43,7 +43,7 @@ extension Gen where Value == Invoice {
             config: CodableLawConfig(mode: .strict, codec: .json),
             options: LawCheckOptions(budget: .sanity)
         )
-        #expect(!results[0].isViolation, "Invoice should round-trip under JSON")
+        #expect(results[0].isViolation == false, "Invoice should round-trip under JSON")
     }
 
     @Test func customStructRoundTripsUnderBinaryPlist() async throws {
@@ -53,7 +53,7 @@ extension Gen where Value == Invoice {
             config: CodableLawConfig(mode: .strict, codec: .binaryPlist),
             options: LawCheckOptions(budget: .sanity)
         )
-        #expect(!results[0].isViolation)
+        #expect(results[0].isViolation == false)
         #expect(results[0].protocolLaw == "Codable.roundTripFidelity[PropertyList(binary)]")
     }
 
@@ -64,7 +64,7 @@ extension Gen where Value == Invoice {
             config: CodableLawConfig(mode: .semantic(equivalent: { _, _ in true })),
             options: LawCheckOptions(budget: .sanity)
         )
-        #expect(!results[0].isViolation)
+        #expect(results[0].isViolation == false)
     }
 
     @Test func partialFieldsModeOnlyChecksListedFields() async throws {
@@ -74,6 +74,6 @@ extension Gen where Value == Invoice {
             config: CodableLawConfig(mode: .partial(fields: [\Invoice.identifier, \Invoice.amount])),
             options: LawCheckOptions(budget: .sanity)
         )
-        #expect(!results[0].isViolation)
+        #expect(results[0].isViolation == false)
     }
 }

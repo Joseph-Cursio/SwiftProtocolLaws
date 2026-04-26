@@ -146,7 +146,7 @@ import Testing
         ]
         #expect(ids.count == 3)
         #expect(ids.contains(.equatable(.reflexivity)))
-        #expect(!ids.contains(.equatable(.symmetry)))
+        #expect(ids.contains(.equatable(.symmetry)) == false)
     }
 
     @Test func lawIdentifierEqualityIsByValue() {

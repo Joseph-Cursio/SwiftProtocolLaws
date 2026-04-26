@@ -183,7 +183,7 @@ import PropertyBased
             )
         }
         let laws = violation?.results.map(\.protocolLaw) ?? []
-        #expect(!laws.isEmpty)
+        #expect(laws.isEmpty == false)
         #expect(laws.allSatisfy { $0.hasPrefix("Comparable.") })
     }
 

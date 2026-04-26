@@ -11,7 +11,7 @@ import PropertyBased
             options: LawCheckOptions(budget: .sanity)
         )
         for result in results {
-            #expect(!result.isViolation, "\(result.protocolLaw) should pass for Int")
+            #expect(result.isViolation == false, "\(result.protocolLaw) should pass forInt")
         }
     }
 
@@ -22,7 +22,7 @@ import PropertyBased
             options: LawCheckOptions(budget: .sanity)
         )
         for result in results {
-            #expect(!result.isViolation, "\(result.protocolLaw) should pass for String")
+            #expect(result.isViolation == false, "\(result.protocolLaw) should pass forString")
         }
     }
 

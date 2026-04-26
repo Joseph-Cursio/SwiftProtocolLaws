@@ -6,8 +6,8 @@ import PropertyBased
 
     @Test func defaultEnforcementOnlyThrowsOnStrictTier() {
         #expect(EnforcementMode.default.shouldThrow(for: .strict))
-        #expect(!EnforcementMode.default.shouldThrow(for: .conventional))
-        #expect(!EnforcementMode.default.shouldThrow(for: .heuristic))
+        #expect(EnforcementMode.default.shouldThrow(for: .conventional) == false)
+        #expect(EnforcementMode.default.shouldThrow(for: .heuristic) == false)
     }
 
     @Test func strictEnforcementThrowsOnEveryTier() {
@@ -79,7 +79,7 @@ import PropertyBased
             nearMisses: nil
         )
         let text = ViolationFormatter.format(result)
-        #expect(!text.contains("Near-misses"))
+        #expect(text.contains("Near-misses") == false)
     }
 
     @Test func formatterCapsLongNearMissLists() {
@@ -97,7 +97,7 @@ import PropertyBased
         #expect(text.contains("entry-1"))
         #expect(text.contains("entry-5"))
         #expect(text.contains("… 3 more"))
-        #expect(!text.contains("entry-6"))
+        #expect(text.contains("entry-6") == false)
     }
 
     @Test func formatterRendersCoverageHintsSorted() {
@@ -130,6 +130,6 @@ import PropertyBased
             outcome: .passed
         )
         let text = ViolationFormatter.format(result)
-        #expect(!text.contains("Coverage:"))
+        #expect(text.contains("Coverage:") == false)
     }
 }

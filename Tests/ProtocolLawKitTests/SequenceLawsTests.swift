@@ -30,7 +30,7 @@ import PropertyBased
             laws: .ownOnly
         )
         let names = results.map(\.protocolLaw)
-        #expect(!names.contains { $0.hasPrefix("IteratorProtocol.") })
+        #expect(names.contains { $0.hasPrefix("IteratorProtocol.") } == false)
         #expect(names.allSatisfy { $0.hasPrefix("Sequence.") })
     }
 
@@ -44,8 +44,8 @@ import PropertyBased
         )
         let names = results.map(\.protocolLaw)
         #expect(names.contains("Sequence.underestimatedCountLowerBound"))
-        #expect(!names.contains("Sequence.multiPassConsistency"))
-        #expect(!names.contains("Sequence.makeIteratorIndependence"))
+        #expect(names.contains("Sequence.multiPassConsistency") == false)
+        #expect(names.contains("Sequence.makeIteratorIndependence") == false)
     }
 
     @Test func detectsLyingUnderestimatedCount() async throws {

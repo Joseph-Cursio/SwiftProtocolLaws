@@ -11,7 +11,7 @@ import PropertyBased
             options: LawCheckOptions(budget: .sanity)
         )
         for result in results {
-            #expect(!result.isViolation, "\(result.protocolLaw) failed for Int")
+            #expect(result.isViolation == false, "\(result.protocolLaw) failed forInt")
         }
     }
 
@@ -22,7 +22,7 @@ import PropertyBased
             options: LawCheckOptions(budget: .sanity)
         )
         for result in results {
-            #expect(!result.isViolation, "\(result.protocolLaw) failed for Coordinate")
+            #expect(result.isViolation == false, "\(result.protocolLaw) failed forCoordinate")
         }
     }
 

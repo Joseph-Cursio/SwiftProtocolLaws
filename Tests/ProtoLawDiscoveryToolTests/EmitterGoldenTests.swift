@@ -46,7 +46,7 @@ import Testing
         )
         #expect(output.contains("checkHashableProtocolLaws"))
         // Equatable check NOT emitted — subsumed.
-        #expect(!output.contains("checkEquatableProtocolLaws"))
+        #expect(output.contains("checkEquatableProtocolLaws") == false)
     }
 
     @Test func emitsCodableAndEquatable() {
@@ -121,7 +121,7 @@ import Testing
         // Codable test replaced by suppression marker + comment stub.
         #expect(output.contains("// proto-law-suppress: codable_Foo"))
         #expect(output.contains("(checkCodableProtocolLaws for Foo suppressed"))
-        #expect(!output.contains("@Test func codable_Foo"))
+        #expect(output.contains("@Test func codable_Foo") == false)
     }
 
     // MARK: - Edge cases
@@ -133,7 +133,7 @@ import Testing
         )
         #expect(output.contains("// Types detected: 0"))
         #expect(output.contains("import ProtocolLawKit"))
-        #expect(!output.contains("@Suite"))
+        #expect(output.contains("@Suite") == false)
     }
 
     @Test func parseFailuresAreSurfacedInHeader() {
@@ -160,7 +160,7 @@ import Testing
             )
         )
         #expect(output.contains("// No emit-able stdlib conformance"))
-        #expect(!output.contains("@Suite struct CursorProtocolLawTests"))
+        #expect(output.contains("@Suite struct CursorProtocolLawTests") == false)
     }
 
     // MARK: - M3 derivation strategies
@@ -174,7 +174,7 @@ import Testing
             )
         )
         #expect(output.contains("using: Gen<Status>.element(of: Status.allCases)"))
-        #expect(!output.contains("Status.gen()"))
+        #expect(output.contains("Status.gen()") == false)
     }
 
     @Test func rawRepresentableEntryEmitsLiftedGenerator() {
@@ -187,7 +187,7 @@ import Testing
         )
         #expect(output.contains("Gen<Character>.letterOrNumber.string(of: 0...8)"))
         #expect(output.contains("compactMap { Direction(rawValue: $0) }"))
-        #expect(!output.contains("Direction.gen()"))
+        #expect(output.contains("Direction.gen()") == false)
     }
 
     @Test func intRawRepresentableEntryEmitsIntGenerator() {

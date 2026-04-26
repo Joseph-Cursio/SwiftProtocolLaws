@@ -28,7 +28,7 @@ import PropertyBased
         #expect(result.outcome == .passed)
         // Near-miss collector populated; mentions the whitespace field.
         let nearMisses = try #require(result.nearMisses)
-        #expect(!nearMisses.isEmpty, "expected at least one field diff")
+        #expect(nearMisses.isEmpty == false, "expected at least one field diff")
         #expect(
             nearMisses.contains { $0.contains("whitespaceField") },
             "expected whitespaceField diff; got: \(nearMisses)"

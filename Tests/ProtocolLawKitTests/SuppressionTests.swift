@@ -9,8 +9,8 @@ import PropertyBased
     @Test func matchesPlainQualifiedName() {
         let id = LawIdentifier.equatable(.reflexivity)
         #expect(id.matches("Equatable.reflexivity"))
-        #expect(!id.matches("Equatable.symmetry"))
-        #expect(!id.matches("Hashable.reflexivity"))
+        #expect(id.matches("Equatable.symmetry") == false)
+        #expect(id.matches("Hashable.reflexivity") == false)
     }
 
     @Test func matchesIgnoresBracketedSuffix() {
@@ -20,7 +20,7 @@ import PropertyBased
         #expect(id.matches("Codable.roundTripFidelity[JSON]"))
         #expect(id.matches("Codable.roundTripFidelity[BinaryPlist]"))
         #expect(id.matches("Codable.roundTripFidelity"))
-        #expect(!id.matches("Codable.somethingElse[JSON]"))
+        #expect(id.matches("Codable.somethingElse[JSON]") == false)
     }
 
     // MARK: - .skip suppresses without paying trial budget
@@ -90,7 +90,7 @@ import PropertyBased
         // Trials > 0 because the check actually ran.
         #expect(reflexivity.trials > 0)
         // Not surfaced as a violation; throwIfViolations did not throw.
-        #expect(!reflexivity.isViolation)
+        #expect(reflexivity.isViolation == false)
     }
 
     @Test func intentionalViolationOnPassingLawJustPasses() async throws {

@@ -156,7 +156,7 @@ import PropertyBased
         #expect(text.contains("swiftVersion: 6.1 → 6.3"))
         #expect(text.contains("backend: backend-a → backend-b"))
         // generatorSchemaHash matches so it should NOT appear in the diff list.
-        #expect(!text.contains("generatorSchema:"))
+        #expect(text.contains("generatorSchema:") == false)
     }
 
     @Test func validationHappensBeforeAnyTrialBudget() async throws {

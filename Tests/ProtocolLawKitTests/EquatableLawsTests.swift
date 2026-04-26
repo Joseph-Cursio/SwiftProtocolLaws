@@ -13,7 +13,7 @@ import PropertyBased
         #expect(results.count == 4)
         for result in results {
             #expect(
-                !result.isViolation,
+                result.isViolation == false,
                 "\(result.protocolLaw) should pass for Int"
             )
             #expect(result.tier == .strict)
@@ -28,7 +28,7 @@ import PropertyBased
         )
         #expect(results.count == 4)
         for result in results {
-            #expect(!result.isViolation, "\(result.protocolLaw) should pass for String")
+            #expect(result.isViolation == false, "\(result.protocolLaw) should pass for String")
         }
     }
 
@@ -40,7 +40,7 @@ import PropertyBased
         )
         #expect(results.count == 4)
         for result in results {
-            #expect(!result.isViolation, "\(result.protocolLaw) should pass for Coordinate")
+            #expect(result.isViolation == false, "\(result.protocolLaw) should pass for Coordinate")
         }
     }
 
@@ -51,7 +51,7 @@ import PropertyBased
             using: TestGen.smallInt(),
             options: LawCheckOptions(budget: .sanity, seed: pinnedSeed)
         )
-        #expect(!results.isEmpty)
+        #expect(results.isEmpty == false)
         for result in results {
             #expect(result.seed == pinnedSeed)
             #expect(result.environment.backendIdentity == "swift-property-based")
