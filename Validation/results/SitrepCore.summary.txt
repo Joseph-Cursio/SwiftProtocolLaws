@@ -1,0 +1,23 @@
+ProtoLawDiscoveryTool: wrote /Users/joecursio/xcode_projects/swiftprotocollaws/Validation/results/SitrepCore.generated.swift
+  target: SitrepCore
+  source files scanned: 12
+  types detected: 18
+  types needing manual gen() (18):
+    - Array
+    - BodyStripper
+    - ClassDeclSyntax
+    - Configuration
+    - EnumDeclSyntax
+    - ExtensionDeclSyntax
+    - FileVisitor
+    - ProtocolDeclSyntax
+    - Report
+    - Results
+    - Scan
+    - String
+    - StructDeclSyntax
+    - SwiftSourceComment
+    - SwiftSourceFunction
+    - SwiftSourceNode
+    - SwiftSourceType
+    - VisitedFile
