@@ -2,7 +2,7 @@
 
 Property-based protocol law checks for Swift's standard-library protocols. Catches semantic conformance bugs the compiler can't.
 
-> **Status:** pre-1.0, but full v1 surface shipped. 157 tests passing on Swift 6.3, macOS 14+. See [Status](#status) for what's stable.
+> **Status:** pre-1.0, but full v1 surface shipped. 196 tests passing on Swift 6.3, macOS 14+. See [Status](#status) for what's stable.
 
 ## The problem
 
@@ -203,14 +203,14 @@ Replay-validation is opt-in: pass an `expectedReplayEnvironment` and the kit ref
 | Memberwise-`Arbitrary` derivation (PRD §5.7 Strategy 3) | Deferred |
 | Advisory layer (missing-conformance suggestions, cross-function discovery) | Not started |
 | Experimental layer (pattern warnings, Codable-derived generators) | Not started |
-| 1.0 validation gate (PRD §8 — must catch a real bug in 5+ popular Swift packages) | Not started |
+| 1.0 External validation gate (PRD v0.3 §8 — three-pass) | All three passes shipped: Pass 1 (discovery scan ≥4 packages), Pass 2 (composition with `swift-argument-parser`), Pass 3 (git-archaeology, results in `Validation/FINDINGS.md`) |
 
 The PropertyBackend abstraction (PRD §4.5) is shipped public with `SwiftPropertyBasedBackend` as the single implementation. `swift-property-based` is the only backend v1 ships; the abstraction stays open for future alternatives but the kit doesn't chase parity for its own sake.
 
 ## Documentation
 
 - **[`docs/SwiftProtocolLaws PRD.md`](docs/SwiftProtocolLaws%20PRD.md)** — design specification, the load-bearing reference for what the kit does and why.
-- **[`docs/Swift Standard Library Protocols.md`](docs/Swift%20Standard%20Library%20Protocols.md)** — inventory of stdlib protocols with each protocol's laws and v1/v1.1/deferred classification.
+- **[`docs/Swift Standard Library Protocols.md`](docs/Swift%20Standard%20Library%20Protocols.md)** — structural inventory of all ~54 stdlib protocols (Inherits / Requirements / one-liner). Laws and v1/v1.1/deferred classification live in PRD §4.3 and §4.3 Coverage Scope.
 - **[`docs/SwiftInferProperties PRD.md`](docs/SwiftInferProperties%20PRD.md)** — design for the downstream SwiftInferProperties package (signature-pattern matcher + test lifter).
 - **[`CLAUDE.md`](CLAUDE.md)** — repository state, design decisions baked into the current PRD, build instructions.
 
