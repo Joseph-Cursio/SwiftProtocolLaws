@@ -89,6 +89,12 @@ A comprehensive reference of all ~54 public protocols in the Swift Standard Libr
 - **Inherits:** `LazySequenceProtocol`, `Collection`
 - The collection counterpart to `LazySequenceProtocol`.
 
+### `SetAlgebra`
+
+- **Inherits:** nothing in stdlib (every adopting type is also `Equatable` in practice; the comparison-based laws in `ProtocolLawKit` require it).
+- **Requirements:** `init()`, `func contains(_ member: Element) -> Bool`, `func union(_ other: Self) -> Self`, `func intersection(_ other: Self) -> Self`, `func symmetricDifference(_ other: Self) -> Self`, `mutating func formUnion(_ other: Self)`, `mutating func formIntersection(_ other: Self)`, `mutating func formSymmetricDifference(_ other: Self)`, `mutating func insert(_ newMember: Element) -> (inserted: Bool, memberAfterInsert: Element)`, `mutating func remove(_ member: Element) -> Element?`, `mutating func update(with newMember: Element) -> Element?`.
+- A type representing a mathematical set, with union, intersection, and symmetric-difference operations. Adopters: `Set`, `OptionSet`, `IndexSet`, `CharacterSet`, plus third-party types like `OrderedSet`, `TreeSet`, `BitSet`. Note: SetAlgebra is filed under Apple's "Collections" documentation topic but does *not* inherit from `Collection` — `Set` adopts both protocols separately. ProtocolLawKit covers nine SetAlgebra laws (see PRD §4.3 SetAlgebra), including four `symmetricDifference*` laws that close the algebraic identity for the operation.
+
 -----
 
 ## 3. Numeric Protocols
@@ -313,7 +319,7 @@ These protocols let custom types be initialized from literal syntax.
 |Category                 |Count  |
 |-------------------------|-------|
 |Equality & Comparison    |4      |
-|Collections              |9      |
+|Collections              |10     |
 |Numeric                  |10     |
 |Encoding & Decoding      |6      |
 |String Representation    |5      |
