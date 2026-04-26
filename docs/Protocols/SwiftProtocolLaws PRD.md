@@ -711,7 +711,7 @@ The named **LawRegistry** layer makes the extension point explicit: adding a new
 
 - A developer can add protocol law checking for a custom `Equatable` type in under 5 minutes (UX criterion).
 - Protocol law violations produce failure messages that identify the specific violated protocol law, its strictness tier, and a reproducible counterexample (replayable seed).
-- The protocol law library compiles and passes CI on Linux, macOS, and Windows.
+- The protocol law library compiles and tests pass on macOS (Swift 6.3+) via local `swift test`. Linux and Windows are out of scope for v1 — there is no automated cross-platform verification, and no CI infrastructure is maintained. The kit uses no Foundation API beyond what `Codable` already implies, so Linux is *expected* to work, but expected ≠ verified. (Earlier drafts of this criterion required Linux + macOS + Windows CI; the cost of maintaining that infrastructure outweighed the value for a single-maintainer pre-1.0 project. Re-add when there is a concrete user request from a non-macOS platform.)
 - **Framework self-test gate (every CI run).** ProtocolLawKit ships a planted-bug suite: types deliberately violating each Strict law, asserted to be detected by the framework. A green CI run requires every planted violation to be caught at the expected strictness tier. This catches regressions in the framework itself — without it, a bug that silences the symmetry check would pass CI undetected.
 - **External validation gate (must hit before 1.0).** Three artifacts in `Validation/`, each demonstrating one face of the kit's pipeline against external real-world Swift code:
 

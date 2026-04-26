@@ -2,6 +2,8 @@
 
 Property-based protocol law checks for Swift's standard-library protocols. Catches semantic conformance bugs the compiler can't.
 
+> This is an experiment in property-based testing. I selected Swift's protocols to start because many have clearly identifiable properties. 
+
 > **Status:** pre-1.0, but full v1 surface shipped. 196 tests passing on Swift 6.3, macOS 14+. See [Status](#status) for what's stable.
 
 ## The problem
