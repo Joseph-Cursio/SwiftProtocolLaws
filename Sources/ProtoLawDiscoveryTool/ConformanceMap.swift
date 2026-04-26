@@ -29,6 +29,10 @@ struct ConformanceMap: Sendable, Equatable {
         /// Most-specific surviving conformances per PRD §4.3 dedupe rule.
         let conformances: Set<KnownProtocol>
         let provenances: [Provenance]
+        /// Generator-derivation choice (PRD §5.7) computed at scan time
+        /// from the type's kind, inheritance clause, and whether any
+        /// declaration in the module supplies `static func gen()`.
+        let derivationStrategy: DerivationStrategy
     }
 
     /// Sorted by `typeName` ascending.

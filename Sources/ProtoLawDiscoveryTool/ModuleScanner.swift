@@ -45,10 +45,16 @@ enum ModuleScanner {
     }
 
     /// Per-type aggregator — collects inheritance names + provenance
-    /// records across primary decl and any extensions seen in any file.
+    /// records + decl-kind + gen() presence across primary decl and any
+    /// extensions seen in any file.
     private struct TypeAggregate {
         var inheritedNames: [String] = []
         var provenances: [ConformanceMap.Provenance] = []
+        /// First primary-decl kind we encountered for this type. Stays
+        /// `nil` if only extensions were seen (rare; extensions of types
+        /// declared in other modules).
+        var typeKind: TypeShape.Kind?
+        var hasUserGen: Bool = false
     }
 
     /// Bundles file-level scanning context so `recordType` stays under
@@ -64,10 +70,21 @@ enum ModuleScanner {
         perType.keys.sorted().map { typeName -> ConformanceMap.Entry in
             let aggregate = perType[typeName]!
             let raw = KnownProtocol.set(from: aggregate.inheritedNames)
+            // Default to `.struct` if we only saw extensions and never a
+            // primary decl. The strategist falls through to `.todo`
+            // anyway in that case.
+            let kind = aggregate.typeKind ?? .struct
+            let shape = TypeShape(
+                name: typeName,
+                kind: kind,
+                inheritedTypes: aggregate.inheritedNames,
+                hasUserGen: aggregate.hasUserGen
+            )
             return ConformanceMap.Entry(
                 typeName: typeName,
                 conformances: KnownProtocol.mostSpecific(in: raw),
-                provenances: aggregate.provenances.sorted()
+                provenances: aggregate.provenances.sorted(),
+                derivationStrategy: DerivationStrategist.strategy(for: shape)
             )
         }
     }
@@ -83,7 +100,9 @@ enum ModuleScanner {
                     name: primary.name,
                     inheritance: primary.inheritance,
                     node: primary.node,
-                    kind: .primary
+                    kind: .primary,
+                    typeKind: primary.kind,
+                    hasUserGen: primary.hasUserGen
                 ),
                 context: context,
                 into: &perType
@@ -102,7 +121,9 @@ enum ModuleScanner {
                 name: typeName,
                 inheritance: extensionDecl.inheritanceClause,
                 node: Syntax(extensionDecl),
-                kind: .extension
+                kind: .extension,
+                typeKind: nil,  // extension doesn't redefine the type kind
+                hasUserGen: hasGenMethod(in: extensionDecl.memberBlock)
             ),
             context: context,
             into: &perType
@@ -113,26 +134,67 @@ enum ModuleScanner {
     /// keeps `accumulate` free of repeated `if let` ladders.
     private struct PrimaryDecl {
         let name: String
+        let kind: TypeShape.Kind
         let inheritance: InheritanceClauseSyntax?
         let node: Syntax
+        let hasUserGen: Bool
     }
 
     private static func primaryDecl(
         from statement: CodeBlockItemSyntax.Item
     ) -> PrimaryDecl? {
         if let decl = statement.as(StructDeclSyntax.self) {
-            return PrimaryDecl(name: decl.name.text, inheritance: decl.inheritanceClause, node: Syntax(decl))
+            return PrimaryDecl(
+                name: decl.name.text,
+                kind: .struct,
+                inheritance: decl.inheritanceClause,
+                node: Syntax(decl),
+                hasUserGen: hasGenMethod(in: decl.memberBlock)
+            )
         }
         if let decl = statement.as(ClassDeclSyntax.self) {
-            return PrimaryDecl(name: decl.name.text, inheritance: decl.inheritanceClause, node: Syntax(decl))
+            return PrimaryDecl(
+                name: decl.name.text,
+                kind: .class,
+                inheritance: decl.inheritanceClause,
+                node: Syntax(decl),
+                hasUserGen: hasGenMethod(in: decl.memberBlock)
+            )
         }
         if let decl = statement.as(EnumDeclSyntax.self) {
-            return PrimaryDecl(name: decl.name.text, inheritance: decl.inheritanceClause, node: Syntax(decl))
+            return PrimaryDecl(
+                name: decl.name.text,
+                kind: .enum,
+                inheritance: decl.inheritanceClause,
+                node: Syntax(decl),
+                hasUserGen: hasGenMethod(in: decl.memberBlock)
+            )
         }
         if let decl = statement.as(ActorDeclSyntax.self) {
-            return PrimaryDecl(name: decl.name.text, inheritance: decl.inheritanceClause, node: Syntax(decl))
+            return PrimaryDecl(
+                name: decl.name.text,
+                kind: .actor,
+                inheritance: decl.inheritanceClause,
+                node: Syntax(decl),
+                hasUserGen: hasGenMethod(in: decl.memberBlock)
+            )
         }
         return nil
+    }
+
+    /// True when `memberBlock` declares a `static func gen()` method.
+    /// The plugin sees the whole module so this catches gen() defined in
+    /// the primary body OR in any extension.
+    private static func hasGenMethod(in memberBlock: MemberBlockSyntax) -> Bool {
+        for member in memberBlock.members {
+            guard let funcDecl = member.decl.as(FunctionDeclSyntax.self) else { continue }
+            guard funcDecl.name.text == "gen" else { continue }
+            let isStatic = funcDecl.modifiers.contains { mod in
+                mod.name.tokenKind == .keyword(.static)
+            }
+            if isStatic { return true }
+        }
+        return false
     }
 
     /// Single-record-call payload — keeps `record` under the
@@ -142,6 +204,8 @@ enum ModuleScanner {
         let inheritance: InheritanceClauseSyntax?
         let node: Syntax
         let kind: ConformanceMap.ProvenanceKind
+        let typeKind: TypeShape.Kind?
+        let hasUserGen: Bool
     }
 
     private static func record(
@@ -161,6 +225,12 @@ enum ModuleScanner {
             line: location.line,
             kind: request.kind
         ))
+        // Set typeKind from the primary decl, never from an extension.
+        if let primaryKind = request.typeKind {
+            aggregate.typeKind = primaryKind
+        }
+        // hasUserGen latches once true — gen() seen anywhere wins.
+        if request.hasUserGen { aggregate.hasUserGen = true }
         perType[request.name] = aggregate
     }
 

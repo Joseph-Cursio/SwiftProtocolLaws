@@ -4,25 +4,29 @@ import Testing
 
 @Suite struct EmitterGoldenTests {
 
+    /// Convenience builder. Most existing emitter tests want `.userGen`
+    /// (the M1 default — emitter spells `<TypeName>.gen()`); the new M3
+    /// tests at the bottom override the strategy explicitly.
+    private func entry(
+        _ typeName: String,
+        conformances: Set<KnownProtocol>,
+        provenances: [ConformanceMap.Provenance] = [],
+        strategy: DerivationStrategy = .userGen
+    ) -> ConformanceMap.Entry {
+        ConformanceMap.Entry(
+            typeName: typeName,
+            conformances: conformances,
+            provenances: provenances.isEmpty
+                ? [ConformanceMap.Provenance(filePath: "/p/\(typeName).swift", line: 1, kind: .primary)]
+                : provenances,
+            derivationStrategy: strategy
+        )
+    }
+
     // MARK: - Single-type happy paths
 
     @Test func emitsEquatableSuite() {
-        let map = ConformanceMap(
-            entries: [
-                ConformanceMap.Entry(
-                    typeName: "Foo",
-                    conformances: [.equatable],
-                    provenances: [
-                        ConformanceMap.Provenance(
-                            filePath: "Sources/MyModule/Foo.swift",
-                            line: 1,
-                            kind: .primary
-                        )
-                    ]
-                )
-            ],
-            parseFailures: []
-        )
+        let map = ConformanceMap(entries: [entry("Foo", conformances: [.equatable])], parseFailures: [])
         let output = GeneratedFileEmitter.emit(target: "MyModule", map: map)
         #expect(output.contains("import Testing"))
         #expect(output.contains("import ProtocolLawKit"))
@@ -36,20 +40,9 @@ import Testing
     }
 
     @Test func emitsHashableSubsumesEquatable() {
-        let entry = ConformanceMap.Entry(
-            typeName: "Foo",
-            conformances: [.hashable],  // post-dedupe (Hashable subsumes Equatable)
-            provenances: [
-                ConformanceMap.Provenance(
-                    filePath: "Sources/MyModule/Foo.swift",
-                    line: 5,
-                    kind: .primary
-                )
-            ]
-        )
         let output = GeneratedFileEmitter.emit(
             target: "MyModule",
-            map: ConformanceMap(entries: [entry], parseFailures: [])
+            map: ConformanceMap(entries: [entry("Foo", conformances: [.hashable])], parseFailures: [])
         )
         #expect(output.contains("checkHashableProtocolLaws"))
         // Equatable check NOT emitted — subsumed.
@@ -57,24 +50,15 @@ import Testing
     }
 
     @Test func emitsCodableAndEquatable() {
-        let entry = ConformanceMap.Entry(
-            typeName: "Record",
-            conformances: [.equatable, .codable],
-            provenances: [
-                ConformanceMap.Provenance(
-                    filePath: "Sources/MyModule/Record.swift",
-                    line: 10,
-                    kind: .primary
-                )
-            ]
-        )
         let output = GeneratedFileEmitter.emit(
             target: "MyModule",
-            map: ConformanceMap(entries: [entry], parseFailures: [])
+            map: ConformanceMap(
+                entries: [entry("Record", conformances: [.equatable, .codable])],
+                parseFailures: []
+            )
         )
         #expect(output.contains("@Test func equatable_Record() async throws {"))
         #expect(output.contains("@Test func codable_Record() async throws {"))
-        // Order — Equatable comes first per KnownProtocol.allCases.
         let equatableRange = output.range(of: "equatable_Record")!
         let codableRange = output.range(of: "codable_Record")!
         #expect(equatableRange.lowerBound < codableRange.lowerBound)
@@ -83,25 +67,24 @@ import Testing
     // MARK: - Provenance comments
 
     @Test func provenanceCommentListsAllSources() {
-        let entry = ConformanceMap.Entry(
-            typeName: "Foo",
-            conformances: [.hashable],
-            provenances: [
-                ConformanceMap.Provenance(
-                    filePath: "Sources/MyModule/Foo.swift",
-                    line: 1,
-                    kind: .primary
-                ),
-                ConformanceMap.Provenance(
-                    filePath: "Sources/MyModule/Foo+Hashable.swift",
-                    line: 3,
-                    kind: .extension
-                )
-            ]
-        )
+        let provenances = [
+            ConformanceMap.Provenance(
+                filePath: "Sources/MyModule/Foo.swift",
+                line: 1,
+                kind: .primary
+            ),
+            ConformanceMap.Provenance(
+                filePath: "Sources/MyModule/Foo+Hashable.swift",
+                line: 3,
+                kind: .extension
+            )
+        ]
         let output = GeneratedFileEmitter.emit(
             target: "MyModule",
-            map: ConformanceMap(entries: [entry], parseFailures: [])
+            map: ConformanceMap(
+                entries: [entry("Foo", conformances: [.hashable], provenances: provenances)],
+                parseFailures: []
+            )
         )
         #expect(output.contains("Sources/MyModule/Foo.swift:1 (primary)"))
         #expect(output.contains("Sources/MyModule/Foo+Hashable.swift:3 (extension)"))
@@ -112,20 +95,8 @@ import Testing
     @Test func emittingTwiceProducesByteIdenticalOutput() {
         let map = ConformanceMap(
             entries: [
-                ConformanceMap.Entry(
-                    typeName: "Bar",
-                    conformances: [.hashable],
-                    provenances: [ConformanceMap.Provenance(
-                        filePath: "/p/Bar.swift", line: 1, kind: .primary
-                    )]
-                ),
-                ConformanceMap.Entry(
-                    typeName: "Foo",
-                    conformances: [.equatable],
-                    provenances: [ConformanceMap.Provenance(
-                        filePath: "/p/Foo.swift", line: 1, kind: .primary
-                    )]
-                )
+                entry("Bar", conformances: [.hashable]),
+                entry("Foo", conformances: [.equatable])
             ],
             parseFailures: []
         )
@@ -137,23 +108,12 @@ import Testing
     // MARK: - Suppression markers
 
     @Test func suppressedTestEmitsCommentStubAndPreservesMarker() {
-        let map = ConformanceMap(
-            entries: [
-                ConformanceMap.Entry(
-                    typeName: "Foo",
-                    conformances: [.equatable, .codable],
-                    provenances: [ConformanceMap.Provenance(
-                        filePath: "Sources/MyModule/Foo.swift",
-                        line: 1,
-                        kind: .primary
-                    )]
-                )
-            ],
-            parseFailures: []
-        )
         let output = GeneratedFileEmitter.emit(
             target: "MyModule",
-            map: map,
+            map: ConformanceMap(
+                entries: [entry("Foo", conformances: [.equatable, .codable])],
+                parseFailures: []
+            ),
             suppressions: ["codable_Foo"]
         )
         // Equatable test still emitted.
@@ -192,20 +152,66 @@ import Testing
     }
 
     @Test func iteratorProtocolOnlyEmitsNoEmitComment() {
-        // Pure IteratorProtocol conformance has no usable emit (kit's
-        // checkIteratorProtocolLaws needs a host Sequence).
-        let entry = ConformanceMap.Entry(
-            typeName: "Cursor",
-            conformances: [.iteratorProtocol],
-            provenances: [ConformanceMap.Provenance(
-                filePath: "/p/Cursor.swift", line: 1, kind: .primary
-            )]
-        )
         let output = GeneratedFileEmitter.emit(
             target: "X",
-            map: ConformanceMap(entries: [entry], parseFailures: [])
+            map: ConformanceMap(
+                entries: [entry("Cursor", conformances: [.iteratorProtocol])],
+                parseFailures: []
+            )
         )
         #expect(output.contains("// No emit-able stdlib conformance"))
         #expect(!output.contains("@Suite struct CursorProtocolLawTests"))
+    }
+
+    // MARK: - M3 derivation strategies
+
+    @Test func caseIterableEntryEmitsAllCasesGenerator() {
+        let output = GeneratedFileEmitter.emit(
+            target: "X",
+            map: ConformanceMap(
+                entries: [entry("Status", conformances: [.equatable], strategy: .caseIterable)],
+                parseFailures: []
+            )
+        )
+        #expect(output.contains("using: Gen<Status>.element(of: Status.allCases)"))
+        #expect(!output.contains("Status.gen()"))
+    }
+
+    @Test func rawRepresentableEntryEmitsLiftedGenerator() {
+        let output = GeneratedFileEmitter.emit(
+            target: "X",
+            map: ConformanceMap(
+                entries: [entry("Direction", conformances: [.equatable], strategy: .rawRepresentable(.string))],
+                parseFailures: []
+            )
+        )
+        #expect(output.contains("Gen<Character>.letterOrNumber.string(of: 0...8)"))
+        #expect(output.contains("compactMap { Direction(rawValue: $0) }"))
+        #expect(!output.contains("Direction.gen()"))
+    }
+
+    @Test func intRawRepresentableEntryEmitsIntGenerator() {
+        let output = GeneratedFileEmitter.emit(
+            target: "X",
+            map: ConformanceMap(
+                entries: [entry("Code", conformances: [.equatable], strategy: .rawRepresentable(.int))],
+                parseFailures: []
+            )
+        )
+        #expect(output.contains("Gen<Int>.int()"))
+        #expect(output.contains("compactMap { Code(rawValue: $0) }"))
+    }
+
+    @Test func todoEntryEmitsUserGenReference() {
+        // .todo falls back to <TypeName>.gen() as the placeholder reference;
+        // the user gets a compile error pointing at the missing symbol.
+        let output = GeneratedFileEmitter.emit(
+            target: "X",
+            map: ConformanceMap(
+                entries: [entry("Coordinate", conformances: [.equatable], strategy: .todo(reason: "test"))],
+                parseFailures: []
+            )
+        )
+        #expect(output.contains("using: Coordinate.gen()"))
     }
 }

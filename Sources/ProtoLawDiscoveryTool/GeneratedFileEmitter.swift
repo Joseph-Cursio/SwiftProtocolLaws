@@ -79,6 +79,7 @@ enum GeneratedFileEmitter {
             return lines
         }
         lines.append("@Suite struct \(entry.typeName)ProtocolLawTests {")
+        let generatorExpr = generatorExpression(for: entry)
         let orderedConformances = testEmissionOrder.filter { emitSet.contains($0) }
         for (index, conformance) in orderedConformances.enumerated() {
             if index > 0 { lines.append("") }
@@ -92,12 +93,29 @@ enum GeneratedFileEmitter {
             } else {
                 lines.append(contentsOf: testLines(
                     conformance: conformance,
-                    typeName: entry.typeName
+                    typeName: entry.typeName,
+                    generatorExpr: generatorExpr
                 ))
             }
         }
         lines.append("}")
         return lines
+    }
+
+    /// Translate a `ConformanceMap.Entry`'s strategy to the generator
+    /// expression spelled at each `using:` argument site. Mirrors the
+    /// macro's `generatorExpression` (PRD §5.7) — the shared
+    /// `DerivationStrategist` ensures both consumers stay aligned.
+    private static func generatorExpression(for entry: ConformanceMap.Entry) -> String {
+        switch entry.derivationStrategy {
+        case .userGen, .todo:
+            return "\(entry.typeName).gen()"
+        case .caseIterable:
+            return "Gen<\(entry.typeName)>.element(of: \(entry.typeName).allCases)"
+        case .rawRepresentable(let rawType):
+            return "\(rawType.generatorExpression)"
+                + ".compactMap { \(entry.typeName)(rawValue: $0) }"
+        }
     }
 
     private static func provenanceComment(for entry: ConformanceMap.Entry) -> String {
@@ -109,14 +127,18 @@ enum GeneratedFileEmitter {
 
     // MARK: - Test method
 
-    private static func testLines(conformance: KnownProtocol, typeName: String) -> [String] {
+    private static func testLines(
+        conformance: KnownProtocol,
+        typeName: String,
+        generatorExpr: String
+    ) -> [String] {
         let testName = "\(conformance.testNameFragment)_\(typeName)"
         let checkFn = conformance.checkFunctionName
         return [
             "    @Test func \(testName)() async throws {",
             "        try await \(checkFn)(",
             "            for: \(typeName).self,",
-            "            using: \(typeName).gen()",
+            "            using: \(generatorExpr)",
             "        )",
             "    }"
         ]
