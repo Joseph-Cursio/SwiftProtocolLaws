@@ -85,4 +85,8 @@ public enum SetAlgebraLaw: String, Sendable, Hashable, CaseIterable {
     case unionIdempotence, intersectionIdempotence
     case unionCommutativity, intersectionCommutativity
     case emptyIdentity
+    case symmetricDifferenceSelfIsEmpty
+    case symmetricDifferenceEmptyIdentity
+    case symmetricDifferenceCommutativity
+    case symmetricDifferenceDefinition
 }
