@@ -161,10 +161,10 @@ import Testing
 
     // MARK: - Error tolerance
 
-    @Test func unreadableFileSurfacesAsParseFailureNotFatal() {
+    @Test func unreadableFileSurfacesAsParseFailureNotFatal() throws {
         let map = ModuleScanner.scan(sourceFiles: ["/nonexistent/path/Foo.swift"])
         #expect(map.entries.isEmpty)
-        try? #require(map.parseFailures.count == 1)
+        try #require(map.parseFailures.count == 1)
         #expect(map.parseFailures.first?.filePath == "/nonexistent/path/Foo.swift")
     }
 
