@@ -120,6 +120,25 @@ struct MyTypeProtocolLawTests {
 
 Most-specific-conformance dedupe runs at expansion time — `Hashable` subsumes `Equatable`, etc., so you get one call per protocol.
 
+**Generator derivation (M3).** For `CaseIterable` enums and `RawRepresentable` enums backed by recognized stdlib raw types, the macro derives the generator automatically — no `gen()` method required.
+
+```swift
+@ProtoLawSuite
+enum Status: CaseIterable, Equatable {
+    case pending, active, archived
+}
+// Macro emits: using: Gen<Status>.element(of: Status.allCases)
+
+@ProtoLawSuite
+enum Direction: String, Codable, Equatable {
+    case north, south, east, west
+}
+// Macro emits: using: Gen<Character>.letterOrNumber.string(of: 0...8)
+//                       .compactMap { Direction(rawValue: $0) }
+```
+
+For other types, the macro falls through to `<TypeName>.gen()` (define it yourself) and warns at compile time explaining what's needed. Memberwise-`Arbitrary` derivation for plain structs is on the roadmap but not in M3.
+
 ### 3. Whole-module discovery (Swift Package Plugin)
 
 For projects with many types, run the plugin and commit the generated file.
@@ -180,7 +199,8 @@ Replay-validation is opt-in: pass an `expectedReplayEnvironment` and the kit ref
 | `ProtocolLawKit` (PRD Contribution 1) | M1–M5 shipped — laws, suppression, `PropertyBackend`, confidence reporting |
 | `ProtoLawMacro` peer macro (PRD §5.3 Macro Mode) | M1 shipped |
 | `swift package protolawcheck` discovery plugin (PRD §5.3 Discovery Mode) | M2 shipped |
-| Generator derivation (PRD §5.7) | M3, not started |
+| Generator derivation (PRD §5.7) — `CaseIterable` + `RawRepresentable` enums | M3 shipped |
+| Memberwise-`Arbitrary` derivation (PRD §5.7 Strategy 3) | Deferred |
 | Advisory layer (missing-conformance suggestions, cross-function discovery) | Not started |
 | Experimental layer (pattern warnings, Codable-derived generators) | Not started |
 | 1.0 validation gate (PRD §8 — must catch a real bug in 5+ popular Swift packages) | Not started |
