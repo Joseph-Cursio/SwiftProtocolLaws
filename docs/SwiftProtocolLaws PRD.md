@@ -2,10 +2,10 @@
 
 ## SwiftProtocolLaws: Protocol Law Testing for Swift
 
-**Version:** 0.2 Draft
+**Version:** 0.3 Draft
 **Status:** Proposal
 **Audience:** Open Source Contributors, Swift Ecosystem
-**Supersedes:** v0.1 (preserved alongside as `SwiftProtocolLaws PRD v0.1.md`). See Appendix A for the changelog.
+**Supersedes:** v0.2 (in-place evolution; Appendix A is the v0.2 → v0.3 changelog) and v0.1 (preserved alongside as `SwiftProtocolLaws PRD v0.1.md`; Appendix B is the v0.1 → v0.2 changelog).
 
 -----
 
@@ -713,7 +713,13 @@ The named **LawRegistry** layer makes the extension point explicit: adding a new
 - Protocol law violations produce failure messages that identify the specific violated protocol law, its strictness tier, and a reproducible counterexample (replayable seed).
 - The protocol law library compiles and passes CI on Linux, macOS, and Windows.
 - **Framework self-test gate (every CI run).** ProtocolLawKit ships a planted-bug suite: types deliberately violating each Strict law, asserted to be detected by the framework. A green CI run requires every planted violation to be caught at the expected strictness tier. This catches regressions in the framework itself — without it, a bug that silences the symmetry check would pass CI undetected.
-- **Validation criterion (must hit before 1.0):** Run ProtocolLawKit against a curated set of at least 5 popular open-source Swift packages and find at least one real semantic conformance bug. The bug, the package, and the offending protocol law must be public artifacts in the repository.
+- **External validation gate (must hit before 1.0).** Three artifacts in `Validation/`, each demonstrating one face of the kit's pipeline against external real-world Swift code:
+
+  1. **Pass 1 — discovery scan.** The `protolawcheck discover` plugin emits law-check scaffolding for **at least four real-world Swift packages** without crashes, malformed output, or false-positive duplicate suites. Generated files plus per-package `.todo` summaries are checked into `Validation/results/`.
+  2. **Pass 2 — composition.** The kit composes with at least one external SwiftPM dependency and runs at least one Strict-tier law check end-to-end against a public type from that package, with the test target green under `swift test`.
+  3. **Pass 3 — archaeology.** A git-archaeology survey of fix-commits across full-history Swift packages, with results documented in `Validation/FINDINGS.md`. The artifact is the documented search effort and any candidate bugs found — *regardless of whether the kit catches them*. A null result is a valid Pass 3 outcome and counts toward the gate, provided the search method, surveyed corpus, and rejection rationale are all in the repository.
+
+  **Why this replaces v0.2's "catch a real bug in 5+ packages" criterion.** The v0.2 wording set retroactive bug-discovery in already-shipped popular code as the bar for shipping 1.0. Empirically — see `Validation/FINDINGS.md` Pass 3 — that bar is approximately uncloseable: across ~5,200 commits surveyed in four full-history Apple/SSWG/community packages (`swift-argument-parser`, `swift-aws-lambda-runtime`, `swift-collections`, `swift-nio`, `hummingbird`), exactly one candidate fix-commit survived initial filtering, and on inspection the bug was in dead code unreachable through the public API. The structural reasons are clear: well-tested Swift OSS leans on synthesized conformances (bulletproof by construction); hand-written conformances in scrutinized code land correct on first commit and rarely get patched; the population of historical kit-detectable bugs in well-tested packages is approximately empty. The kit's value prop is therefore *prevention* — catching bugs in new code as it's written, before they ship — not retroactive *discovery* in code that's already been hammered by years of users. The v0.3 gate measures what the kit can actually deliver: pipeline composition (Pass 1+2) plus an honest, documented search effort (Pass 3).
 
 ### ProtoLawMacro
 
@@ -754,7 +760,32 @@ Remaining open question, deferred to a future revision:
 
 -----
 
-## Appendix A: Changelog vs. v0.1
+## Appendix A: Changelog vs. v0.2
+
+v0.3 is a tightly-scoped revision: one criterion rewritten, one protocol's law set expanded, three minor wording catch-ups. No new milestones, no architectural change.
+
+**Tier 1 — criterion calibration:**
+
+- **§8 Validation criterion rewritten.** v0.2's "catch a real bug in 5+ popular Swift packages before 1.0" is replaced with the **External validation gate**: three documented artifacts in `Validation/` (Pass 1 discovery scan over ≥4 packages, Pass 2 composition with ≥1 external SwiftPM dep, Pass 3 git-archaeology with results in FINDINGS.md). A null Pass 3 outcome is a valid result. See §8 for the full rationale and `Validation/FINDINGS.md` for the empirical evidence that drove the rewrite.
+
+**Tier 2 — coverage expansion:**
+
+- **§4.3 SetAlgebra expanded from five laws to nine.** The four `symmetricDifference*` laws (`symmetricDifferenceSelfIsEmpty`, `symmetricDifferenceEmptyIdentity`, `symmetricDifferenceCommutativity`, `symmetricDifferenceDefinition`) were added in response to the Pass 3 archaeology surfacing a `swift-collections` typo fix in `_Bitmap.symmetricDifference`. The original five-law suite did not exercise the `symmetricDifference` operation at all. All four new laws ship at the Strict tier.
+
+**Tier 3 — wording / scope catch-ups:**
+
+- **§8 framework self-test gate** retained verbatim from v0.2. v0.3 does not change the kit's CI guarantees; it changes only how 1.0-readiness is *measured against external code*.
+- **Appendix A renumbering.** The v0.2 → v0.1 changelog moves to Appendix B. v0.3's changelog (this section) takes the Appendix A slot, so a reader of the latest PRD encounters the most recent calibration first.
+
+**What v0.3 does *not* change:**
+
+- §4.2 Strictness tiers, §4.4 trial budgets, §4.5 backend abstraction, §4.6 confidence reporting, §4.7 suppression, §4.8 milestones — all carry forward unchanged.
+- §5.* ProtoLawMacro (Core / Advisory / Experimental layering, derivation priority, plugin-vs-macro split) — unchanged. M4–M6 remain on the roadmap with the same scope they had in v0.2.
+- §9 Resolved Decisions — unchanged. The single-backend-by-design decision (made post-v0.2 in `74fb9f2`) was implementation-level rather than scope-level and lives in `CLAUDE.md`'s repo-state notes; it does not require a PRD-level resolution.
+
+-----
+
+## Appendix B: Changelog vs. v0.1
 
 **Tier 1 — consensus changes from external critique (raised by 2+ reviewers):**
 

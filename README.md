@@ -212,7 +212,7 @@ The PropertyBackend abstraction (PRD §4.5) is shipped public with `SwiftPropert
 - **[`docs/SwiftProtocolLaws PRD.md`](docs/SwiftProtocolLaws%20PRD.md)** — design specification, the load-bearing reference for what the kit does and why.
 - **[`docs/Swift Standard Library Protocols.md`](docs/Swift%20Standard%20Library%20Protocols.md)** — inventory of stdlib protocols with each protocol's laws and v1/v1.1/deferred classification.
 - **[`docs/SwiftInferProperties.md`](docs/SwiftInferProperties.md)** — design for the downstream SwiftInfer package (signature-pattern matcher + test lifter).
-- **[`CLAUDE.md`](CLAUDE.md)** — repository state, design decisions baked into v0.2 of the PRD, build instructions.
+- **[`CLAUDE.md`](CLAUDE.md)** — repository state, design decisions baked into the current PRD, build instructions.
 
 ## Build & test
 
