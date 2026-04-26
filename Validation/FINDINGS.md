@@ -72,7 +72,7 @@ The PRD §8 1.0 gate ("must catch a real semantic conformance bug in 5+ popular 
 - The `.todo` telemetry list is concise enough to be actionable (e.g. ArgumentParser surfaced 99 types, 84 of which would need a manual `gen()` — manageable for a maintainer to triage).
 - Generated output is human-readable and would survive code-review without churn.
 
-## How to re-run
+## How to re-run pass 1 (scan-only)
 
 ```bash
 Validation/run.sh <path-to-package> <target-name>
@@ -82,3 +82,35 @@ Validation/run.sh ~/xcode_projects/Hummingbird Hummingbird
 ```
 
 Output lands in `Validation/results/<TargetName>.{generated.swift,summary.txt}`.
+
+## Pass 2: actual law checks against an external package
+
+`Validation/Package.swift` is a separate SwiftPM package that depends on the parent (via local path) and on `swift-argument-parser` (via remote). It runs the kit's `checkXxxProtocolLaws` against public types from ArgumentParser. Kept separate so the external dep doesn't leak into the kit's main manifest — consumers of `SwiftProtocolLaws` never see ArgumentParser.
+
+```bash
+cd Validation && swift test
+```
+
+### Targets exercised
+
+| Type | Source | Law checked | Trial budget | Result |
+|---|---|---|---|---|
+| `ArgumentParser.ExitCode` | wrapper around `Int32`, `RawRepresentable + Hashable` | `Hashable` (Equatable + equality consistency + stability + distribution) | `.standard` (1,000) | passed |
+| `ArgumentParser.ArgumentVisibility` | three-static-instance struct, `Hashable` | `Hashable` (full inherited suite) | `.standard` (1,000) | passed |
+
+Both types' Hashable conformances satisfy every Strict-tier law the kit checks. No violations surfaced — the predicted result for a heavily-tested Apple-flagship package, but the assertion is now real rather than asymptotic.
+
+### What pass 2 actually proves
+
+1. **The kit composes cleanly with an external Swift package.** SwiftPM resolves both deps, the test target links against ArgumentParser + ProtocolLawKit, generators reference public ArgumentParser API, and the kit's checks run unmodified against types the kit's authors didn't write.
+2. **The pipeline shape works for an adopter.** A maintainer wanting to validate their own types follows the same recipe: separate test package OR test target with both deps, write `gen()`, call `checkXxxProtocolLaws`. The Validation/Package.swift is a worked example.
+3. **At least one Strict-tier `Hashable` law check has run end-to-end against external Apple OSS code.** That's a concrete artifact, even though the result is "the laws hold."
+
+### What pass 2 still doesn't do
+
+The PRD §8 1.0 gate ("at least one real semantic conformance bug in 5+ popular Swift packages") remains open in the literal sense — no bug was caught. Closing it requires either:
+
+- Surveying enough types/packages that one eventually surfaces a real bug (statistical play; takes patience because well-tested OSS is mostly clean).
+- Targeting types specifically *suspected* of having issues — places where custom equality or Codable round-trip is implemented manually, where the prior-art property test coverage is thin.
+
+For v1's purposes, the validation infrastructure is shipped and a non-trivial slice of it is exercised against real external code. Bug-hunting can happen incrementally as the kit gets adopted.

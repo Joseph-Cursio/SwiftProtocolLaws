@@ -1,0 +1,69 @@
+import Testing
+import ArgumentParser
+import ProtocolLawKit
+
+/// Pass 2 validation (PRD §8): runs ProtocolLawKit's `checkXxxProtocolLaws`
+/// against public types from an external well-tested Swift package.
+///
+/// The bar PRD §8 sets is "find at least one real semantic conformance bug
+/// in 5+ popular Swift packages before 1.0." This file isn't yet that — but
+/// it proves the pipeline: kit + external package + generators + assertions
+/// all compose at the SwiftPM level. Per-package coverage extends from here
+/// when the §8 gate becomes the active priority.
+///
+/// Targets are public types from `swift-argument-parser` (1.6.0+):
+/// - `ExitCode` — Int32-backed `Hashable` struct (Error + RawRepresentable).
+/// - `ArgumentVisibility` — three-static-instance `Hashable` struct.
+///
+/// Both are tiny but representative: a wrapper-around-a-primitive and a
+/// closed-set state type. If either harbored a hash/equality-consistency
+/// bug, the kit's Strict-tier checks would surface it.
+@Suite struct ExternalPackageTests {
+
+    // MARK: - ExitCode
+
+    @Test func exitCodeHashableLawsHold() async throws {
+        try await checkHashableProtocolLaws(
+            for: ExitCode.self,
+            using: Gen<ExitCode>.exitCode(),
+            options: LawCheckOptions(budget: .standard)
+        )
+    }
+
+    // MARK: - ArgumentVisibility
+
+    @Test func argumentVisibilityHashableLawsHold() async throws {
+        try await checkHashableProtocolLaws(
+            for: ArgumentVisibility.self,
+            using: Gen<ArgumentVisibility>.argumentVisibility(),
+            options: LawCheckOptions(budget: .standard)
+        )
+    }
+}
+
+// MARK: - Generators
+
+extension Gen where Value == ExitCode {
+    /// Covers the wrapping-Int32 path with a fixed exit-code spread that
+    /// includes negative, zero, and small/medium/large unsigned values.
+    /// `Gen.element(of:)` returns an Optional; the `compactMap` unwraps
+    /// it (the source array is non-empty so the wrap is always Some).
+    static func exitCode() -> Generator<ExitCode, some SendableSequenceType> {
+        Gen<Int?>.element(of: [-1, 0, 1, 2, 64, 65, 70, 127, 128, 255])
+            .compactMap { $0 }
+            .map { ExitCode(Int32($0)) }
+    }
+}
+
+extension Gen where Value == ArgumentVisibility {
+    /// Three-static-instance closed set — the documented public constants.
+    /// `.element(of:)` picks uniformly across them.
+    static func argumentVisibility() -> Generator<ArgumentVisibility, some SendableSequenceType> {
+        let cases: [ArgumentVisibility] = [
+            ArgumentVisibility.default,
+            ArgumentVisibility.hidden,
+            ArgumentVisibility.private
+        ]
+        return Gen<ArgumentVisibility?>.element(of: cases).compactMap { $0 }
+    }
+}
