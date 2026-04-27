@@ -40,13 +40,24 @@ enum ModuleScanner {
         }
         return ConformanceMap(
             entries: makeEntries(from: perType),
-            parseFailures: failures
+            parseFailures: failures,
+            witnesses: makeWitnesses(from: perType)
         )
     }
 
+    private static func makeWitnesses(
+        from perType: [String: TypeAggregate]
+    ) -> [String: WitnessSet] {
+        var result: [String: WitnessSet] = [:]
+        for (name, aggregate) in perType where aggregate.witnesses != WitnessSet() {
+            result[name] = aggregate.witnesses
+        }
+        return result
+    }
+
     /// Per-type aggregator — collects inheritance names + provenance
-    /// records + decl-kind + gen() presence across primary decl and any
-    /// extensions seen in any file.
+    /// records + decl-kind + gen() presence + witness signatures across
+    /// primary decl and any extensions seen in any file.
     private struct TypeAggregate {
         var inheritedNames: [String] = []
         var provenances: [ConformanceMap.Provenance] = []
@@ -55,6 +66,9 @@ enum ModuleScanner {
         /// declared in other modules).
         var typeKind: TypeShape.Kind?
         var hasUserGen: Bool = false
+        /// Element-wise OR of witnesses seen in primary decl + every
+        /// extension. PRD §5.4 advisory suggestions read from here.
+        var witnesses: WitnessSet = WitnessSet()
     }
 
     /// Bundles file-level scanning context so `recordType` stays under
@@ -102,7 +116,8 @@ enum ModuleScanner {
                     node: primary.node,
                     kind: .primary,
                     typeKind: primary.kind,
-                    hasUserGen: primary.hasUserGen
+                    hasUserGen: primary.hasUserGen,
+                    witnesses: primary.witnesses
                 ),
                 context: context,
                 into: &perType
@@ -123,7 +138,8 @@ enum ModuleScanner {
                 node: Syntax(extensionDecl),
                 kind: .extension,
                 typeKind: nil,  // extension doesn't redefine the type kind
-                hasUserGen: hasGenMethod(in: extensionDecl.memberBlock)
+                hasUserGen: hasGenMethod(in: extensionDecl.memberBlock),
+                witnesses: WitnessFinder.find(in: extensionDecl.memberBlock)
             ),
             context: context,
             into: &perType
@@ -138,6 +154,7 @@ enum ModuleScanner {
         let inheritance: InheritanceClauseSyntax?
         let node: Syntax
         let hasUserGen: Bool
+        let witnesses: WitnessSet
     }
 
     private static func primaryDecl(
@@ -149,7 +166,8 @@ enum ModuleScanner {
                 kind: .struct,
                 inheritance: decl.inheritanceClause,
                 node: Syntax(decl),
-                hasUserGen: hasGenMethod(in: decl.memberBlock)
+                hasUserGen: hasGenMethod(in: decl.memberBlock),
+                witnesses: WitnessFinder.find(in: decl.memberBlock)
             )
         }
         if let decl = statement.as(ClassDeclSyntax.self) {
@@ -158,7 +176,8 @@ enum ModuleScanner {
                 kind: .class,
                 inheritance: decl.inheritanceClause,
                 node: Syntax(decl),
-                hasUserGen: hasGenMethod(in: decl.memberBlock)
+                hasUserGen: hasGenMethod(in: decl.memberBlock),
+                witnesses: WitnessFinder.find(in: decl.memberBlock)
             )
         }
         if let decl = statement.as(EnumDeclSyntax.self) {
@@ -167,7 +186,8 @@ enum ModuleScanner {
                 kind: .enum,
                 inheritance: decl.inheritanceClause,
                 node: Syntax(decl),
-                hasUserGen: hasGenMethod(in: decl.memberBlock)
+                hasUserGen: hasGenMethod(in: decl.memberBlock),
+                witnesses: WitnessFinder.find(in: decl.memberBlock)
             )
         }
         if let decl = statement.as(ActorDeclSyntax.self) {
@@ -176,7 +196,8 @@ enum ModuleScanner {
                 kind: .actor,
                 inheritance: decl.inheritanceClause,
                 node: Syntax(decl),
-                hasUserGen: hasGenMethod(in: decl.memberBlock)
+                hasUserGen: hasGenMethod(in: decl.memberBlock),
+                witnesses: WitnessFinder.find(in: decl.memberBlock)
             )
         }
         return nil
@@ -206,6 +227,7 @@ enum ModuleScanner {
         let kind: ConformanceMap.ProvenanceKind
         let typeKind: TypeShape.Kind?
         let hasUserGen: Bool
+        let witnesses: WitnessSet
     }
 
     private static func record(
@@ -231,6 +253,7 @@ enum ModuleScanner {
         }
         // hasUserGen latches once true — gen() seen anywhere wins.
         if request.hasUserGen { aggregate.hasUserGen = true }
+        aggregate.witnesses.merge(request.witnesses)
         perType[request.name] = aggregate
     }
 
