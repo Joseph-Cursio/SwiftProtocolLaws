@@ -82,6 +82,32 @@ struct ConformanceMap: Sendable, Equatable {
     }
 }
 
+/// One round-trip pair candidate emitted by `RoundTripSuggester`
+/// (PRD §5.5 M5 scope). Output is informational only — never a test
+/// failure, never a write to the generated file (preserves the M2
+/// regeneration-as-diff guarantee).
+struct RoundTripSuggestion: Sendable, Equatable {
+    /// Where the pair was detected. Per-type and module-level scopes
+    /// stay separate — a `Codec.encode` member doesn't pair with a
+    /// top-level `decode` free function in M5.
+    enum Scope: Sendable, Equatable, Hashable {
+        case type(String)
+        case module
+    }
+    let scope: Scope
+    /// "Forward" half of the pair. When the names match an entry in
+    /// `RoundTripSuggester.namePairs`, the table's `forward` slot wins;
+    /// otherwise the alphabetically-earlier name takes the forward slot
+    /// so output stays deterministic.
+    let forward: FunctionSignature
+    let backward: FunctionSignature
+    let confidence: SuggestionConfidence
+    /// Human-readable explanation of which signals fired (signature
+    /// inverse, naming pair, `@Discoverable` group). Goes straight into
+    /// the rendered diagnostic.
+    let evidence: String
+}
+
 /// Syntactic record of one function declaration, consumed by
 /// `RoundTripSuggester` (PRD §5.5 M5 scope) to look up inverse-typed
 /// pairs.
