@@ -28,14 +28,23 @@ struct ProtoLawDiscoveryTool {
         try writeOutput(output, to: invocation.outputPath)
         printSummary(invocation: invocation, map: map, suppressions: suppressions)
 
-        // PRD §5.4 advisory pass — opt-in, writes to stderr only so the
-        // generated file stays byte-identical regardless of `--advisory`.
+        // PRD §5.4 + §5.5 advisory pass — opt-in, writes to stderr only
+        // so the generated file stays byte-identical regardless of
+        // `--advisory`. Both detectors share the flag and the confidence
+        // floor; the user gets one stderr block per detector with a
+        // header line so output stays scannable.
         if invocation.advisory {
             let suggestions = AdvisorySuggester.suggest(
                 from: map,
                 minConfidence: invocation.advisoryMinConfidence
             )
             printAdvisory(suggestions)
+
+            let roundTripSuggestions = RoundTripSuggester.suggest(
+                from: map,
+                minConfidence: invocation.advisoryMinConfidence
+            )
+            printRoundTripSuggestions(roundTripSuggestions)
         }
     }
 
@@ -130,6 +139,41 @@ struct ProtoLawDiscoveryTool {
             )
             lines.append(
                 "        confidence: \(suggestion.confidence.rawValue)"
+            )
+        }
+        FileHandle.standardError.write(Data((lines.joined(separator: "\n") + "\n").utf8))
+    }
+
+    /// Render round-trip suggestions as `note:` blocks on stderr — same
+    /// shape as `printAdvisory` so a user reading the advisory output
+    /// sees a uniform format. PRD §5.5 framing: informational only.
+    private static func printRoundTripSuggestions(_ suggestions: [RoundTripSuggestion]) {
+        guard !suggestions.isEmpty else { return }
+        var lines: [String] = []
+        lines.append(
+            "ProtoLawDiscoveryTool: \(suggestions.count) round-trip pair candidate(s):"
+        )
+        for suggestion in suggestions {
+            let scopeLabel: String
+            switch suggestion.scope {
+            case .type(let name): scopeLabel = name
+            case .module:         scopeLabel = "<module>"
+            }
+            lines.append(
+                "  note: \(scopeLabel).\(suggestion.forward.name)(_:) and "
+                + "\(scopeLabel).\(suggestion.backward.name)(_:) form a "
+                + "round-trip pair candidate."
+            )
+            lines.append(
+                "        Consider writing a property that asserts "
+                + "\(suggestion.backward.name)(\(suggestion.forward.name)(x)) == x "
+                + "for all x."
+            )
+            lines.append(
+                "        confidence: \(suggestion.confidence.rawValue)"
+            )
+            lines.append(
+                "        evidence: \(suggestion.evidence)"
             )
         }
         FileHandle.standardError.write(Data((lines.joined(separator: "\n") + "\n").utf8))
