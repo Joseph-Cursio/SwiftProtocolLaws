@@ -49,6 +49,19 @@ struct ConformanceMap: Sendable, Equatable {
     /// emitter call sites (which only need conformances) stay terse.
     let witnesses: [String: WitnessSet]
 
+    /// Per-type function signatures consumed by `RoundTripSuggester`
+    /// (PRD §5.5 M5 scope). Keyed by the same `typeName` as `entries`;
+    /// missing key = no member functions worth recording (e.g. plain
+    /// data types). Defaults to empty so non-advisory call sites stay
+    /// terse.
+    let memberFunctions: [String: [FunctionSignature]]
+
+    /// Top-level free function signatures across all scanned files.
+    /// Consumed by `RoundTripSuggester` for module-scope pairing
+    /// (PRD §5.5: "in the same type or module"). Order is deterministic
+    /// (file-path ascending, then declaration order).
+    let topLevelFunctions: [FunctionSignature]
+
     struct ParseFailure: Sendable, Equatable {
         let filePath: String
         let message: String
@@ -57,12 +70,39 @@ struct ConformanceMap: Sendable, Equatable {
     init(
         entries: [Entry],
         parseFailures: [ParseFailure],
-        witnesses: [String: WitnessSet] = [:]
+        witnesses: [String: WitnessSet] = [:],
+        memberFunctions: [String: [FunctionSignature]] = [:],
+        topLevelFunctions: [FunctionSignature] = []
     ) {
         self.entries = entries
         self.parseFailures = parseFailures
         self.witnesses = witnesses
+        self.memberFunctions = memberFunctions
+        self.topLevelFunctions = topLevelFunctions
     }
+}
+
+/// Syntactic record of one function declaration, consumed by
+/// `RoundTripSuggester` (PRD §5.5 M5 scope) to look up inverse-typed
+/// pairs.
+///
+/// Type names are stored as `TypeSyntax.trimmedDescription` strings —
+/// the same syntactic-only stance `WitnessFinder` takes. Two types are
+/// "the same" iff their textual forms match. Generic parameters are
+/// rejected at the finder; they would require type-binding inference
+/// out of M5's syntactic scope.
+struct FunctionSignature: Sendable, Equatable {
+    let name: String
+    /// Parameter types in declaration order. Empty for `() -> U`.
+    let parameterTypes: [String]
+    /// `Void` when the declaration omits the return clause.
+    let returnType: String
+    let isStatic: Bool
+    /// `group:` value from a `@Discoverable(group: "...")` attribute,
+    /// when present and supplied as a string literal. Non-literal
+    /// arguments leave this nil — see `RoundTripFinder` for the
+    /// reasoning.
+    let group: String?
 }
 
 /// Structural evidence that a type may want a particular conformance

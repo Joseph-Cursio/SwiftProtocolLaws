@@ -15,6 +15,7 @@ enum ModuleScanner {
     static func scan(sourceFiles: [String]) -> ConformanceMap {
         var perType: [String: TypeAggregate] = [:]
         var failures: [ConformanceMap.ParseFailure] = []
+        var topLevelFunctions: [FunctionSignature] = []
 
         // Sorted input → sorted scan order → deterministic output.
         for filePath in sourceFiles.sorted() {
@@ -30,6 +31,10 @@ enum ModuleScanner {
             }
             let parsed = Parser.parse(source: source)
             let converter = SourceLocationConverter(fileName: filePath, tree: parsed)
+            // M5 module-scope round-trip discovery — collect top-level
+            // free functions across files for the suggester's module
+            // pairing pass.
+            topLevelFunctions.append(contentsOf: RoundTripFinder.findTopLevel(in: parsed))
             for statement in parsed.statements {
                 accumulate(
                     statement: statement.item,
@@ -41,7 +46,9 @@ enum ModuleScanner {
         return ConformanceMap(
             entries: makeEntries(from: perType),
             parseFailures: failures,
-            witnesses: makeWitnesses(from: perType)
+            witnesses: makeWitnesses(from: perType),
+            memberFunctions: makeMemberFunctions(from: perType),
+            topLevelFunctions: topLevelFunctions
         )
     }
 
@@ -51,6 +58,16 @@ enum ModuleScanner {
         var result: [String: WitnessSet] = [:]
         for (name, aggregate) in perType where aggregate.witnesses != WitnessSet() {
             result[name] = aggregate.witnesses
+        }
+        return result
+    }
+
+    private static func makeMemberFunctions(
+        from perType: [String: TypeAggregate]
+    ) -> [String: [FunctionSignature]] {
+        var result: [String: [FunctionSignature]] = [:]
+        for (name, aggregate) in perType where !aggregate.memberFunctions.isEmpty {
+            result[name] = aggregate.memberFunctions
         }
         return result
     }
@@ -69,6 +86,12 @@ enum ModuleScanner {
         /// Element-wise OR of witnesses seen in primary decl + every
         /// extension. PRD §5.4 advisory suggestions read from here.
         var witnesses: WitnessSet = WitnessSet()
+        /// Concatenation of member function signatures seen across the
+        /// primary decl and every extension. Order is the scan order
+        /// (file path ascending, declaration order within each file)
+        /// so output stays deterministic. PRD §5.5 round-trip
+        /// suggestions read from here.
+        var memberFunctions: [FunctionSignature] = []
     }
 
     /// Bundles file-level scanning context so `recordType` stays under
@@ -117,7 +140,8 @@ enum ModuleScanner {
                     kind: .primary,
                     typeKind: primary.kind,
                     hasUserGen: primary.hasUserGen,
-                    witnesses: primary.witnesses
+                    witnesses: primary.witnesses,
+                    memberFunctions: primary.memberFunctions
                 ),
                 context: context,
                 into: &perType
@@ -139,7 +163,8 @@ enum ModuleScanner {
                 kind: .extension,
                 typeKind: nil,  // extension doesn't redefine the type kind
                 hasUserGen: hasGenMethod(in: extensionDecl.memberBlock),
-                witnesses: WitnessFinder.find(in: extensionDecl.memberBlock)
+                witnesses: WitnessFinder.find(in: extensionDecl.memberBlock),
+                memberFunctions: RoundTripFinder.findMembers(in: extensionDecl.memberBlock)
             ),
             context: context,
             into: &perType
@@ -155,6 +180,7 @@ enum ModuleScanner {
         let node: Syntax
         let hasUserGen: Bool
         let witnesses: WitnessSet
+        let memberFunctions: [FunctionSignature]
     }
 
     private static func primaryDecl(
@@ -167,7 +193,8 @@ enum ModuleScanner {
                 inheritance: decl.inheritanceClause,
                 node: Syntax(decl),
                 hasUserGen: hasGenMethod(in: decl.memberBlock),
-                witnesses: WitnessFinder.find(in: decl.memberBlock)
+                witnesses: WitnessFinder.find(in: decl.memberBlock),
+                memberFunctions: RoundTripFinder.findMembers(in: decl.memberBlock)
             )
         }
         if let decl = statement.as(ClassDeclSyntax.self) {
@@ -177,7 +204,8 @@ enum ModuleScanner {
                 inheritance: decl.inheritanceClause,
                 node: Syntax(decl),
                 hasUserGen: hasGenMethod(in: decl.memberBlock),
-                witnesses: WitnessFinder.find(in: decl.memberBlock)
+                witnesses: WitnessFinder.find(in: decl.memberBlock),
+                memberFunctions: RoundTripFinder.findMembers(in: decl.memberBlock)
             )
         }
         if let decl = statement.as(EnumDeclSyntax.self) {
@@ -187,7 +215,8 @@ enum ModuleScanner {
                 inheritance: decl.inheritanceClause,
                 node: Syntax(decl),
                 hasUserGen: hasGenMethod(in: decl.memberBlock),
-                witnesses: WitnessFinder.find(in: decl.memberBlock)
+                witnesses: WitnessFinder.find(in: decl.memberBlock),
+                memberFunctions: RoundTripFinder.findMembers(in: decl.memberBlock)
             )
         }
         if let decl = statement.as(ActorDeclSyntax.self) {
@@ -197,7 +226,8 @@ enum ModuleScanner {
                 inheritance: decl.inheritanceClause,
                 node: Syntax(decl),
                 hasUserGen: hasGenMethod(in: decl.memberBlock),
-                witnesses: WitnessFinder.find(in: decl.memberBlock)
+                witnesses: WitnessFinder.find(in: decl.memberBlock),
+                memberFunctions: RoundTripFinder.findMembers(in: decl.memberBlock)
             )
         }
         return nil
@@ -228,6 +258,7 @@ enum ModuleScanner {
         let typeKind: TypeShape.Kind?
         let hasUserGen: Bool
         let witnesses: WitnessSet
+        let memberFunctions: [FunctionSignature]
     }
 
     private static func record(
@@ -254,6 +285,7 @@ enum ModuleScanner {
         // hasUserGen latches once true — gen() seen anywhere wins.
         if request.hasUserGen { aggregate.hasUserGen = true }
         aggregate.witnesses.merge(request.witnesses)
+        aggregate.memberFunctions.append(contentsOf: request.memberFunctions)
         perType[request.name] = aggregate
     }
 
