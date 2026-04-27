@@ -23,6 +23,13 @@ internal enum ProtoLawDiagnostic: DiagnosticMessage {
     /// requirement: surface which strategy was attempted and why.
     case cannotDeriveGenerator(reason: String)
 
+    /// `@Discoverable(group:)` was supplied a non-literal argument
+    /// (variable ref, interpolated string, etc.). The discovery plugin
+    /// only reads string literals at scan time — see `RoundTripFinder`
+    /// — so the group would silently fail to bind. Surface a warning
+    /// so the user knows to inline the literal.
+    case discoverableGroupNotLiteral
+
     var message: String {
         switch self {
         case .nonTypeDecl:
@@ -37,6 +44,12 @@ internal enum ProtoLawDiagnostic: DiagnosticMessage {
                 + "discovery (PRD §5.3) handles those cases."
         case .cannotDeriveGenerator(let reason):
             return reason
+        case .discoverableGroupNotLiteral:
+            return "@Discoverable(group:) requires a string literal — the "
+                + "discovery plugin reads the value at scan time and can't "
+                + "evaluate variable references or computed strings. "
+                + "Replace with an inline string literal so the function is "
+                + "matched by group-based round-trip discovery."
         }
     }
 
@@ -46,6 +59,7 @@ internal enum ProtoLawDiagnostic: DiagnosticMessage {
         case .nonTypeDecl: id = "nonTypeDecl"
         case .noKnownConformance: id = "noKnownConformance"
         case .cannotDeriveGenerator: id = "cannotDeriveGenerator"
+        case .discoverableGroupNotLiteral: id = "discoverableGroupNotLiteral"
         }
         return MessageID(domain: "ProtoLawMacro", id: id)
     }
@@ -53,7 +67,9 @@ internal enum ProtoLawDiagnostic: DiagnosticMessage {
     var severity: DiagnosticSeverity {
         switch self {
         case .nonTypeDecl: return .error
-        case .noKnownConformance, .cannotDeriveGenerator: return .warning
+        case .noKnownConformance, .cannotDeriveGenerator,
+             .discoverableGroupNotLiteral:
+            return .warning
         }
     }
 }

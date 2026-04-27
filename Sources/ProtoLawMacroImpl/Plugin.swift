@@ -6,6 +6,7 @@ import SwiftSyntaxMacros
 @main
 struct ProtoLawMacroPlugin: CompilerPlugin {
     let providingMacros: [Macro.Type] = [
-        ProtoLawSuiteMacro.self
+        ProtoLawSuiteMacro.self,
+        DiscoverableMacro.self
     ]
 }
