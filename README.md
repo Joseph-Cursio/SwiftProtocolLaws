@@ -203,7 +203,8 @@ Replay-validation is opt-in: pass an `expectedReplayEnvironment` and the kit ref
 | `swift package protolawcheck` discovery plugin (PRD §5.3 Discovery Mode) | M2 shipped |
 | Generator derivation (PRD §5.7) — `CaseIterable` + `RawRepresentable` enums | M3 shipped |
 | Memberwise-`Arbitrary` derivation (PRD §5.7 Strategy 3) | Deferred |
-| Advisory layer (missing-conformance suggestions, cross-function discovery) | Not started |
+| Advisory: missing-conformance suggestions (PRD §5.4) | M4 shipped — opt-in via `--advisory`, HIGH-confidence detectors for `Equatable`, `Hashable`, `Comparable`, `Codable` |
+| Advisory: cross-function round-trip discovery (PRD §5.5) | Not started |
 | Experimental layer (pattern warnings, Codable-derived generators) | Not started |
 | 1.0 External validation gate (PRD v0.3 §8 — three-pass) | All three passes shipped: Pass 1 (discovery scan ≥4 packages), Pass 2 (composition with `swift-argument-parser`), Pass 3 (git-archaeology, results in `Validation/FINDINGS.md`) |
 
