@@ -147,63 +147,98 @@ struct ToolInvocation: Sendable {
     let advisoryMinConfidence: SuggestionConfidence
 
     init(arguments: [String]) throws {
+        var builder = Builder()
+        var index = 0
+        while index < arguments.count {
+            index = try Self.advance(arguments: arguments, from: index, into: &builder)
+        }
+        try self.init(builder: builder)
+    }
+
+    private init(builder: Builder) throws {
+        guard let target = builder.target else {
+            throw InvocationError.missingValue("--target")
+        }
+        guard let outputPath = builder.outputPath else {
+            throw InvocationError.missingValue("--output")
+        }
+        self.target = target
+        self.outputPath = outputPath
+        self.sourceFiles = builder.sourceFiles
+        self.advisory = builder.advisory
+        self.advisoryMinConfidence = builder.advisoryMin
+    }
+
+    /// Mutable accumulator for the argv loop — keeps `init(arguments:)`
+    /// under the cyclomatic-complexity / function-length lints.
+    private struct Builder {
         var target: String?
         var outputPath: String?
         var sourceFiles: [String] = []
         var advisory = false
         var advisoryMin: SuggestionConfidence = .high
+    }
 
-        var index = 0
-        while index < arguments.count {
-            let arg = arguments[index]
-            switch arg {
-            case "--target":
-                index += 1
-                guard index < arguments.count else {
-                    throw InvocationError.missingValue("--target")
-                }
-                target = arguments[index]
-            case "--output":
-                index += 1
-                guard index < arguments.count else {
-                    throw InvocationError.missingValue("--output")
-                }
-                outputPath = arguments[index]
-            case "--advisory":
-                advisory = true
-            case "--advisory-min":
-                index += 1
-                guard index < arguments.count else {
-                    throw InvocationError.missingValue("--advisory-min")
-                }
-                guard let level = SuggestionConfidence(rawValue: arguments[index]) else {
-                    throw InvocationError.invalidValue(
-                        flag: "--advisory-min",
-                        value: arguments[index],
-                        allowed: "low | medium | high"
-                    )
-                }
-                advisoryMin = level
-            case "--source-files":
-                index += 1
-                while index < arguments.count, !arguments[index].hasPrefix("--") {
-                    sourceFiles.append(arguments[index])
-                    index += 1
-                }
-                continue
-            default:
-                throw InvocationError.unknownArgument(arg)
+    /// Consumes one flag (and its value, if any) from `arguments` and
+    /// returns the next index. The dispatch lives here so the init
+    /// itself stays a tight while loop.
+    private static func advance(
+        arguments: [String],
+        from index: Int,
+        into builder: inout Builder
+    ) throws -> Int {
+        let arg = arguments[index]
+        switch arg {
+        case "--target":
+            builder.target = try requireValue(after: arg, arguments: arguments, at: index)
+            return index + 2
+        case "--output":
+            builder.outputPath = try requireValue(after: arg, arguments: arguments, at: index)
+            return index + 2
+        case "--advisory":
+            builder.advisory = true
+            return index + 1
+        case "--advisory-min":
+            let raw = try requireValue(after: arg, arguments: arguments, at: index)
+            guard let level = SuggestionConfidence(rawValue: raw) else {
+                throw InvocationError.invalidValue(
+                    flag: arg, value: raw, allowed: "low | medium | high"
+                )
             }
+            builder.advisoryMin = level
+            return index + 2
+        case "--source-files":
+            return consumeSourceFiles(arguments: arguments, from: index + 1, into: &builder)
+        default:
+            throw InvocationError.unknownArgument(arg)
+        }
+    }
+
+    private static func requireValue(
+        after flag: String,
+        arguments: [String],
+        at index: Int
+    ) throws -> String {
+        let next = index + 1
+        guard next < arguments.count else {
+            throw InvocationError.missingValue(flag)
+        }
+        return arguments[next]
+    }
+
+    /// `--source-files` greedily consumes positional arguments until the
+    /// next `--`-prefixed flag (or end of input).
+    private static func consumeSourceFiles(
+        arguments: [String],
+        from start: Int,
+        into builder: inout Builder
+    ) -> Int {
+        var index = start
+        while index < arguments.count, !arguments[index].hasPrefix("--") {
+            builder.sourceFiles.append(arguments[index])
             index += 1
         }
-
-        guard let target else { throw InvocationError.missingValue("--target") }
-        guard let outputPath else { throw InvocationError.missingValue("--output") }
-        self.target = target
-        self.outputPath = outputPath
-        self.sourceFiles = sourceFiles
-        self.advisory = advisory
-        self.advisoryMinConfidence = advisoryMin
+        return index
     }
 }
 

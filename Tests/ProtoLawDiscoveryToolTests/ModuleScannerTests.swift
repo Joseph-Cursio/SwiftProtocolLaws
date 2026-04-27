@@ -168,6 +168,97 @@ struct ModuleScannerTests {
         #expect(map.parseFailures.first?.filePath == "/nonexistent/path/Foo.swift")
     }
 
+    // MARK: - PRD §5.4 witness recording (M4)
+
+    @Test func recordsWitnessesFromPrimaryDeclaration() throws {
+        let dir = try makeFixtureDir([
+            "Foo.swift": """
+                struct Foo {
+                    static func == (lhs: Foo, rhs: Foo) -> Bool { true }
+                    static func < (lhs: Foo, rhs: Foo) -> Bool { false }
+                    func hash(into hasher: inout Hasher) {}
+                    func encode(to encoder: Encoder) throws {}
+                    init(from decoder: Decoder) throws {}
+                }
+                """
+        ])
+        defer { try? FileManager.default.removeItem(atPath: dir) }
+
+        let map = ModuleScanner.scan(sourceFiles: filePaths(in: dir))
+        let witnesses = try #require(map.witnesses["Foo"])
+        #expect(witnesses.hasEqualEqualOperator)
+        #expect(witnesses.hasLessThanOperator)
+        #expect(witnesses.hasHashIntoMethod)
+        #expect(witnesses.hasEncodeToMethod)
+        #expect(witnesses.hasInitFromInitializer)
+    }
+
+    @Test func aggregatesWitnessesAcrossExtensions() throws {
+        // Witnesses defined in multiple extensions across files must
+        // OR-merge into a single per-type WitnessSet — same aggregation
+        // contract as inheritance names.
+        let dir = try makeFixtureDir([
+            "Foo.swift": """
+                struct Foo {}
+                """,
+            "Foo+Equatable.swift": """
+                extension Foo {
+                    static func == (lhs: Foo, rhs: Foo) -> Bool { true }
+                }
+                """,
+            "Foo+Hashable.swift": """
+                extension Foo {
+                    func hash(into hasher: inout Hasher) {}
+                }
+                """
+        ])
+        defer { try? FileManager.default.removeItem(atPath: dir) }
+
+        let map = ModuleScanner.scan(sourceFiles: filePaths(in: dir))
+        let witnesses = try #require(map.witnesses["Foo"])
+        #expect(witnesses.hasEqualEqualOperator)
+        #expect(witnesses.hasHashIntoMethod)
+        // Sanity: didn't pick up things that weren't there.
+        #expect(witnesses.hasLessThanOperator == false)
+        #expect(witnesses.hasEncodeToMethod == false)
+    }
+
+    @Test func witnessesAreEmptyForTypeWithoutDetectableSignatures() throws {
+        // PRD §5.4 detectors are conservative — a type with non-witness
+        // members should not appear in `witnesses` at all (the scanner
+        // omits empty WitnessSets to keep dictionary keys meaningful).
+        let dir = try makeFixtureDir([
+            "Plain.swift": """
+                struct Plain {
+                    let value: Int
+                    func describe() -> String { "" }
+                }
+                """
+        ])
+        defer { try? FileManager.default.removeItem(atPath: dir) }
+
+        let map = ModuleScanner.scan(sourceFiles: filePaths(in: dir))
+        #expect(map.witnesses["Plain"] == nil)
+    }
+
+    @Test func nonStaticEqualOperatorDoesNotCountAsEquatableWitness() throws {
+        // Free-function operator overloads are valid Swift but not the
+        // form we treat as a HIGH-confidence Equatable witness — the
+        // §5.4 quality bar pushes toward the static-method-in-type form.
+        let dir = try makeFixtureDir([
+            "Foo.swift": """
+                struct Foo {
+                    func equals(_ other: Foo) -> Bool { false }
+                }
+                """
+        ])
+        defer { try? FileManager.default.removeItem(atPath: dir) }
+
+        let map = ModuleScanner.scan(sourceFiles: filePaths(in: dir))
+        // No witnesses → key absent from the dictionary.
+        #expect(map.witnesses["Foo"] == nil)
+    }
+
     // MARK: - Helpers
 
     private func makeFixtureDir(_ files: [String: String]) throws -> String {

@@ -62,4 +62,62 @@ struct ToolInvocationTests {
             _ = try ToolInvocation(arguments: ["--target"])
         }
     }
+
+    // MARK: - PRD §5.4 advisory flags (M4)
+
+    @Test func advisoryDefaultsToOff() throws {
+        let invocation = try ToolInvocation(arguments: [
+            "--target", "MyModule",
+            "--output", "/tmp/out.swift",
+            "--source-files", "/a.swift"
+        ])
+        #expect(invocation.advisory == false)
+        #expect(invocation.advisoryMinConfidence == .high)
+    }
+
+    @Test func parsesAdvisoryFlag() throws {
+        let invocation = try ToolInvocation(arguments: [
+            "--target", "MyModule",
+            "--output", "/tmp/out.swift",
+            "--advisory",
+            "--source-files", "/a.swift"
+        ])
+        #expect(invocation.advisory)
+        #expect(invocation.advisoryMinConfidence == .high)
+    }
+
+    @Test func parsesAdvisoryMinConfidence() throws {
+        let lowInvocation = try ToolInvocation(arguments: [
+            "--target", "M", "--output", "/tmp/o.swift",
+            "--advisory", "--advisory-min", "low",
+            "--source-files"
+        ])
+        #expect(lowInvocation.advisoryMinConfidence == .low)
+
+        let mediumInvocation = try ToolInvocation(arguments: [
+            "--target", "M", "--output", "/tmp/o.swift",
+            "--advisory", "--advisory-min", "medium",
+            "--source-files"
+        ])
+        #expect(mediumInvocation.advisoryMinConfidence == .medium)
+    }
+
+    @Test func invalidAdvisoryMinThrows() {
+        #expect(throws: InvocationError.self) {
+            _ = try ToolInvocation(arguments: [
+                "--target", "M", "--output", "/tmp/o.swift",
+                "--advisory-min", "totally-invalid",
+                "--source-files"
+            ])
+        }
+    }
+
+    @Test func missingValueAfterAdvisoryMinThrows() {
+        #expect(throws: InvocationError.self) {
+            _ = try ToolInvocation(arguments: [
+                "--target", "M", "--output", "/tmp/o.swift",
+                "--advisory-min"
+            ])
+        }
+    }
 }
