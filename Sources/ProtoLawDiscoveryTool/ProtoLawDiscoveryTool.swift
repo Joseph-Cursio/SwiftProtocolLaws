@@ -27,6 +27,16 @@ struct ProtoLawDiscoveryTool {
         )
         try writeOutput(output, to: invocation.outputPath)
         printSummary(invocation: invocation, map: map, suppressions: suppressions)
+
+        // PRD §5.4 advisory pass — opt-in, writes to stderr only so the
+        // generated file stays byte-identical regardless of `--advisory`.
+        if invocation.advisory {
+            let suggestions = AdvisorySuggester.suggest(
+                from: map,
+                minConfidence: invocation.advisoryMinConfidence
+            )
+            printAdvisory(suggestions)
+        }
     }
 
     static func printUsage() {
@@ -47,6 +57,13 @@ struct ProtoLawDiscoveryTool {
                 --target <name>           Required. The target whose conformances to scan.
                 --output <path>           Required. Path to the generated file.
                 --source-files <paths>... Required. Source paths the plugin discovers.
+                --advisory                Optional. Emit missing-conformance suggestions
+                                          to stderr (PRD §5.4). Off by default. Output
+                                          is informational only and does not change the
+                                          generated file.
+                --advisory-min <level>    Optional. Minimum confidence floor: low, medium,
+                                          or high. Defaults to high. Lowers the bar for
+                                          which advisory suggestions are emitted.
             """
         FileHandle.standardOutput.write(Data((usage + "\n").utf8))
     }
@@ -92,19 +109,49 @@ struct ProtoLawDiscoveryTool {
         }
         FileHandle.standardOutput.write(Data((lines.joined(separator: "\n") + "\n").utf8))
     }
+
+    /// Render advisory suggestions as Swift-compiler-style `note:` lines
+    /// on stderr. One block per suggestion with two indented detail
+    /// lines — matches PRD §5.4's "informational, never a test failure"
+    /// framing without ever touching the generated file.
+    private static func printAdvisory(_ suggestions: [Suggestion]) {
+        guard !suggestions.isEmpty else { return }
+        var lines: [String] = []
+        lines.append("ProtoLawDiscoveryTool: \(suggestions.count) advisory suggestion(s):")
+        for suggestion in suggestions {
+            let proto = suggestion.suggestedProtocol
+            lines.append(
+                "  note: \(suggestion.typeName) \(suggestion.evidence) "
+                + "but does not declare \(proto.declarationName)."
+            )
+            lines.append(
+                "        Consider conforming and running \(proto.checkFunctionName) "
+                + "to verify the laws hold."
+            )
+            lines.append(
+                "        confidence: \(suggestion.confidence.rawValue)"
+            )
+        }
+        FileHandle.standardError.write(Data((lines.joined(separator: "\n") + "\n").utf8))
+    }
 }
 
 /// Argv-parsed invocation. Plugin → tool argv shape:
-/// `--target <name> --output <path> --source-files <p1> <p2> ...`
+/// `--target <name> --output <path> [--advisory] [--advisory-min <level>]
+///  --source-files <p1> <p2> ...`
 struct ToolInvocation: Sendable {
     let target: String
     let outputPath: String
     let sourceFiles: [String]
+    let advisory: Bool
+    let advisoryMinConfidence: SuggestionConfidence
 
     init(arguments: [String]) throws {
         var target: String?
         var outputPath: String?
         var sourceFiles: [String] = []
+        var advisory = false
+        var advisoryMin: SuggestionConfidence = .high
 
         var index = 0
         while index < arguments.count {
@@ -122,6 +169,21 @@ struct ToolInvocation: Sendable {
                     throw InvocationError.missingValue("--output")
                 }
                 outputPath = arguments[index]
+            case "--advisory":
+                advisory = true
+            case "--advisory-min":
+                index += 1
+                guard index < arguments.count else {
+                    throw InvocationError.missingValue("--advisory-min")
+                }
+                guard let level = SuggestionConfidence(rawValue: arguments[index]) else {
+                    throw InvocationError.invalidValue(
+                        flag: "--advisory-min",
+                        value: arguments[index],
+                        allowed: "low | medium | high"
+                    )
+                }
+                advisoryMin = level
             case "--source-files":
                 index += 1
                 while index < arguments.count, !arguments[index].hasPrefix("--") {
@@ -140,17 +202,22 @@ struct ToolInvocation: Sendable {
         self.target = target
         self.outputPath = outputPath
         self.sourceFiles = sourceFiles
+        self.advisory = advisory
+        self.advisoryMinConfidence = advisoryMin
     }
 }
 
 enum InvocationError: Error, CustomStringConvertible {
     case missingValue(String)
     case unknownArgument(String)
+    case invalidValue(flag: String, value: String, allowed: String)
 
     var description: String {
         switch self {
         case .missingValue(let flag): return "missing value for \(flag)"
         case .unknownArgument(let arg): return "unknown argument: \(arg)"
+        case .invalidValue(let flag, let value, let allowed):
+            return "invalid value '\(value)' for \(flag); allowed: \(allowed)"
         }
     }
 }

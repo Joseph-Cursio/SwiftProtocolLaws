@@ -34,10 +34,17 @@ struct ProtoLawDiscoveryPlugin: CommandPlugin {
         let tool = try context.tool(named: "ProtoLawDiscoveryTool")
         let process = Process()
         process.executableURL = URL(fileURLWithPath: tool.path.string)
-        process.arguments = [
+        var toolArgs: [String] = [
             "--target", target,
             "--output", outputPath
-        ] + ["--source-files"] + sourceFiles
+        ]
+        if parsed.advisory { toolArgs.append("--advisory") }
+        if let minLevel = parsed.advisoryMin {
+            toolArgs.append(contentsOf: ["--advisory-min", minLevel])
+        }
+        toolArgs.append("--source-files")
+        toolArgs.append(contentsOf: sourceFiles)
+        process.arguments = toolArgs
         let status: Int32 = try await withCheckedThrowingContinuation { continuation in
             process.terminationHandler = { proc in
                 continuation.resume(returning: proc.terminationStatus)
@@ -75,6 +82,8 @@ struct ProtoLawDiscoveryPlugin: CommandPlugin {
         let subcommand: String
         let target: String?
         let outputPath: String?
+        let advisory: Bool
+        let advisoryMin: String?
     }
 
     private func parse(arguments: [String]) throws -> ParsedArguments {
@@ -84,6 +93,8 @@ struct ProtoLawDiscoveryPlugin: CommandPlugin {
         let rest = Array(arguments.dropFirst())
         var target: String?
         var outputPath: String?
+        var advisory = false
+        var advisoryMin: String?
         var index = 0
         while index < rest.count {
             switch rest[index] {
@@ -95,12 +106,26 @@ struct ProtoLawDiscoveryPlugin: CommandPlugin {
                 index += 1
                 guard index < rest.count else { throw PluginError.missingFlag("--output") }
                 outputPath = rest[index]
+            case "--advisory":
+                advisory = true
+            case "--advisory-min":
+                index += 1
+                guard index < rest.count else {
+                    throw PluginError.missingFlag("--advisory-min")
+                }
+                advisoryMin = rest[index]
             default:
                 throw PluginError.unknownArgument(rest[index])
             }
             index += 1
         }
-        return ParsedArguments(subcommand: subcommand, target: target, outputPath: outputPath)
+        return ParsedArguments(
+            subcommand: subcommand,
+            target: target,
+            outputPath: outputPath,
+            advisory: advisory,
+            advisoryMin: advisoryMin
+        )
     }
 }
 
