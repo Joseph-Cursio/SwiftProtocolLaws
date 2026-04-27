@@ -73,56 +73,59 @@ struct RoundTripSuggesterTests {
 
     // MARK: - MEDIUM confidence (signature only)
 
-    @Test func skipsSignatureOnlyPairAtDefaultFloor() {
-        // Signatures invert; names aren't in the curated table; no group.
+    /// Signatures invert; names aren't in the curated table; no group.
+    /// HIGH floor filters → 0; MEDIUM and LOW floors emit a single
+    /// MEDIUM-confidence pair.
+    @Test(arguments: [
+        (SuggestionConfidence.high, 0),
+        (.medium, 1),
+        (.low, 1)
+    ])
+    func signatureOnlyPairFiltersByFloor(
+        floor: SuggestionConfidence,
+        expectedCount: Int
+    ) throws {
         let map = makeMap(memberFunctions: [
             "Box": [
                 signature(name: "wrap", params: ["Foo"], ret: "Data", isStatic: true),
                 signature(name: "unwrap", params: ["Data"], ret: "Foo", isStatic: true)
             ]
         ])
-        #expect(RoundTripSuggester.suggest(from: map).isEmpty)
-    }
-
-    @Test func emitsSignatureOnlyPairAtMediumFloor() throws {
-        let map = makeMap(memberFunctions: [
-            "Box": [
-                signature(name: "wrap", params: ["Foo"], ret: "Data", isStatic: true),
-                signature(name: "unwrap", params: ["Data"], ret: "Foo", isStatic: true)
-            ]
-        ])
-        let suggestions = RoundTripSuggester.suggest(from: map, minConfidence: .medium)
-        try #require(suggestions.count == 1)
-        #expect(suggestions[0].confidence == .medium)
+        let suggestions = RoundTripSuggester.suggest(from: map, minConfidence: floor)
+        try #require(suggestions.count == expectedCount)
+        if expectedCount > 0 {
+            #expect(suggestions[0].confidence == .medium)
+        }
     }
 
     // MARK: - LOW confidence (name pair only)
 
-    @Test func skipsNameOnlyPairAtDefaultFloor() {
-        // push/pop is a curated pair, but the typical Stack push/pop
-        // shape is `push(Element)` (returns Void) and `pop()` (zero
-        // params). No signature inverse → LOW only → filtered.
+    /// push/pop is a curated pair, but the typical Stack shape is
+    /// `push(Element)` (Void return) and `pop()` (zero params); no
+    /// signature inverse → LOW. HIGH and MEDIUM floors filter the
+    /// suggestion; LOW floor emits it with forward = push, backward = pop.
+    @Test(arguments: [
+        (SuggestionConfidence.high, 0),
+        (.medium, 0),
+        (.low, 1)
+    ])
+    func nameOnlyPairFiltersByFloor(
+        floor: SuggestionConfidence,
+        expectedCount: Int
+    ) throws {
         let map = makeMap(memberFunctions: [
             "Stack": [
                 signature(name: "push", params: ["Element"], ret: "Void"),
                 signature(name: "pop", params: [], ret: "Element?")
             ]
         ])
-        #expect(RoundTripSuggester.suggest(from: map).isEmpty)
-    }
-
-    @Test func emitsNameOnlyPairAtLowFloor() throws {
-        let map = makeMap(memberFunctions: [
-            "Stack": [
-                signature(name: "push", params: ["Element"], ret: "Void"),
-                signature(name: "pop", params: [], ret: "Element?")
-            ]
-        ])
-        let suggestions = RoundTripSuggester.suggest(from: map, minConfidence: .low)
-        try #require(suggestions.count == 1)
-        #expect(suggestions[0].confidence == .low)
-        #expect(suggestions[0].forward.name == "push")
-        #expect(suggestions[0].backward.name == "pop")
+        let suggestions = RoundTripSuggester.suggest(from: map, minConfidence: floor)
+        try #require(suggestions.count == expectedCount)
+        if expectedCount > 0 {
+            #expect(suggestions[0].confidence == .low)
+            #expect(suggestions[0].forward.name == "push")
+            #expect(suggestions[0].backward.name == "pop")
+        }
     }
 
     // MARK: - Symmetric dedupe
@@ -202,11 +205,12 @@ struct RoundTripSuggesterTests {
             ]
         )
         let suggestions = RoundTripSuggester.suggest(from: map)
-        try #require(suggestions.count == 3)
-        // Apple → Banana → module
-        #expect(suggestions[0].scope == .type("Apple"))
-        #expect(suggestions[1].scope == .type("Banana"))
-        #expect(suggestions[2].scope == .module)
+        // Apple → Banana → module. Single whole-list assertion makes
+        // the expected sort order explicit on regression instead of
+        // pinning each index separately.
+        #expect(
+            suggestions.map(\.scope) == [.type("Apple"), .type("Banana"), .module]
+        )
     }
 
     // MARK: - Empty / no-pair inputs
