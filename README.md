@@ -53,7 +53,7 @@ Inheritance is implicit: `checkComparable…` runs Equatable's laws automaticall
 
 ```swift
 // Package.swift
-.package(url: "https://github.com/Joseph-Cursio/SwiftProtocolLaws.git", from: "0.1.0")
+.package(url: "https://github.com/Joseph-Cursio/SwiftProtocolLaws.git", from: "1.0.0")
 ```
 
 ```swift
