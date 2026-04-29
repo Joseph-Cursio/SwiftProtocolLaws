@@ -160,6 +160,7 @@ extension KnownProtocol {
         case .collection: return "Collection"
         case .setAlgebra: return "SetAlgebra"
         case .strideable: return "Strideable"
+        case .rawRepresentable: return "RawRepresentable"
         }
     }
 }

@@ -200,6 +200,14 @@ Floating-point `NaN` is the canonical intentional violation; types containing `F
 
 `checkStrideableProtocolLaws` requires both a value generator and an explicit `strideGenerator: Generator<Value.Stride, _>` because `Stride` is an associated type (`Int` for `Int`/`Index`-style strideables, `TimeInterval` for `Date`, etc.). It runs the inherited `Comparable` suite first per the §4.3 inheritance convention.
 
+#### `RawRepresentable`
+
+| Protocol Law | Tier | Description |
+|---|---|---|
+| Round-trip fidelity | Strict | `T(rawValue: x.rawValue) == x` for every value the generator produces |
+
+`RawRepresentable` is detected by the macro and discovery plugin only when written explicitly in the inheritance clause (`struct Foo: RawRepresentable`). Raw-value enums (`enum Status: String`) get the conformance synthesized by the compiler, but the macro/plugin sees only inheritance-clause syntax — they don't know `String` implies `RawRepresentable`. Users who want the law check on raw-value enums call `checkRawRepresentableProtocolLaws` manually. The API requires `Equatable` (the law uses `==`), but `RawRepresentable` does not extend `Equatable` in stdlib, so no inherited suite runs.
+
 #### `Codable`
 
 | Protocol Law | Tier | Description |
@@ -269,7 +277,6 @@ ProtocolLawKit v1 covers the protocols enumerated above. The Swift Standard Libr
 - `AdditiveArithmetic`, `Numeric`, `SignedNumeric` — algebraic laws (associativity, commutativity, identity, additive inverse).
 - `BinaryInteger`, `SignedInteger`, `UnsignedInteger`, `FixedWidthInteger` — integer arithmetic and bitwise operator consistency, overflow-trap vs `&`-overflow contracts.
 - `FloatingPoint`, `BinaryFloatingPoint` — IEEE-754 contracts excluding `NaN`-domain edges (which are `.allowNaN`-gated).
-- `RawRepresentable` — `T(rawValue: x.rawValue) == x` round-trip for synthesized cases.
 - `LosslessStringConvertible` — `T(String(describing: x)) == x` round-trip.
 - `StringProtocol` — extends `BidirectionalCollection` with text-specific laws (Unicode-correctness invariants).
 - `Identifiable` — `id` stability across calls within a process (Conventional, since cross-process stability is contextual).

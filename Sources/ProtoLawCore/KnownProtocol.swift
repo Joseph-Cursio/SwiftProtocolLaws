@@ -16,6 +16,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
     case collection
     case setAlgebra
     case strideable
+    case rawRepresentable
 
     /// Maps a single inheritance-clause type name to a `KnownProtocol`.
     /// `Encodable`/`Decodable` are intentionally absent — only the pair
@@ -31,6 +32,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case "Collection": return .collection
         case "SetAlgebra": return .setAlgebra
         case "Strideable": return .strideable
+        case "RawRepresentable": return .rawRepresentable
         default: return nil
         }
     }
@@ -97,7 +99,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .strideable: return [.comparable]
         case .collection: return [.sequence, .iteratorProtocol]
         case .sequence: return [.iteratorProtocol]
-        case .equatable, .codable, .iteratorProtocol, .setAlgebra: return []
+        case .equatable, .codable, .iteratorProtocol, .setAlgebra, .rawRepresentable: return []
         }
     }
 
@@ -114,6 +116,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .collection: return "checkCollectionProtocolLaws"
         case .setAlgebra: return "checkSetAlgebraProtocolLaws"
         case .strideable: return "checkStrideableProtocolLaws"
+        case .rawRepresentable: return "checkRawRepresentableProtocolLaws"
         }
     }
 
@@ -130,6 +133,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .collection: return "collection"
         case .setAlgebra: return "setAlgebra"
         case .strideable: return "strideable"
+        case .rawRepresentable: return "rawRepresentable"
         }
     }
 }

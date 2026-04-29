@@ -92,6 +92,46 @@ struct MacroExpansionTests {
         )
     }
 
+    @Test func rawRepresentableEmitsRoundTripCheck() {
+        // Explicit `: RawRepresentable` in the inheritance clause emits
+        // `checkRawRepresentableProtocolLaws`. Raw-value enums that
+        // synthesize the conformance via `: String` / `: Int` etc. don't
+        // match this detection — the macro only sees inheritance clauses
+        // syntactically.
+        assertMacroExpansion(
+            """
+            @ProtoLawSuite
+            struct Token: RawRepresentable, Equatable {
+                let rawValue: String
+                init?(rawValue: String) { self.rawValue = rawValue }
+            }
+            """,
+            expandedSource: """
+            struct Token: RawRepresentable, Equatable {
+                let rawValue: String
+                init?(rawValue: String) { self.rawValue = rawValue }
+            }
+
+            struct TokenProtocolLawTests {
+                @Test func equatable_Token() async throws {
+                        try await checkEquatableProtocolLaws(
+                            for: Token.self,
+                            using: Token.gen()
+                        )
+                    }
+
+                @Test func rawRepresentable_Token() async throws {
+                        try await checkRawRepresentableProtocolLaws(
+                            for: Token.self,
+                            using: Token.gen()
+                        )
+                    }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
     @Test func strideableSubsumesEmitsComparable() {
         // `Strideable` itself is unemittable — its check function takes a
         // `strideGenerator:` arg the macro can't synthesize from syntax alone.

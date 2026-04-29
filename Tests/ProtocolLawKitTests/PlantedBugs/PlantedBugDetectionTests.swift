@@ -241,6 +241,23 @@ struct PlantedBugDetectionTests {
         )
     }
 
+    // MARK: - RawRepresentable Strict-tier planted bug
+
+    @Test func detectsLossyRawValueRoundTrip() async throws {
+        let violation = await #expect(throws: ProtocolLawViolation.self) {
+            try await checkRawRepresentableProtocolLaws(
+                for: LossyRawValue.self,
+                using: Gen<LossyRawValue>.lossyRawValue(),
+                options: LawCheckOptions(budget: .sanity)
+            )
+        }
+        let laws = violation?.results.map(\.protocolLaw) ?? []
+        #expect(
+            laws.contains("RawRepresentable.roundTrip"),
+            "expected RawRepresentable.roundTrip in violation set; got: \(laws)"
+        )
+    }
+
     // MARK: - Codable round-trip planted bug + .partial mode
 
     @Test func detectsDroppingFieldUnderStrictMode() async throws {
