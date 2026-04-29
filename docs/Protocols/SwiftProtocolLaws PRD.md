@@ -698,12 +698,12 @@ Generator derivation is the single highest execution risk in this proposal — a
 
 For type `T`, ProtoLawMacro tries strategies in this order, falling through to the next on failure:
 
-1. **Explicit registration** — a `Gen<T>` provided by the developer, looked up in a process-wide registry.
-2. **`CaseIterable`** — enumerate cases. Strong distribution.
-3. **All-`Arbitrary` memberwise init** — compose generators for each parameter. Strong distribution.
-4. **`RawRepresentable` with `Arbitrary` `RawValue`** — lift the raw-value generator.
+1. **Explicit registration** — a `Gen<T>` provided by the developer (kit shape: `static func gen() -> Generator<T, _>` on the type, found in the type's primary body by the macro and anywhere in the module by the discovery plugin). Wins unconditionally.
+2. **`CaseIterable`** — enumerate cases. Strong distribution. Implementation: `enum T: CaseIterable` → `Gen<T>.element(of: T.allCases)`.
+3. **All-`Arbitrary` memberwise init** — compose generators for each stored property. Strong distribution. Implementation: `struct T { let prop1: R1; let prop2: R2; ... }` where every `Ri` resolves to a recognized stdlib raw type (Int/String/Bool/Double/Float and the fixed-width integer family) → `zip(R1.gen, R2.gen, ...).map { T(prop1: $0.0, prop2: $0.1, ...) }`. Arity 1–10 (capped by `swift-property-based`'s `zip` overload set). Falls through when any member's type isn't a recognized raw type, when the struct declares a user `init` in its primary body (Swift suppresses the synthesized memberwise init), when the kind is class/actor (reference-semantic init contracts complicate v1), or when arity exceeds 10. Recursive composition (member types that themselves derive memberwise) is not supported in v1 — out of scope per §5.7 Recursive Types.
+4. **`RawRepresentable` with `Arbitrary` `RawValue`** — lift the raw-value generator. Implementation: `enum T: <RawType>` where `RawType` is a recognized stdlib raw type → `<RawType>.gen.compactMap { T(rawValue: $0) }`.
 5. **`Codable` round-trip from a sample literal** — only when explicitly enabled (`--allow-codable-derivation`); produces a "weak generator" warning because the distribution clusters around defaults and misses boundary cases. *Experimental layer.*
-6. **No generator available** — emit a `.todo` stub that does *not* compile until replaced. This is deliberate — silent fallthrough is more dangerous than a compile error.
+6. **No generator available** — emit a `.todo` stub that does *not* compile until replaced. The macro/plugin emits `<TypeName>.gen()` as the placeholder reference, surfaces a `cannotDeriveGenerator` diagnostic naming the specific reason (empty stored-member set, unknown member type, user-init suppresses synthesis, arity overflow), and lets the missing-symbol compile error pin the user's attention. Silent fallthrough is more dangerous than a compile error.
 
 #### Recursive Types
 

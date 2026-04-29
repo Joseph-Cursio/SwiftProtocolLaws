@@ -1,6 +1,12 @@
 import Testing
 @testable import ProtoLawCore
 
+// One test per priority-order step plus the fall-through cases for each
+// strategy — the suite legitimately grows past SwiftLint's default
+// type-body-length threshold as derivation strategies ship. Disable is
+// paired with an explicit re-enable at end of file.
+// swiftlint:disable type_body_length
+
 struct DerivationStrategistTests {
 
     // MARK: - Strategy A: user-provided gen() wins unconditionally
@@ -102,7 +108,10 @@ struct DerivationStrategistTests {
 
     // MARK: - Strategy D: .todo fallback
 
-    @Test func plainStructFallsThroughToTodo() {
+    @Test func emptyStructFallsThroughToTodo() {
+        // `TypeShape.storedMembers` defaults to `[]`. A struct with no
+        // visible stored properties has nothing to compose memberwise —
+        // strategist falls through to `.todo` with an explanation.
         let shape = TypeShape(
             name: "Coordinate",
             kind: .struct,
@@ -114,7 +123,158 @@ struct DerivationStrategistTests {
             return
         }
         #expect(reason.contains("Coordinate"))
-        #expect(reason.contains("memberwise"))
+        #expect(reason.contains("no stored properties"))
+    }
+
+    // MARK: - Strategy 3: memberwise-Arbitrary (PRD §5.7)
+
+    @Test func singleMemberStructDerivesMemberwise() {
+        let shape = TypeShape(
+            name: "ID",
+            kind: .struct,
+            inheritedTypes: ["Equatable"],
+            hasUserGen: false,
+            storedMembers: [StoredMember(name: "value", typeName: "Int")]
+        )
+        let expected: DerivationStrategy = .memberwiseArbitrary(
+            members: [MemberSpec(name: "value", rawType: .int)]
+        )
+        #expect(DerivationStrategist.strategy(for: shape) == expected)
+    }
+
+    @Test func multiMemberStructDerivesMemberwise() {
+        let shape = TypeShape(
+            name: "Coordinate",
+            kind: .struct,
+            inheritedTypes: ["Equatable", "Hashable"],
+            hasUserGen: false,
+            storedMembers: [
+                StoredMember(name: "easting", typeName: "Int"),
+                StoredMember(name: "northing", typeName: "Int")
+            ]
+        )
+        let expected: DerivationStrategy = .memberwiseArbitrary(members: [
+            MemberSpec(name: "easting", rawType: .int),
+            MemberSpec(name: "northing", rawType: .int)
+        ])
+        #expect(DerivationStrategist.strategy(for: shape) == expected)
+    }
+
+    @Test func mixedRawTypeStructDerivesMemberwise() {
+        let shape = TypeShape(
+            name: "Record",
+            kind: .struct,
+            inheritedTypes: ["Equatable"],
+            hasUserGen: false,
+            storedMembers: [
+                StoredMember(name: "id", typeName: "Int"),
+                StoredMember(name: "label", typeName: "String"),
+                StoredMember(name: "active", typeName: "Bool")
+            ]
+        )
+        let expected: DerivationStrategy = .memberwiseArbitrary(members: [
+            MemberSpec(name: "id", rawType: .int),
+            MemberSpec(name: "label", rawType: .string),
+            MemberSpec(name: "active", rawType: .bool)
+        ])
+        #expect(DerivationStrategist.strategy(for: shape) == expected)
+    }
+
+    @Test func structWithUnknownTypeFallsThrough() {
+        let shape = TypeShape(
+            name: "Doc",
+            kind: .struct,
+            inheritedTypes: ["Equatable"],
+            hasUserGen: false,
+            storedMembers: [StoredMember(name: "url", typeName: "URL")]
+        )
+        guard case .todo(let reason) = DerivationStrategist.strategy(for: shape) else {
+            Issue.record("expected .todo")
+            return
+        }
+        #expect(reason.contains("URL"))
+        #expect(reason.contains("no recognized stdlib raw type"))
+    }
+
+    @Test func structWithUserInitFallsThrough() {
+        // Swift suppresses the synthesized memberwise init when the type
+        // declares any user `init(...)` — strategist must fall through.
+        let shape = TypeShape(
+            name: "Wrapped",
+            kind: .struct,
+            inheritedTypes: ["Equatable"],
+            hasUserGen: false,
+            storedMembers: [StoredMember(name: "value", typeName: "Int")],
+            hasUserInit: true
+        )
+        guard case .todo(let reason) = DerivationStrategist.strategy(for: shape) else {
+            Issue.record("expected .todo when user init suppresses synthesis")
+            return
+        }
+        #expect(reason.contains("user `init"))
+    }
+
+    @Test func structWithTooManyMembersFallsThrough() {
+        // The arity limit is `swift-property-based`'s zip overload cap.
+        let members = (0..<11).map { idx in
+            StoredMember(name: "m\(idx)", typeName: "Int")
+        }
+        let shape = TypeShape(
+            name: "Wide",
+            kind: .struct,
+            inheritedTypes: [],
+            hasUserGen: false,
+            storedMembers: members
+        )
+        guard case .todo(let reason) = DerivationStrategist.strategy(for: shape) else {
+            Issue.record("expected .todo at arity 11")
+            return
+        }
+        #expect(reason.contains("11"))
+        #expect(reason.contains("zip"))
+    }
+
+    @Test func classWithRawMembersFallsThroughMemberwise() {
+        // Classes are intentionally excluded from memberwise derivation —
+        // reference-semantic init contracts complicate the synthesized-init
+        // story enough that v1 punts.
+        let shape = TypeShape(
+            name: "Box",
+            kind: .class,
+            inheritedTypes: ["Equatable"],
+            hasUserGen: false,
+            storedMembers: [StoredMember(name: "value", typeName: "Int")]
+        )
+        guard case .todo(let reason) = DerivationStrategist.strategy(for: shape) else {
+            Issue.record("expected .todo for class kind")
+            return
+        }
+        #expect(reason.contains("structs only"))
+    }
+
+    @Test func actorWithRawMembersFallsThroughMemberwise() {
+        let shape = TypeShape(
+            name: "Counter",
+            kind: .actor,
+            inheritedTypes: [],
+            hasUserGen: false,
+            storedMembers: [StoredMember(name: "value", typeName: "Int")]
+        )
+        guard case .todo = DerivationStrategist.strategy(for: shape) else {
+            Issue.record("expected .todo for actor kind")
+            return
+        }
+    }
+
+    @Test func userGenWinsOverMemberwise() {
+        let shape = TypeShape(
+            name: "ID",
+            kind: .struct,
+            inheritedTypes: ["Equatable"],
+            hasUserGen: true,
+            storedMembers: [StoredMember(name: "value", typeName: "Int")]
+        )
+        #expect(DerivationStrategist.strategy(for: shape) == .userGen)
     }
 
     @Test func plainEnumWithoutCaseIterableOrRawFallsThroughToTodo() {
@@ -170,3 +330,5 @@ struct DerivationStrategistTests {
         #expect(RawType.uint64.generatorExpression == "Gen<UInt64>.uint64()")
     }
 }
+
+// swiftlint:enable type_body_length

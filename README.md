@@ -4,7 +4,7 @@ Property-based protocol law checks for Swift's standard-library protocols. Catch
 
 > This is an experiment in property-based testing. I selected Swift's protocols to start because many have clearly identifiable properties. 
 
-> **Status:** v1.2.0 released — collection-refinements cluster (`Bidirectional`/`RandomAccess`/`Mutable`/`RangeReplaceable` Collection) shipped on top of the v1.1 round-trip cluster. 290 tests passing on Swift 6.3, macOS 14+. See [Status](#status) for what's stable.
+> **Status:** v1.2.0 released — collection-refinements cluster (`Bidirectional`/`RandomAccess`/`Mutable`/`RangeReplaceable` Collection) shipped on top of the v1.1 round-trip cluster, plus PRD §5.7 Strategy 3 memberwise-Arbitrary generator derivation on `main`. 308 tests passing on Swift 6.3, macOS 14+. See [Status](#status) for what's stable.
 
 ## The problem
 
@@ -211,7 +211,7 @@ Replay-validation is opt-in: pass an `expectedReplayEnvironment` and the kit ref
 | `ProtoLawMacro` peer macro (PRD §5.3 Macro Mode) | M1 shipped |
 | `swift package protolawcheck` discovery plugin (PRD §5.3 Discovery Mode) | M2 shipped |
 | Generator derivation (PRD §5.7) — `CaseIterable` + `RawRepresentable` enums | M3 shipped |
-| Memberwise-`Arbitrary` derivation (PRD §5.7 Strategy 3) | Deferred |
+| Memberwise-`Arbitrary` derivation (PRD §5.7 Strategy 3) | Shipped — structs whose every stored property is a recognized stdlib raw type (Int / String / Bool / Double / Float and the fixed-width integer family) get `zip(...).map { Type(prop: $0.N, …) }` derived through the synthesized memberwise initializer; arity 1–10 (`swift-property-based`'s `zip` overload cap); falls through to `.todo` for non-raw member types, structs declaring user `init`, and class/actor kinds |
 | Advisory: missing-conformance suggestions (PRD §5.4) | M4 shipped — opt-in via `--advisory`, HIGH-confidence detectors for `Equatable`, `Hashable`, `Comparable`, `Codable` |
 | Advisory: cross-function round-trip discovery (PRD §5.5) | M5 shipped — opt-in via `--advisory`, syntactic pair detector matching curated naming pairs (encode/decode, serialize/deserialize, push/pop, etc.) and signature inversion across same-type member functions + module-level free functions; `@Discoverable(group:)` peer macro promotes group-tagged pairs to HIGH confidence even without a curated naming match |
 | Experimental layer (pattern warnings, Codable-derived generators) | Not started |

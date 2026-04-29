@@ -4,9 +4,20 @@ import ProtocolLawKit
 import ProtoLawMacro
 
 /// End-to-end smoke for `@ProtoLawSuite`: a real type with stdlib
-/// conformances + a `gen()` method gets a peer test suite emitted by the
-/// macro. The generated `@Test func`s actually run against
-/// ProtocolLawKit — not just stringly-matched in `assertMacroExpansion`.
+/// conformances and recognized raw-type stored properties gets a peer test
+/// suite emitted by the macro, and the generated `@Test func`s actually
+/// run against ProtocolLawKit — not just stringly-matched in
+/// `assertMacroExpansion`.
+///
+/// Derivation strategy in play here: PRD §5.7 Strategy 3
+/// (memberwise-Arbitrary). No user `gen()` exists; the macro inspects the
+/// stored properties (`easting: Int`, `northing: Int`), confirms each
+/// resolves to a recognized `RawType`, and emits
+/// `zip(Gen<Int>.int(), Gen<Int>.int()).map { EndToEndCoordinate(...) }`
+/// at the `using:` argument site. Compiling this file is the proof that
+/// memberwise derivation produces valid code; the generated `@Test`s
+/// running clean is the proof it produces a generator that exercises the
+/// laws.
 @ProtoLawSuite
 struct EndToEndCoordinate: Equatable, Hashable, Sendable, CustomStringConvertible {
     let easting: Int
@@ -22,11 +33,4 @@ struct EndToEndCoordinate: Equatable, Hashable, Sendable, CustomStringConvertibl
     }
 
     var description: String { "(\(easting), \(northing))" }
-}
-
-extension EndToEndCoordinate {
-    static func gen() -> Generator<EndToEndCoordinate, some SendableSequenceType> {
-        zip(Gen<Int>.int(in: -50...50), Gen<Int>.int(in: -50...50))
-            .map { EndToEndCoordinate(easting: $0, northing: $1) }
-    }
 }

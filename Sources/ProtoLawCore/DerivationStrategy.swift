@@ -12,6 +12,15 @@ package enum DerivationStrategy: Sendable, Equatable {
     /// `enum T: CaseIterable` — emit `Gen<T>.element(of: T.allCases)`.
     case caseIterable
 
+    /// PRD §5.7 Strategy 3 — every stored property of a struct has a
+    /// recognized stdlib raw type. The emitter composes per-member
+    /// generators via `zip(...)` (or a single `.map(...)` for a 1-member
+    /// type) and lifts through the type's synthesized memberwise
+    /// initializer. v1 supports 1–10 members; arity 11+ falls through to
+    /// `.todo` because `swift-property-based` ships `zip` overloads up to
+    /// 10-arity.
+    case memberwiseArbitrary(members: [MemberSpec])
+
     /// `enum T: <RawType>` where `RawType` is a stdlib type with a known
     /// generator (Int, String, Bool, …). The emitter lifts the raw-value
     /// generator through `T.init(rawValue:)` with a `compactMap` to drop
@@ -23,6 +32,21 @@ package enum DerivationStrategy: Sendable, Equatable {
     /// `reason` carries a human-readable diagnostic surfaced as a macro
     /// warning alongside the compile error (PRD §5.7 telemetry).
     case todo(reason: String)
+}
+
+/// Single member of a memberwise-derivation strategy: the stored property's
+/// label paired with a recognized stdlib raw type. The strategist returns
+/// `MemberSpec`s only after every stored property of the source type has
+/// been resolved to a `RawType`; otherwise the strategy falls through to
+/// `.todo`.
+package struct MemberSpec: Sendable, Equatable {
+    package let name: String
+    package let rawType: RawType
+
+    package init(name: String, rawType: RawType) {
+        self.name = name
+        self.rawType = rawType
+    }
 }
 
 /// Recognized stdlib raw types for `RawRepresentable` derivation. Each
@@ -74,6 +98,22 @@ package enum RawType: String, Sendable, Equatable, CaseIterable {
     }
 }
 
+/// Stored property declared on a struct/class type — name + source-declared
+/// type spelling. The macro and discovery plugin produce `[StoredMember]`
+/// from SwiftSyntax independently; `DerivationStrategist` reads it for the
+/// memberwise-Arbitrary strategy. Members whose type spelling doesn't
+/// resolve to a `RawType` are still listed here — the strategist filters
+/// and falls through to `.todo` if any one fails.
+package struct StoredMember: Sendable, Equatable {
+    package let name: String
+    package let typeName: String
+
+    package init(name: String, typeName: String) {
+        self.name = name
+        self.typeName = typeName
+    }
+}
+
 /// Syntax-agnostic shape of a type declaration — built from SwiftSyntax
 /// by the macro impl and the discovery plugin separately, consumed by
 /// `DerivationStrategist` to choose a strategy.
@@ -94,17 +134,33 @@ package struct TypeShape: Sendable, Equatable {
     /// honors it as the highest-priority strategy (Strategy A from
     /// PRD §5.7).
     package let hasUserGen: Bool
+    /// Stored properties seen in the type's primary declaration, in
+    /// source order. Empty for enums, actors, and any type whose
+    /// primary body the macro/scanner couldn't see (e.g. extension-only
+    /// types). The memberwise-Arbitrary strategy reads this.
+    package let storedMembers: [StoredMember]
+    /// `true` when the type's primary body contains any `init(...)`
+    /// declaration. Swift suppresses the synthesized memberwise init in
+    /// that case, so memberwise-Arbitrary derivation falls through to
+    /// `.todo` — the synthesized init the strategy would call no longer
+    /// exists. Inits declared in extensions don't suppress synthesis and
+    /// don't set this flag.
+    package let hasUserInit: Bool
 
     package init(
         name: String,
         kind: Kind,
         inheritedTypes: [String],
-        hasUserGen: Bool
+        hasUserGen: Bool,
+        storedMembers: [StoredMember] = [],
+        hasUserInit: Bool = false
     ) {
         self.name = name
         self.kind = kind
         self.inheritedTypes = inheritedTypes
         self.hasUserGen = hasUserGen
+        self.storedMembers = storedMembers
+        self.hasUserInit = hasUserInit
     }
 }
 
@@ -112,6 +168,12 @@ package struct TypeShape: Sendable, Equatable {
 /// `DerivationStrategy`. No SwiftSyntax dependency — the syntax-to-shape
 /// conversion lives in each consumer (macro impl, discovery tool).
 package enum DerivationStrategist {
+
+    /// Maximum number of stored properties supported by memberwise
+    /// derivation. Bound by `swift-property-based`'s `zip` overloads,
+    /// which ship for arities 2–10. Single-member types don't need
+    /// `zip` at all — they go through `Generator.map` directly.
+    package static let memberwiseArityLimit = 10
 
     package static func strategy(for shape: TypeShape) -> DerivationStrategy {
         // Priority order from PRD §5.7. Strategy A — explicit user-provided
@@ -123,10 +185,41 @@ package enum DerivationStrategist {
         if shape.kind == .enum, shape.inheritedTypes.contains("CaseIterable") {
             return .caseIterable
         }
+        if let memberwise = memberwiseStrategy(for: shape) {
+            return memberwise
+        }
         if shape.kind == .enum, let rawType = rawType(in: shape.inheritedTypes) {
             return .rawRepresentable(rawType)
         }
         return .todo(reason: todoReason(for: shape))
+    }
+
+    /// PRD §5.7 Strategy 3 — memberwise-Arbitrary composition. Returns
+    /// `nil` (rather than `.todo`) when the strategy isn't applicable so
+    /// `strategy(for:)` can fall through to later candidates.
+    ///
+    /// Applies only to structs (no class/actor support yet — both can
+    /// have non-memberwise inits or reference semantics that complicate
+    /// the contract). Falls through when:
+    /// - The type has no stored members (would produce `Gen.always(Self())`,
+    ///   pathological for property-based testing).
+    /// - The type declares any user `init` in its primary body (Swift
+    ///   suppresses the synthesized memberwise init in that case).
+    /// - Any member's type doesn't resolve to a recognized `RawType`.
+    /// - Member count exceeds `memberwiseArityLimit` (10).
+    private static func memberwiseStrategy(for shape: TypeShape) -> DerivationStrategy? {
+        guard shape.kind == .struct else { return nil }
+        guard !shape.storedMembers.isEmpty else { return nil }
+        guard !shape.hasUserInit else { return nil }
+        guard shape.storedMembers.count <= memberwiseArityLimit else { return nil }
+        var specs: [MemberSpec] = []
+        for member in shape.storedMembers {
+            guard let rawType = RawType(typeName: member.typeName) else {
+                return nil
+            }
+            specs.append(MemberSpec(name: member.name, rawType: rawType))
+        }
+        return .memberwiseArbitrary(members: specs)
     }
 
     /// First inherited type whose name matches a recognized stdlib raw
@@ -150,11 +243,45 @@ package enum DerivationStrategist {
                 + "`CaseIterable` and no recognized stdlib raw type. Provide "
                 + "`static func gen() -> Generator<\(shape.name), some "
                 + "SendableSequenceType>` or add `: CaseIterable`."
-        case .struct, .class, .actor:
+        case .struct:
+            return structTodoReason(for: shape)
+        case .class, .actor:
             return "Cannot derive a generator for `\(shape.name)`: memberwise "
-                + "derivation isn't supported in M3 (deferred). Provide "
-                + "`static func gen() -> Generator<\(shape.name), some "
-                + "SendableSequenceType>`."
+                + "derivation supports structs only (class/actor reference "
+                + "semantics complicate the synthesized-init contract). "
+                + "Provide `static func gen() -> Generator<\(shape.name), "
+                + "some SendableSequenceType>`."
         }
+    }
+
+    /// Diagnostic for struct cases that fell through memberwise derivation
+    /// — names the specific reason so the user knows whether to add a
+    /// `gen()` or restructure the type.
+    private static func structTodoReason(for shape: TypeShape) -> String {
+        let prefix = "Cannot derive a generator for `\(shape.name)`: "
+        let suffix = " Provide `static func gen() -> Generator<\(shape.name), "
+            + "some SendableSequenceType>`."
+        if shape.storedMembers.isEmpty {
+            return prefix + "the type's primary declaration has no stored "
+                + "properties visible to the macro." + suffix
+        }
+        if shape.hasUserInit {
+            return prefix + "the type declares a user `init(...)` in its "
+                + "primary body, which suppresses Swift's synthesized "
+                + "memberwise initializer." + suffix
+        }
+        if shape.storedMembers.count > memberwiseArityLimit {
+            return prefix + "the type has \(shape.storedMembers.count) stored "
+                + "properties; memberwise derivation supports up to "
+                + "\(memberwiseArityLimit) (the upstream `zip` arity limit)."
+                + suffix
+        }
+        if let unknown = shape.storedMembers.first(where: { RawType(typeName: $0.typeName) == nil }) {
+            return prefix + "stored property `\(unknown.name): "
+                + "\(unknown.typeName)` has no recognized stdlib raw type "
+                + "(memberwise derivation supports Int/String/Bool/Double/"
+                + "Float and the fixed-width integer family)." + suffix
+        }
+        return prefix + "memberwise derivation didn't apply." + suffix
     }
 }

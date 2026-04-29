@@ -43,7 +43,9 @@ public struct ProtoLawSuiteMacro: PeerMacro {
             name: target.name,
             kind: target.kind,
             inheritedTypes: inheritedNames,
-            hasUserGen: target.hasUserGen
+            hasUserGen: target.hasUserGen,
+            storedMembers: target.storedMembers,
+            hasUserInit: target.hasUserInit
         )
         let strategy = DerivationStrategist.strategy(for: shape)
         if case .todo(let reason) = strategy {
@@ -63,6 +65,8 @@ public struct ProtoLawSuiteMacro: PeerMacro {
         let kind: TypeShape.Kind
         let inheritanceClause: InheritanceClauseSyntax?
         let hasUserGen: Bool
+        let storedMembers: [StoredMember]
+        let hasUserInit: Bool
 
         init?(declaration: some DeclSyntaxProtocol) {
             if let decl = declaration.as(StructDeclSyntax.self) {
@@ -70,7 +74,7 @@ public struct ProtoLawSuiteMacro: PeerMacro {
                     name: decl.name.text,
                     kind: .struct,
                     inheritanceClause: decl.inheritanceClause,
-                    hasUserGen: Self.hasGenMethod(in: decl.memberBlock)
+                    memberBlock: decl.memberBlock
                 )
                 return
             }
@@ -79,7 +83,7 @@ public struct ProtoLawSuiteMacro: PeerMacro {
                     name: decl.name.text,
                     kind: .class,
                     inheritanceClause: decl.inheritanceClause,
-                    hasUserGen: Self.hasGenMethod(in: decl.memberBlock)
+                    memberBlock: decl.memberBlock
                 )
                 return
             }
@@ -88,7 +92,7 @@ public struct ProtoLawSuiteMacro: PeerMacro {
                     name: decl.name.text,
                     kind: .enum,
                     inheritanceClause: decl.inheritanceClause,
-                    hasUserGen: Self.hasGenMethod(in: decl.memberBlock)
+                    memberBlock: decl.memberBlock
                 )
                 return
             }
@@ -97,7 +101,7 @@ public struct ProtoLawSuiteMacro: PeerMacro {
                     name: decl.name.text,
                     kind: .actor,
                     inheritanceClause: decl.inheritanceClause,
-                    hasUserGen: Self.hasGenMethod(in: decl.memberBlock)
+                    memberBlock: decl.memberBlock
                 )
                 return
             }
@@ -108,12 +112,14 @@ public struct ProtoLawSuiteMacro: PeerMacro {
             name: String,
             kind: TypeShape.Kind,
             inheritanceClause: InheritanceClauseSyntax?,
-            hasUserGen: Bool
+            memberBlock: MemberBlockSyntax
         ) {
             self.name = name
             self.kind = kind
             self.inheritanceClause = inheritanceClause
-            self.hasUserGen = hasUserGen
+            self.hasUserGen = Self.hasGenMethod(in: memberBlock)
+            self.storedMembers = MemberBlockInspector.storedMembers(in: memberBlock)
+            self.hasUserInit = MemberBlockInspector.hasUserInit(in: memberBlock)
         }
 
         /// Scans the type's primary declaration body for a static `gen()`
@@ -173,6 +179,8 @@ public struct ProtoLawSuiteMacro: PeerMacro {
             return "\(typeName).gen()"
         case .caseIterable:
             return "Gen<\(typeName)>.element(of: \(typeName).allCases)"
+        case .memberwiseArbitrary(let members):
+            return MemberwiseEmitter.expression(typeName: typeName, members: members)
         case .rawRepresentable(let rawType):
             return """
                 \(rawType.generatorExpression)

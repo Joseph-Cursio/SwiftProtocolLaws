@@ -239,6 +239,32 @@ struct EmitterGoldenTests {
         #expect(output.contains("checkCollectionProtocolLaws") == false)
     }
 
+    @Test func memberwiseStrategyEmitsZipMapComposition() {
+        // PRD §5.7 Strategy 3 — the plugin emits the zip+map composition
+        // through the type's synthesized memberwise initializer. The
+        // exact text is locked in `MemberwiseEmitterTests`; this test
+        // just confirms the plugin reaches the same emitter rather than
+        // falling back to `<TypeName>.gen()`.
+        let strategy: DerivationStrategy = .memberwiseArbitrary(members: [
+            MemberSpec(name: "easting", rawType: .int),
+            MemberSpec(name: "northing", rawType: .int)
+        ])
+        let output = GeneratedFileEmitter.emit(
+            target: "X",
+            map: ConformanceMap(
+                entries: [entry(
+                    "Coordinate",
+                    conformances: [.equatable],
+                    strategy: strategy
+                )],
+                parseFailures: []
+            )
+        )
+        #expect(output.contains("zip(Gen<Int>.int(), Gen<Int>.int())"))
+        #expect(output.contains("Coordinate(easting: $0.0, northing: $0.1)"))
+        #expect(output.contains("Coordinate.gen()") == false)
+    }
+
     @Test func todoEntryEmitsUserGenReference() {
         // .todo falls back to <TypeName>.gen() as the placeholder reference;
         // the user gets a compile error pointing at the missing symbol.

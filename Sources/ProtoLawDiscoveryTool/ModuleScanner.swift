@@ -3,6 +3,13 @@ import ProtoLawCore
 import SwiftSyntax
 import SwiftParser
 
+// One private struct + one private static helper per syntactic concern
+// the scanner aggregates (inheritance, gen detection, witnesses, member
+// functions, stored members, user inits) — the enum body grows linearly
+// with the discovery feature surface. Disable is paired with an explicit
+// re-enable at end of file.
+// swiftlint:disable type_body_length
+
 /// Walks every `.swift` file in a target and aggregates type declarations
 /// + their inheritance clauses (including extensions in other files) into
 /// a single `ConformanceMap`.
@@ -83,6 +90,14 @@ enum ModuleScanner {
         /// declared in other modules).
         var typeKind: TypeShape.Kind?
         var hasUserGen: Bool = false
+        /// Stored properties from the primary decl (extensions can't
+        /// add stored properties in Swift, so only the primary decl
+        /// contributes). Stays empty when only extensions are seen.
+        var storedMembers: [StoredMember] = []
+        /// `true` if the primary decl's body contains any `init(...)`.
+        /// PRD §5.7 Strategy 3 falls through when this is set, since
+        /// Swift suppresses the synthesized memberwise init.
+        var hasUserInit: Bool = false
         /// Element-wise OR of witnesses seen in primary decl + every
         /// extension. PRD §5.4 advisory suggestions read from here.
         var witnesses: WitnessSet = WitnessSet()
@@ -115,7 +130,9 @@ enum ModuleScanner {
                 name: typeName,
                 kind: kind,
                 inheritedTypes: aggregate.inheritedNames,
-                hasUserGen: aggregate.hasUserGen
+                hasUserGen: aggregate.hasUserGen,
+                storedMembers: aggregate.storedMembers,
+                hasUserInit: aggregate.hasUserInit
             )
             return ConformanceMap.Entry(
                 typeName: typeName,
@@ -142,6 +159,8 @@ enum ModuleScanner {
                     kind: .primary,
                     typeKind: primary.kind,
                     hasUserGen: primary.hasUserGen,
+                    storedMembers: primary.storedMembers,
+                    hasUserInit: primary.hasUserInit,
                     witnesses: primary.witnesses,
                     memberFunctions: primary.memberFunctions
                 ),
@@ -165,6 +184,10 @@ enum ModuleScanner {
                 kind: .extension,
                 typeKind: nil,  // extension doesn't redefine the type kind
                 hasUserGen: hasGenMethod(in: extensionDecl.memberBlock),
+                // Extensions can't add stored properties or suppress the
+                // synthesized memberwise init — both stay empty/false here.
+                storedMembers: [],
+                hasUserInit: false,
                 witnesses: WitnessFinder.find(in: extensionDecl.memberBlock),
                 memberFunctions: RoundTripFinder.findMembers(in: extensionDecl.memberBlock)
             ),
@@ -181,6 +204,8 @@ enum ModuleScanner {
         let inheritance: InheritanceClauseSyntax?
         let node: Syntax
         let hasUserGen: Bool
+        let storedMembers: [StoredMember]
+        let hasUserInit: Bool
         let witnesses: WitnessSet
         let memberFunctions: [FunctionSignature]
     }
@@ -189,50 +214,72 @@ enum ModuleScanner {
         from statement: CodeBlockItemSyntax.Item
     ) -> PrimaryDecl? {
         if let decl = statement.as(StructDeclSyntax.self) {
-            return PrimaryDecl(
+            return makePrimaryDecl(
                 name: decl.name.text,
                 kind: .struct,
                 inheritance: decl.inheritanceClause,
                 node: Syntax(decl),
-                hasUserGen: hasGenMethod(in: decl.memberBlock),
-                witnesses: WitnessFinder.find(in: decl.memberBlock),
-                memberFunctions: RoundTripFinder.findMembers(in: decl.memberBlock)
+                memberBlock: decl.memberBlock
             )
         }
         if let decl = statement.as(ClassDeclSyntax.self) {
-            return PrimaryDecl(
+            return makePrimaryDecl(
                 name: decl.name.text,
                 kind: .class,
                 inheritance: decl.inheritanceClause,
                 node: Syntax(decl),
-                hasUserGen: hasGenMethod(in: decl.memberBlock),
-                witnesses: WitnessFinder.find(in: decl.memberBlock),
-                memberFunctions: RoundTripFinder.findMembers(in: decl.memberBlock)
+                memberBlock: decl.memberBlock
             )
         }
         if let decl = statement.as(EnumDeclSyntax.self) {
-            return PrimaryDecl(
+            return makePrimaryDecl(
                 name: decl.name.text,
                 kind: .enum,
                 inheritance: decl.inheritanceClause,
                 node: Syntax(decl),
-                hasUserGen: hasGenMethod(in: decl.memberBlock),
-                witnesses: WitnessFinder.find(in: decl.memberBlock),
-                memberFunctions: RoundTripFinder.findMembers(in: decl.memberBlock)
+                memberBlock: decl.memberBlock
             )
         }
         if let decl = statement.as(ActorDeclSyntax.self) {
-            return PrimaryDecl(
+            return makePrimaryDecl(
                 name: decl.name.text,
                 kind: .actor,
                 inheritance: decl.inheritanceClause,
                 node: Syntax(decl),
-                hasUserGen: hasGenMethod(in: decl.memberBlock),
-                witnesses: WitnessFinder.find(in: decl.memberBlock),
-                memberFunctions: RoundTripFinder.findMembers(in: decl.memberBlock)
+                memberBlock: decl.memberBlock
             )
         }
         return nil
+    }
+
+    /// Single funnel that builds a `PrimaryDecl` from any of the four
+    /// type-decl shapes — keeps the per-kind branches above small and
+    /// makes the stored-member / user-init scan rules visible in one
+    /// place. Stored members and user-init detection are gated on
+    /// `kind == .struct` because PRD §5.7 Strategy 3 supports structs
+    /// only.
+    private static func makePrimaryDecl(
+        name: String,
+        kind: TypeShape.Kind,
+        inheritance: InheritanceClauseSyntax?,
+        node: Syntax,
+        memberBlock: MemberBlockSyntax
+    ) -> PrimaryDecl {
+        PrimaryDecl(
+            name: name,
+            kind: kind,
+            inheritance: inheritance,
+            node: node,
+            hasUserGen: hasGenMethod(in: memberBlock),
+            storedMembers: kind == .struct
+                ? PluginMemberInspector.storedMembers(in: memberBlock)
+                : [],
+            hasUserInit: kind == .struct
+                ? PluginMemberInspector.hasUserInit(in: memberBlock)
+                : false,
+            witnesses: WitnessFinder.find(in: memberBlock),
+            memberFunctions: RoundTripFinder.findMembers(in: memberBlock)
+        )
     }
 
     /// True when `memberBlock` declares a `static func gen()` method.
@@ -259,6 +306,8 @@ enum ModuleScanner {
         let kind: ConformanceMap.ProvenanceKind
         let typeKind: TypeShape.Kind?
         let hasUserGen: Bool
+        let storedMembers: [StoredMember]
+        let hasUserInit: Bool
         let witnesses: WitnessSet
         let memberFunctions: [FunctionSignature]
     }
@@ -286,6 +335,12 @@ enum ModuleScanner {
         }
         // hasUserGen latches once true — gen() seen anywhere wins.
         if request.hasUserGen { aggregate.hasUserGen = true }
+        // Stored members & user-init come from the primary decl only;
+        // extensions pass empty/false so the OR-combine below is a no-op.
+        if !request.storedMembers.isEmpty {
+            aggregate.storedMembers = request.storedMembers
+        }
+        if request.hasUserInit { aggregate.hasUserInit = true }
         aggregate.witnesses.merge(request.witnesses)
         aggregate.memberFunctions.append(contentsOf: request.memberFunctions)
         perType[request.name] = aggregate
@@ -298,3 +353,5 @@ enum ModuleScanner {
         return typeText.split(separator: ".").last.map(String.init)
     }
 }
+
+// swiftlint:enable type_body_length

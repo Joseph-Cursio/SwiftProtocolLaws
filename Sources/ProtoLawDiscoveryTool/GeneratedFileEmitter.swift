@@ -114,6 +114,8 @@ enum GeneratedFileEmitter {
             return "\(entry.typeName).gen()"
         case .caseIterable:
             return "Gen<\(entry.typeName)>.element(of: \(entry.typeName).allCases)"
+        case .memberwiseArbitrary(let members):
+            return MemberwiseEmitter.expression(typeName: entry.typeName, members: members)
         case .rawRepresentable(let rawType):
             return "\(rawType.generatorExpression)"
                 + ".compactMap { \(entry.typeName)(rawValue: $0) }"

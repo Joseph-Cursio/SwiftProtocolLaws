@@ -4,6 +4,12 @@ import SwiftSyntaxMacrosTestSupport
 import Testing
 @testable import ProtoLawMacroImpl
 
+// One test per derivation-strategy diagnostic; the suite legitimately
+// grows past SwiftLint's default body-length threshold as derivation
+// strategies ship. Disable is paired with an explicit re-enable at
+// end of file.
+// swiftlint:disable type_body_length
+
 struct DiagnosticsTests {
 
     /// Direct `#expect` pin on the dynamic `noKnownConformance` message.
@@ -96,11 +102,11 @@ struct DiagnosticsTests {
 
     // MARK: - cannotDeriveGenerator (M3)
 
-    @Test func plainStructWithStdlibConformanceFiresCannotDeriveWarning() {
-        // Equatable is recognized; the type has stdlib conformances and
-        // gets law-check emit. But no derivation strategy applies (struct
-        // without gen()), so the macro warns the user — alongside the
-        // compile error from the missing Foo.gen() symbol.
+    @Test func plainStructWithRawMemberDerivesMemberwiseNoWarning() {
+        // PRD §5.7 Strategy 3 — every stored property is a recognized raw
+        // type, so memberwise derivation succeeds and no warning fires.
+        // The emitter spells the zip+map composition that lifts through
+        // the type's synthesized memberwise initializer.
         assertMacroExpansion(
             """
             @ProtoLawSuite
@@ -117,7 +123,35 @@ struct DiagnosticsTests {
                 @Test func equatable_Foo() async throws {
                         try await checkEquatableProtocolLaws(
                             for: Foo.self,
-                            using: Foo.gen()
+                            using: Gen<Int>.int().map { Foo(value: $0) }
+                        )
+                    }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
+    @Test func structWithUnknownTypeFiresCannotDeriveWarning() {
+        // `URL` isn't in the recognized RawType set, so memberwise
+        // derivation falls through to .todo and the macro warns.
+        assertMacroExpansion(
+            """
+            @ProtoLawSuite
+            struct Doc: Equatable {
+                let url: URL
+            }
+            """,
+            expandedSource: """
+            struct Doc: Equatable {
+                let url: URL
+            }
+
+            struct DocProtocolLawTests {
+                @Test func equatable_Doc() async throws {
+                        try await checkEquatableProtocolLaws(
+                            for: Doc.self,
+                            using: Doc.gen()
                         )
                     }
             }
@@ -125,9 +159,55 @@ struct DiagnosticsTests {
             diagnostics: [
                 DiagnosticSpec(
                     message: """
-                        Cannot derive a generator for `Foo`: memberwise derivation \
-                        isn't supported in M3 (deferred). Provide `static func gen() \
-                        -> Generator<Foo, some SendableSequenceType>`.
+                        Cannot derive a generator for `Doc`: stored property \
+                        `url: URL` has no recognized stdlib raw type \
+                        (memberwise derivation supports Int/String/Bool/Double/Float \
+                        and the fixed-width integer family). Provide `static func \
+                        gen() -> Generator<Doc, some SendableSequenceType>`.
+                        """,
+                    line: 1,
+                    column: 1,
+                    severity: .warning
+                )
+            ],
+            macros: testMacros
+        )
+    }
+
+    @Test func structWithUserInitFiresCannotDeriveWarning() {
+        // A user-defined init suppresses Swift's synthesized memberwise
+        // init — strategist falls through and the macro warns.
+        assertMacroExpansion(
+            """
+            @ProtoLawSuite
+            struct Wrapped: Equatable {
+                let value: Int
+                init(raw: String) { self.value = Int(raw) ?? 0 }
+            }
+            """,
+            expandedSource: """
+            struct Wrapped: Equatable {
+                let value: Int
+                init(raw: String) { self.value = Int(raw) ?? 0 }
+            }
+
+            struct WrappedProtocolLawTests {
+                @Test func equatable_Wrapped() async throws {
+                        try await checkEquatableProtocolLaws(
+                            for: Wrapped.self,
+                            using: Wrapped.gen()
+                        )
+                    }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: """
+                        Cannot derive a generator for `Wrapped`: the type declares \
+                        a user `init(...)` in its primary body, which suppresses \
+                        Swift's synthesized memberwise initializer. Provide \
+                        `static func gen() -> Generator<Wrapped, some \
+                        SendableSequenceType>`.
                         """,
                     line: 1,
                     column: 1,
@@ -242,3 +322,5 @@ struct DiagnosticsTests {
         )
     }
 }
+
+// swiftlint:enable type_body_length
