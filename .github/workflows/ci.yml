@@ -24,7 +24,7 @@ jobs:
           xcodebuild -version
           swift --version
       - name: Run tests
-        run: swift test
+        run: swift test --no-parallel
 
   build-apple:
     name: Build (${{ matrix.platform }})
