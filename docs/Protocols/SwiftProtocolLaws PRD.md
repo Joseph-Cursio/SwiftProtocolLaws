@@ -216,6 +216,14 @@ Floating-point `NaN` is the canonical intentional violation; types containing `F
 
 `String(describing:)` calls `CustomStringConvertible.description` (which `LosslessStringConvertible` inherits), so the law is the canonical "stringify, then parse, then compare" round-trip. The API requires `Equatable` for the comparison, but `LosslessStringConvertible` does not refine `Equatable` in stdlib — no inherited suite runs.
 
+#### `Identifiable`
+
+| Protocol Law | Tier | Description |
+|---|---|---|
+| Id stability within a process | Conventional | `x.id == x.id` for every value the generator produces — re-reads of `id` on the same instance return equal values |
+
+The Conventional tier reflects that some app architectures legitimately compute `id` from mutable state; cross-process stability (the same logical entity getting the same id across program runs) is contextual and not checked. The kit's law tests within-process stability only — the canonical "no two reads agree" failure mode (e.g., `var id: UUID { UUID() }`) is what fires.
+
 #### `Codable`
 
 | Protocol Law | Tier | Description |
@@ -286,7 +294,6 @@ ProtocolLawKit v1 covers the protocols enumerated above. The Swift Standard Libr
 - `BinaryInteger`, `SignedInteger`, `UnsignedInteger`, `FixedWidthInteger` — integer arithmetic and bitwise operator consistency, overflow-trap vs `&`-overflow contracts.
 - `FloatingPoint`, `BinaryFloatingPoint` — IEEE-754 contracts excluding `NaN`-domain edges (which are `.allowNaN`-gated).
 - `StringProtocol` — extends `BidirectionalCollection` with text-specific laws (Unicode-correctness invariants).
-- `Identifiable` — `id` stability across calls within a process (Conventional, since cross-process stability is contextual).
 - `CaseIterable` — `allCases` enumerates each case exactly once.
 
 **Heuristic / deferred (laws are weak, contextual, or require runtime instrumentation):**

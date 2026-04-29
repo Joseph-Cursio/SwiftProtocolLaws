@@ -10,6 +10,11 @@ nonisolated(unsafe) let testMacros: [String: Macro.Type] = [
     "ProtoLawSuite": ProtoLawSuiteMacro.self
 ]
 
+// One golden-output test per emit-able protocol; the suite legitimately
+// grows past SwiftLint's default body-length threshold as new protocols
+// ship. The disable is paired with an explicit re-enable at end of file.
+// swiftlint:disable type_body_length
+
 struct MacroExpansionTests {
 
     @Test func equatableConformancesEmitsPeerSuite() {
@@ -84,6 +89,34 @@ struct MacroExpansionTests {
                         try await checkComparableProtocolLaws(
                             for: Foo.self,
                             using: Foo.gen()
+                        )
+                    }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
+    @Test func identifiableEmitsIdStabilityCheck() {
+        assertMacroExpansion(
+            """
+            @ProtoLawSuite
+            struct User: Identifiable {
+                let id: Int
+                let name: String
+            }
+            """,
+            expandedSource: """
+            struct User: Identifiable {
+                let id: Int
+                let name: String
+            }
+
+            struct UserProtocolLawTests {
+                @Test func identifiable_User() async throws {
+                        try await checkIdentifiableProtocolLaws(
+                            for: User.self,
+                            using: User.gen()
                         )
                     }
             }
@@ -272,3 +305,5 @@ struct MacroExpansionTests {
         )
     }
 }
+
+// swiftlint:enable type_body_length

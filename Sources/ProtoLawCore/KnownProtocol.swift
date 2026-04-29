@@ -18,6 +18,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
     case strideable
     case rawRepresentable
     case losslessStringConvertible
+    case identifiable
 
     /// Maps a single inheritance-clause type name to a `KnownProtocol`.
     /// `Encodable`/`Decodable` are intentionally absent — only the pair
@@ -37,7 +38,8 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         "SetAlgebra": .setAlgebra,
         "Strideable": .strideable,
         "RawRepresentable": .rawRepresentable,
-        "LosslessStringConvertible": .losslessStringConvertible
+        "LosslessStringConvertible": .losslessStringConvertible,
+        "Identifiable": .identifiable
     ]
 
     /// Resolve a list of raw inherited-type names into the recognized
@@ -103,7 +105,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .collection: return [.sequence, .iteratorProtocol]
         case .sequence: return [.iteratorProtocol]
         case .equatable, .codable, .iteratorProtocol, .setAlgebra,
-             .rawRepresentable, .losslessStringConvertible: return []
+             .rawRepresentable, .losslessStringConvertible, .identifiable: return []
         }
     }
 
@@ -122,6 +124,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .strideable: return "checkStrideableProtocolLaws"
         case .rawRepresentable: return "checkRawRepresentableProtocolLaws"
         case .losslessStringConvertible: return "checkLosslessStringConvertibleProtocolLaws"
+        case .identifiable: return "checkIdentifiableProtocolLaws"
         }
     }
 
@@ -140,6 +143,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .strideable: return "strideable"
         case .rawRepresentable: return "rawRepresentable"
         case .losslessStringConvertible: return "losslessStringConvertible"
+        case .identifiable: return "identifiable"
         }
     }
 }

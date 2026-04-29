@@ -280,6 +280,35 @@ struct PlantedBugDetectionTests {
         )
     }
 
+    // MARK: - Identifiable Conventional-tier planted bug
+
+    @Test func ephemeralIDDoesNotThrowByDefault() async throws {
+        // Conventional-tier violation: warns but doesn't throw at default
+        // enforcement.
+        let results = try await checkIdentifiableProtocolLaws(
+            for: EphemeralID.self,
+            using: Gen<EphemeralID>.ephemeralID(),
+            options: LawCheckOptions(budget: .sanity)
+        )
+        #expect(results.contains { $0.isViolation })
+        #expect(results.contains { $0.protocolLaw == "Identifiable.idStability" })
+    }
+
+    @Test func ephemeralIDThrowsUnderStrictEnforcement() async throws {
+        let violation = await #expect(throws: ProtocolLawViolation.self) {
+            try await checkIdentifiableProtocolLaws(
+                for: EphemeralID.self,
+                using: Gen<EphemeralID>.ephemeralID(),
+                options: LawCheckOptions(budget: .sanity, enforcement: .strict)
+            )
+        }
+        let laws = violation?.results.map(\.protocolLaw) ?? []
+        #expect(
+            laws.contains("Identifiable.idStability"),
+            "expected Identifiable.idStability in violation set; got: \(laws)"
+        )
+    }
+
     // MARK: - Codable round-trip planted bug + .partial mode
 
     @Test func detectsDroppingFieldUnderStrictMode() async throws {
