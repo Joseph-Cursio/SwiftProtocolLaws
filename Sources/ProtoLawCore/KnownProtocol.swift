@@ -14,6 +14,10 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
     case iteratorProtocol
     case sequence
     case collection
+    case bidirectionalCollection
+    case randomAccessCollection
+    case mutableCollection
+    case rangeReplaceableCollection
     case setAlgebra
     case strideable
     case rawRepresentable
@@ -36,6 +40,10 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         "IteratorProtocol": .iteratorProtocol,
         "Sequence": .sequence,
         "Collection": .collection,
+        "BidirectionalCollection": .bidirectionalCollection,
+        "RandomAccessCollection": .randomAccessCollection,
+        "MutableCollection": .mutableCollection,
+        "RangeReplaceableCollection": .rangeReplaceableCollection,
         "SetAlgebra": .setAlgebra,
         "Strideable": .strideable,
         "RawRepresentable": .rawRepresentable,
@@ -103,6 +111,13 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
     /// - Comparable subsumes Equatable.
     /// - Strideable subsumes Comparable (and transitively Equatable).
     /// - Collection subsumes Sequence subsumes IteratorProtocol.
+    /// - BidirectionalCollection subsumes Collection (transitively).
+    /// - RandomAccessCollection subsumes BidirectionalCollection (transitively).
+    /// - MutableCollection and RangeReplaceableCollection each subsume
+    ///   Collection — they're independent siblings of BidirectionalCollection,
+    ///   so a type that's both Bidirectional and RangeReplaceable surfaces both
+    ///   checks (one or the other inherits Collection's laws; the other can
+    ///   pass `.ownOnly` if the user wants to dedupe further).
     package static func mostSpecific(in protocols: Set<KnownProtocol>) -> Set<KnownProtocol> {
         var result = protocols
         for member in protocols {
@@ -119,6 +134,12 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .strideable: return [.comparable]
         case .collection: return [.sequence, .iteratorProtocol]
         case .sequence: return [.iteratorProtocol]
+        case .bidirectionalCollection:
+            return [.collection, .sequence, .iteratorProtocol]
+        case .randomAccessCollection:
+            return [.bidirectionalCollection, .collection, .sequence, .iteratorProtocol]
+        case .mutableCollection, .rangeReplaceableCollection:
+            return [.collection, .sequence, .iteratorProtocol]
         case .equatable, .codable, .iteratorProtocol, .setAlgebra,
              .rawRepresentable, .losslessStringConvertible, .identifiable,
              .caseIterable: return []
@@ -136,6 +157,10 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .iteratorProtocol: return "checkIteratorProtocolLaws"
         case .sequence: return "checkSequenceProtocolLaws"
         case .collection: return "checkCollectionProtocolLaws"
+        case .bidirectionalCollection: return "checkBidirectionalCollectionProtocolLaws"
+        case .randomAccessCollection: return "checkRandomAccessCollectionProtocolLaws"
+        case .mutableCollection: return "checkMutableCollectionProtocolLaws"
+        case .rangeReplaceableCollection: return "checkRangeReplaceableCollectionProtocolLaws"
         case .setAlgebra: return "checkSetAlgebraProtocolLaws"
         case .strideable: return "checkStrideableProtocolLaws"
         case .rawRepresentable: return "checkRawRepresentableProtocolLaws"
@@ -156,6 +181,10 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .iteratorProtocol: return "iteratorProtocol"
         case .sequence: return "sequence"
         case .collection: return "collection"
+        case .bidirectionalCollection: return "bidirectionalCollection"
+        case .randomAccessCollection: return "randomAccessCollection"
+        case .mutableCollection: return "mutableCollection"
+        case .rangeReplaceableCollection: return "rangeReplaceableCollection"
         case .setAlgebra: return "setAlgebra"
         case .strideable: return "strideable"
         case .rawRepresentable: return "rawRepresentable"

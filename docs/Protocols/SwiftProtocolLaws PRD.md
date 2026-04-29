@@ -277,6 +277,48 @@ For compiler-synthesized conformances on enums this holds by construction. The c
 
 `checkCollectionProtocolLaws` runs the `Sequence` and `IteratorProtocol` suites first per the §4.3 inheritance convention.
 
+#### `BidirectionalCollection` (extends `Collection` protocol laws)
+
+| Protocol Law | Tier | Description |
+|---|---|---|
+| `index(before:)` / `index(after:)` round-trip | Strict | `index(before: index(after: i)) == i` for any `i < endIndex` |
+| `index(after:)` / `index(before:)` round-trip | Strict | `index(after: index(before: j)) == j` for any `j > startIndex` |
+| Reverse-traversal consistency | Strict | Walking from `endIndex` via `index(before:)` to `startIndex` yields the reverse of the forward index sequence |
+
+The reverse-traversal check compares index sequences rather than subscript-fetched elements: a broken subscript belongs to `Collection.indexValidity`, and subscripting from a buggy `index(before:)` (e.g. one that returns `endIndex` itself) traps before the law can ever assert anything.
+
+#### `RandomAccessCollection` (extends `BidirectionalCollection` protocol laws)
+
+| Protocol Law | Tier | Description |
+|---|---|---|
+| Distance consistency | Strict | `distance(from: i, to: j)` equals the signed step count from `i` to `j` walked via `index(after:)` |
+| Offset consistency | Strict | `index(i, offsetBy: n)` equals walking `n` forward (or `−n` backward) steps from `i` |
+| Negative-offset inversion | Strict | `index(index(i, offsetBy: n), offsetBy: −n) == i` for any `n` keeping both indices in range |
+
+The laws check value equivalence of the random-access methods against walking via `index(after:)` / `index(before:)`. Performance (the O(1) part of the contract) is *not* measured; only the answer the methods give. `Index: Comparable` is required by `Collection`, so the laws can't subtract indices and instead use *positions* in the walked-index sequence as ground truth.
+
+#### `MutableCollection` (extends `Collection` protocol laws)
+
+| Protocol Law | Tier | Description |
+|---|---|---|
+| `swapAt` swaps values | Strict | After `c.swapAt(i, j)`, `c[i]` equals the original `c[j]` and vice-versa |
+| `swapAt` involution | Strict | `c.swapAt(i, j)` applied twice equals identity |
+
+`MutableCollection`'s subscript setter is exercised through `swapAt(_:_:)`, whose default implementation goes through subscript get + set. A no-op setter fails `swapAtSwapsValues`; a value-transforming setter (doubling, clamping) fails both laws — the involution form surfaces the latter cleanly. The kit deliberately does *not* require an element generator: writing existing collection elements via `swapAt` is enough to exercise the setter contract.
+
+#### `RangeReplaceableCollection` (extends `Collection` protocol laws)
+
+| Protocol Law | Tier | Description |
+|---|---|---|
+| Empty-init is empty | Strict | `Self()` produces an empty collection |
+| Remove-at / insert round-trip | Strict | `remove(at: p)` then `insert(removed, at: p)` reproduces the original |
+| `removeAll()` makes empty | Strict | `removeAll()` produces an empty collection |
+| `replaceSubrange` applies edit | Strict | `replaceSubrange(startIndex..<endIndex, with: EmptyCollection())` clears the range |
+
+`RangeReplaceableCollection`'s only mutating requirement is `replaceSubrange(_:with:)`; every other method (`append`, `insert`, `remove(at:)`, `removeAll(keepingCapacity:)`) has a default implementation routed through it. The kit's `replaceSubrangeAppliesEdit` law specifically guards against a no-op `replaceSubrange` — the round-trip and `removeAll` laws miss that case (the default `removeAll(keepingCapacity: false)` does `self = Self()` rather than calling `replaceSubrange`, and a no-op `remove(at:)` plus a no-op `insert(_:at:)` are compensating). The kit deliberately does *not* require an element generator; tests use the collection's own elements (snapshotted as `Array(sample)`) when a replacement sequence is needed.
+
+The four refinements are independent siblings except for the `RandomAccessCollection → BidirectionalCollection → Collection` chain. A type that conforms to all four (e.g. `Array`) surfaces all four checks under the discovery plugin's most-specific dedupe; the user passes `.ownOnly` per call to avoid running Collection's three laws four times in CI.
+
 #### `SetAlgebra`
 
 | Protocol Law | Tier | Description |
@@ -297,9 +339,8 @@ The four `symmetricDifference*` laws were added in response to a real-world miss
 
 ProtocolLawKit v1 covers the protocols enumerated above. The Swift Standard Library has roughly 54 public protocols (see `docs/Swift Standard Library Protocols.md` for the full inventory); v1's coverage is deliberate and audited rather than exhaustive. Other stdlib protocols are categorized as follows:
 
-**v1.1 candidates (testable laws, clear contracts):**
+**v1.1+ candidates (testable laws, clear contracts):**
 
-- `BidirectionalCollection`, `RandomAccessCollection`, `MutableCollection`, `RangeReplaceableCollection` — refinements of `Collection`; their laws layer on top of v1's `Collection` laws (`index(before:)` inverts `index(after:)`, replace/insert/remove round-trips, etc.).
 - `AdditiveArithmetic`, `Numeric`, `SignedNumeric` — algebraic laws (associativity, commutativity, identity, additive inverse).
 - `BinaryInteger`, `SignedInteger`, `UnsignedInteger`, `FixedWidthInteger` — integer arithmetic and bitwise operator consistency, overflow-trap vs `&`-overflow contracts.
 - `FloatingPoint`, `BinaryFloatingPoint` — IEEE-754 contracts excluding `NaN`-domain edges (which are `.allowNaN`-gated).

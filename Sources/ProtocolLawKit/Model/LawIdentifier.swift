@@ -48,6 +48,24 @@ extension LawIdentifier {
     public static func collection(_ law: CollectionLaw) -> LawIdentifier {
         LawIdentifier(protocolName: "Collection", lawName: law.rawValue)
     }
+    public static func bidirectionalCollection(
+        _ law: BidirectionalCollectionLaw
+    ) -> LawIdentifier {
+        LawIdentifier(protocolName: "BidirectionalCollection", lawName: law.rawValue)
+    }
+    public static func randomAccessCollection(
+        _ law: RandomAccessCollectionLaw
+    ) -> LawIdentifier {
+        LawIdentifier(protocolName: "RandomAccessCollection", lawName: law.rawValue)
+    }
+    public static func mutableCollection(_ law: MutableCollectionLaw) -> LawIdentifier {
+        LawIdentifier(protocolName: "MutableCollection", lawName: law.rawValue)
+    }
+    public static func rangeReplaceableCollection(
+        _ law: RangeReplaceableCollectionLaw
+    ) -> LawIdentifier {
+        LawIdentifier(protocolName: "RangeReplaceableCollection", lawName: law.rawValue)
+    }
     public static func setAlgebra(_ law: SetAlgebraLaw) -> LawIdentifier {
         LawIdentifier(protocolName: "SetAlgebra", lawName: law.rawValue)
     }
@@ -79,6 +97,22 @@ public enum SequenceLaw: String, Sendable, Hashable, CaseIterable {
 
 public enum CollectionLaw: String, Sendable, Hashable, CaseIterable {
     case countConsistency, indexValidity, nonMutation
+}
+
+public enum BidirectionalCollectionLaw: String, Sendable, Hashable, CaseIterable {
+    case indexBeforeAfterRoundTrip, indexAfterBeforeRoundTrip, reverseTraversalConsistency
+}
+
+public enum RandomAccessCollectionLaw: String, Sendable, Hashable, CaseIterable {
+    case distanceConsistency, offsetConsistency, negativeOffsetInversion
+}
+
+public enum MutableCollectionLaw: String, Sendable, Hashable, CaseIterable {
+    case swapAtInvolution, swapAtSwapsValues
+}
+
+public enum RangeReplaceableCollectionLaw: String, Sendable, Hashable, CaseIterable {
+    case emptyInitIsEmpty, removeAtInsertRoundTrip, removeAllMakesEmpty, replaceSubrangeAppliesEdit
 }
 
 public enum SetAlgebraLaw: String, Sendable, Hashable, CaseIterable {

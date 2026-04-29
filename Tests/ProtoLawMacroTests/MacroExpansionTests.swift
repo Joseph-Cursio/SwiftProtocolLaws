@@ -11,9 +11,10 @@ nonisolated(unsafe) let testMacros: [String: Macro.Type] = [
 ]
 
 // One golden-output test per emit-able protocol; the suite legitimately
-// grows past SwiftLint's default body-length threshold as new protocols
-// ship. The disable is paired with an explicit re-enable at end of file.
-// swiftlint:disable type_body_length
+// grows past SwiftLint's default body-length and file-length thresholds
+// as new protocols ship. The disables are paired with an explicit
+// re-enable at end of file.
+// swiftlint:disable type_body_length file_length
 
 struct MacroExpansionTests {
 
@@ -304,6 +305,98 @@ struct MacroExpansionTests {
             macros: testMacros
         )
     }
+
+    @Test func randomAccessCollectionSubsumesBidirectionalAndCollection() {
+        // RandomAccessCollection's subsumed set is transitive — a single
+        // checkRandomAccessCollectionProtocolLaws call runs the inherited
+        // BidirectionalCollection / Collection / Sequence / Iterator laws.
+        assertMacroExpansion(
+            """
+            @ProtoLawSuite
+            struct Pages: RandomAccessCollection, BidirectionalCollection, Collection {
+                var startIndex: Int { 0 }
+                var endIndex: Int { 0 }
+                func index(after i: Int) -> Int { i + 1 }
+                func index(before i: Int) -> Int { i - 1 }
+                subscript(position: Int) -> Int { 0 }
+            }
+            """,
+            expandedSource: """
+            struct Pages: RandomAccessCollection, BidirectionalCollection, Collection {
+                var startIndex: Int { 0 }
+                var endIndex: Int { 0 }
+                func index(after i: Int) -> Int { i + 1 }
+                func index(before i: Int) -> Int { i - 1 }
+                subscript(position: Int) -> Int { 0 }
+            }
+
+            struct PagesProtocolLawTests {
+                @Test func randomAccessCollection_Pages() async throws {
+                        try await checkRandomAccessCollectionProtocolLaws(
+                            for: Pages.self,
+                            using: Pages.gen()
+                        )
+                    }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
+    @Test func mutableAndRangeReplaceableSurviveAsSiblings() {
+        // MutableCollection and RangeReplaceableCollection are independent
+        // refinements of Collection — neither subsumes the other, so both
+        // emit alongside RandomAccessCollection.
+        assertMacroExpansion(
+            """
+            @ProtoLawSuite
+            struct Buffer: RandomAccessCollection, MutableCollection, RangeReplaceableCollection {
+                init() {}
+                var startIndex: Int { 0 }
+                var endIndex: Int { 0 }
+                func index(after i: Int) -> Int { i + 1 }
+                func index(before i: Int) -> Int { i - 1 }
+                subscript(position: Int) -> Int { get { 0 } set {} }
+                mutating func replaceSubrange<C: Collection>(_ s: Range<Int>, with c: C) where C.Element == Int {}
+            }
+            """,
+            expandedSource: """
+            struct Buffer: RandomAccessCollection, MutableCollection, RangeReplaceableCollection {
+                init() {}
+                var startIndex: Int { 0 }
+                var endIndex: Int { 0 }
+                func index(after i: Int) -> Int { i + 1 }
+                func index(before i: Int) -> Int { i - 1 }
+                subscript(position: Int) -> Int { get { 0 } set {} }
+                mutating func replaceSubrange<C: Collection>(_ s: Range<Int>, with c: C) where C.Element == Int {}
+            }
+
+            struct BufferProtocolLawTests {
+                @Test func randomAccessCollection_Buffer() async throws {
+                        try await checkRandomAccessCollectionProtocolLaws(
+                            for: Buffer.self,
+                            using: Buffer.gen()
+                        )
+                    }
+
+                @Test func mutableCollection_Buffer() async throws {
+                        try await checkMutableCollectionProtocolLaws(
+                            for: Buffer.self,
+                            using: Buffer.gen()
+                        )
+                    }
+
+                @Test func rangeReplaceableCollection_Buffer() async throws {
+                        try await checkRangeReplaceableCollectionProtocolLaws(
+                            for: Buffer.self,
+                            using: Buffer.gen()
+                        )
+                    }
+            }
+            """,
+            macros: testMacros
+        )
+    }
 }
 
-// swiftlint:enable type_body_length
+// swiftlint:enable type_body_length file_length

@@ -206,6 +206,39 @@ struct EmitterGoldenTests {
         #expect(output.contains("compactMap { Code(rawValue: $0) }"))
     }
 
+    @Test func randomAccessSubsumesBidirectionalAndCollection() {
+        let output = GeneratedFileEmitter.emit(
+            target: "X",
+            map: ConformanceMap(
+                entries: [entry("Buffer", conformances: [.randomAccessCollection])],
+                parseFailures: []
+            )
+        )
+        #expect(output.contains("checkRandomAccessCollectionProtocolLaws"))
+        // Subsumed protocols' check calls NOT emitted.
+        #expect(output.contains("checkBidirectionalCollectionProtocolLaws") == false)
+        #expect(output.contains("checkCollectionProtocolLaws") == false)
+    }
+
+    @Test func mutableAndRangeReplaceableEmitAsIndependentSiblings() {
+        // MutableCollection and RangeReplaceableCollection both refine
+        // Collection but not each other — both survive the most-specific
+        // dedupe and emit independently.
+        let output = GeneratedFileEmitter.emit(
+            target: "X",
+            map: ConformanceMap(
+                entries: [entry(
+                    "Buffer",
+                    conformances: [.mutableCollection, .rangeReplaceableCollection]
+                )],
+                parseFailures: []
+            )
+        )
+        #expect(output.contains("checkMutableCollectionProtocolLaws"))
+        #expect(output.contains("checkRangeReplaceableCollectionProtocolLaws"))
+        #expect(output.contains("checkCollectionProtocolLaws") == false)
+    }
+
     @Test func todoEntryEmitsUserGenReference() {
         // .todo falls back to <TypeName>.gen() as the placeholder reference;
         // the user gets a compile error pointing at the missing symbol.
