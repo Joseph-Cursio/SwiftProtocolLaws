@@ -50,9 +50,13 @@ Each is a real production bug class. None is caught by `swift build`.
 | `IteratorProtocol` | termination stability, single-pass yield |
 | `Sequence` | `underestimatedCount` lower bound, multi-pass consistency, `makeIterator()` independence |
 | `Collection` | count consistency, index validity, non-mutation |
+| `BidirectionalCollection` | `index(before:)`/`index(after:)` round-trips both ways, reverse-traversal consistency |
+| `RandomAccessCollection` | distance consistency, offset consistency, negative-offset inversion |
+| `MutableCollection` | `swapAt` swaps values, `swapAt` involution |
+| `RangeReplaceableCollection` | empty-init is empty, remove-at/insert round-trip, `removeAll()` makes empty, `replaceSubrange` applies edit |
 | `SetAlgebra` | union/intersection idempotence + commutativity, empty identity |
 
-Inheritance is implicit: `checkComparable…` runs Equatable's laws automatically, `checkStrideable…` runs Comparable's (and transitively Equatable's), `checkCollection…` runs Sequence's and IteratorProtocol's. PRD §4.3 is the spec.
+Inheritance is implicit: `checkComparable…` runs Equatable's laws automatically, `checkStrideable…` runs Comparable's (and transitively Equatable's), `checkCollection…` runs Sequence's and IteratorProtocol's, and `checkRandomAccessCollection…` runs the whole `BidirectionalCollection → Collection → Sequence → IteratorProtocol` chain. PRD §4.3 is the spec.
 
 ## Installation
 
@@ -203,7 +207,7 @@ Replay-validation is opt-in: pass an `expectedReplayEnvironment` and the kit ref
 
 | Component | Status |
 |---|---|
-| `ProtocolLawKit` (PRD Contribution 1) | M1–M5 shipped — laws, suppression, `PropertyBackend`, confidence reporting |
+| `ProtocolLawKit` (PRD Contribution 1) | M1–M5 + v1.1 round-trip cluster + v1.2 collection-refinements cluster shipped — laws, suppression, `PropertyBackend`, confidence reporting |
 | `ProtoLawMacro` peer macro (PRD §5.3 Macro Mode) | M1 shipped |
 | `swift package protolawcheck` discovery plugin (PRD §5.3 Discovery Mode) | M2 shipped |
 | Generator derivation (PRD §5.7) — `CaseIterable` + `RawRepresentable` enums | M3 shipped |
