@@ -4,7 +4,7 @@ Property-based protocol law checks for Swift's standard-library protocols. Catch
 
 > This is an experiment in property-based testing. I selected Swift's protocols to start because many have clearly identifiable properties. 
 
-> **Status:** v1.2.0 released — collection-refinements cluster (`Bidirectional`/`RandomAccess`/`Mutable`/`RangeReplaceable` Collection) shipped on top of the v1.1 round-trip cluster, plus PRD §5.7 Strategy 3 memberwise-Arbitrary generator derivation on `main`. 308 tests passing on Swift 6.3, macOS 14+. See [Status](#status) for what's stable.
+> **Status:** v1.3.0 released — PRD §5.7 Strategy 3 memberwise-Arbitrary generator derivation shipped on top of v1.2's collection-refinements cluster and v1.1's round-trip cluster. 308 tests passing on Swift 6.3, macOS 14+. See [Status](#status) for what's stable.
 
 ## The problem
 
