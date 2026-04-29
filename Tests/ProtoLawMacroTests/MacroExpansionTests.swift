@@ -92,6 +92,43 @@ struct MacroExpansionTests {
         )
     }
 
+    @Test func losslessStringConvertibleEmitsRoundTripCheck() {
+        assertMacroExpansion(
+            """
+            @ProtoLawSuite
+            struct Slug: LosslessStringConvertible, Equatable {
+                let value: String
+                init?(_ description: String) { self.value = description }
+                var description: String { value }
+            }
+            """,
+            expandedSource: """
+            struct Slug: LosslessStringConvertible, Equatable {
+                let value: String
+                init?(_ description: String) { self.value = description }
+                var description: String { value }
+            }
+
+            struct SlugProtocolLawTests {
+                @Test func equatable_Slug() async throws {
+                        try await checkEquatableProtocolLaws(
+                            for: Slug.self,
+                            using: Slug.gen()
+                        )
+                    }
+
+                @Test func losslessStringConvertible_Slug() async throws {
+                        try await checkLosslessStringConvertibleProtocolLaws(
+                            for: Slug.self,
+                            using: Slug.gen()
+                        )
+                    }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
     @Test func rawRepresentableEmitsRoundTripCheck() {
         // Explicit `: RawRepresentable` in the inheritance clause emits
         // `checkRawRepresentableProtocolLaws`. Raw-value enums that

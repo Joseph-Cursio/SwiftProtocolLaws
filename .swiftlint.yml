@@ -9,7 +9,10 @@ excluded:
   - Package.swift
 
 # Idiomatic two-letter identifier name we use; everything else complies
-# with the default 3-character minimum.
+# with the default 3-character minimum. The 50-char max accommodates the
+# kit's `check<Protocol>ProtocolLaws` family — `LosslessStringConvertible`
+# would otherwise overflow the SwiftLint default.
 identifier_name:
   excluded:
     - id
+  max_length: 50

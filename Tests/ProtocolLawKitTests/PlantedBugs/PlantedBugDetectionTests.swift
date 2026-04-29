@@ -263,6 +263,23 @@ struct PlantedBugDetectionTests {
         )
     }
 
+    // MARK: - LosslessStringConvertible Strict-tier planted bug
+
+    @Test func detectsDoublyDescribedRoundTrip() async throws {
+        let violation = await #expect(throws: ProtocolLawViolation.self) {
+            try await checkLosslessStringConvertibleProtocolLaws(
+                for: DoublyDescribed.self,
+                using: Gen<DoublyDescribed>.doublyDescribed(),
+                options: LawCheckOptions(budget: .sanity)
+            )
+        }
+        let laws = violation?.results.map(\.protocolLaw) ?? []
+        #expect(
+            laws.contains("LosslessStringConvertible.roundTrip"),
+            "expected LosslessStringConvertible.roundTrip in violation set; got: \(laws)"
+        )
+    }
+
     // MARK: - Codable round-trip planted bug + .partial mode
 
     @Test func detectsDroppingFieldUnderStrictMode() async throws {

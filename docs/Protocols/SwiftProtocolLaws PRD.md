@@ -208,6 +208,14 @@ Floating-point `NaN` is the canonical intentional violation; types containing `F
 
 `RawRepresentable` is detected by the macro and discovery plugin only when written explicitly in the inheritance clause (`struct Foo: RawRepresentable`). Raw-value enums (`enum Status: String`) get the conformance synthesized by the compiler, but the macro/plugin sees only inheritance-clause syntax — they don't know `String` implies `RawRepresentable`. Users who want the law check on raw-value enums call `checkRawRepresentableProtocolLaws` manually. The API requires `Equatable` (the law uses `==`), but `RawRepresentable` does not extend `Equatable` in stdlib, so no inherited suite runs.
 
+#### `LosslessStringConvertible`
+
+| Protocol Law | Tier | Description |
+|---|---|---|
+| Round-trip fidelity | Strict | `T(String(describing: x)) == x` for every value the generator produces |
+
+`String(describing:)` calls `CustomStringConvertible.description` (which `LosslessStringConvertible` inherits), so the law is the canonical "stringify, then parse, then compare" round-trip. The API requires `Equatable` for the comparison, but `LosslessStringConvertible` does not refine `Equatable` in stdlib — no inherited suite runs.
+
 #### `Codable`
 
 | Protocol Law | Tier | Description |
@@ -277,7 +285,6 @@ ProtocolLawKit v1 covers the protocols enumerated above. The Swift Standard Libr
 - `AdditiveArithmetic`, `Numeric`, `SignedNumeric` — algebraic laws (associativity, commutativity, identity, additive inverse).
 - `BinaryInteger`, `SignedInteger`, `UnsignedInteger`, `FixedWidthInteger` — integer arithmetic and bitwise operator consistency, overflow-trap vs `&`-overflow contracts.
 - `FloatingPoint`, `BinaryFloatingPoint` — IEEE-754 contracts excluding `NaN`-domain edges (which are `.allowNaN`-gated).
-- `LosslessStringConvertible` — `T(String(describing: x)) == x` round-trip.
 - `StringProtocol` — extends `BidirectionalCollection` with text-specific laws (Unicode-correctness invariants).
 - `Identifiable` — `id` stability across calls within a process (Conventional, since cross-process stability is contextual).
 - `CaseIterable` — `allCases` enumerates each case exactly once.

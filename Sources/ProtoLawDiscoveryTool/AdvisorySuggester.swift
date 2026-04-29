@@ -161,6 +161,7 @@ extension KnownProtocol {
         case .setAlgebra: return "SetAlgebra"
         case .strideable: return "Strideable"
         case .rawRepresentable: return "RawRepresentable"
+        case .losslessStringConvertible: return "LosslessStringConvertible"
         }
     }
 }
