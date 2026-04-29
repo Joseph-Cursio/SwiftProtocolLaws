@@ -43,6 +43,10 @@ Each is a real production bug class. None is caught by `swift build`.
 | `Comparable` | antisymmetry, transitivity, totality, operator consistency |
 | `Strideable` | distance round-trip, advance round-trip, zero-advance identity, self-distance is zero |
 | `Codable` | round-trip fidelity (`.strict` / `.semantic` / `.partial` modes) |
+| `RawRepresentable` | `T(rawValue: x.rawValue) == x` round-trip |
+| `LosslessStringConvertible` | `T(String(describing: x)) == x` round-trip |
+| `Identifiable` | id stability within a process |
+| `CaseIterable` | exactly-once enumeration |
 | `IteratorProtocol` | termination stability, single-pass yield |
 | `Sequence` | `underestimatedCount` lower bound, multi-pass consistency, `makeIterator()` independence |
 | `Collection` | count consistency, index validity, non-mutation |
