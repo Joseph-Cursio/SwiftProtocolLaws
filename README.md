@@ -4,7 +4,7 @@ Property-based protocol law checks for Swift's standard-library protocols. Catch
 
 > This is an experiment in property-based testing. I selected Swift's protocols to start because many have clearly identifiable properties. 
 
-> **Status:** pre-1.0, but full v1 surface shipped. 196 tests passing on Swift 6.3, macOS 14+. See [Status](#status) for what's stable.
+> **Status:** v1.2.0 released — collection-refinements cluster (`Bidirectional`/`RandomAccess`/`Mutable`/`RangeReplaceable` Collection) shipped on top of the v1.1 round-trip cluster. 290 tests passing on Swift 6.3, macOS 14+. See [Status](#status) for what's stable.
 
 ## The problem
 
@@ -213,7 +213,7 @@ Replay-validation is opt-in: pass an `expectedReplayEnvironment` and the kit ref
 | Generator derivation (PRD §5.7) — `CaseIterable` + `RawRepresentable` enums | M3 shipped |
 | Memberwise-`Arbitrary` derivation (PRD §5.7 Strategy 3) | Deferred |
 | Advisory: missing-conformance suggestions (PRD §5.4) | M4 shipped — opt-in via `--advisory`, HIGH-confidence detectors for `Equatable`, `Hashable`, `Comparable`, `Codable` |
-| Advisory: cross-function round-trip discovery (PRD §5.5) | Not started |
+| Advisory: cross-function round-trip discovery (PRD §5.5) | M5 shipped — opt-in via `--advisory`, syntactic pair detector matching curated naming pairs (encode/decode, serialize/deserialize, push/pop, etc.) and signature inversion across same-type member functions + module-level free functions; `@Discoverable(group:)` peer macro promotes group-tagged pairs to HIGH confidence even without a curated naming match |
 | Experimental layer (pattern warnings, Codable-derived generators) | Not started |
 | 1.0 External validation gate (PRD v0.3 §8 — three-pass) | All three passes shipped: Pass 1 (discovery scan ≥4 packages), Pass 2 (composition with `swift-argument-parser`), Pass 3 (git-archaeology, results in `Validation/FINDINGS.md`) |
 
