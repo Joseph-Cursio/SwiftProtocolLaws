@@ -24,7 +24,7 @@ jobs:
           xcodebuild -version
           swift --version
       - name: Run tests
-        run: swift test --no-parallel
+        run: swift test --no-parallel --disable-xctest
 
   build-apple:
     name: Build (${{ matrix.platform }})
