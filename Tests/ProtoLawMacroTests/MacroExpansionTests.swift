@@ -92,6 +92,44 @@ struct MacroExpansionTests {
         )
     }
 
+    @Test func strideableSubsumesEmitsComparable() {
+        // `Strideable` itself is unemittable — its check function takes a
+        // `strideGenerator:` arg the macro can't synthesize from syntax alone.
+        // But `Strideable` refines `Comparable` in stdlib, so `set(from:)`
+        // auto-adds Comparable, and the macro emits `checkComparableProtocolLaws`
+        // (which runs Equatable's laws first via inheritance at runtime).
+        // Strideable's own laws stay a manual call.
+        assertMacroExpansion(
+            """
+            @ProtoLawSuite
+            struct Foo: Strideable {
+                let value: Int
+                static func < (lhs: Foo, rhs: Foo) -> Bool { lhs.value < rhs.value }
+                func distance(to other: Foo) -> Int { other.value - value }
+                func advanced(by step: Int) -> Foo { Foo(value: value + step) }
+            }
+            """,
+            expandedSource: """
+            struct Foo: Strideable {
+                let value: Int
+                static func < (lhs: Foo, rhs: Foo) -> Bool { lhs.value < rhs.value }
+                func distance(to other: Foo) -> Int { other.value - value }
+                func advanced(by step: Int) -> Foo { Foo(value: value + step) }
+            }
+
+            struct FooProtocolLawTests {
+                @Test func comparable_Foo() async throws {
+                        try await checkComparableProtocolLaws(
+                            for: Foo.self,
+                            using: Foo.gen()
+                        )
+                    }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
     @Test func codableEmitsBothEquatableAndCodable() {
         assertMacroExpansion(
             """

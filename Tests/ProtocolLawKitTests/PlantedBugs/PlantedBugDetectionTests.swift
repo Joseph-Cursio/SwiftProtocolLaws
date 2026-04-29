@@ -187,6 +187,60 @@ struct PlantedBugDetectionTests {
         #expect(laws.allSatisfy { $0.hasPrefix("Comparable.") })
     }
 
+    // MARK: - Strideable Strict-tier planted bugs
+
+    @Test func detectsZeroAdvanceJump() async throws {
+        let violation = await #expect(throws: ProtocolLawViolation.self) {
+            try await checkStrideableProtocolLaws(
+                for: ZeroAdvanceJump.self,
+                using: Gen<ZeroAdvanceJump>.zeroAdvanceJump(),
+                strideGenerator: Gen<Int>.int(in: -10...10),
+                options: LawCheckOptions(budget: .standard),
+                laws: .ownOnly
+            )
+        }
+        let laws = violation?.results.map(\.protocolLaw) ?? []
+        #expect(
+            laws.contains("Strideable.zeroAdvanceIdentity"),
+            "expected zeroAdvanceIdentity in violation set; got: \(laws)"
+        )
+    }
+
+    @Test func detectsLyingSelfDistance() async throws {
+        let violation = await #expect(throws: ProtocolLawViolation.self) {
+            try await checkStrideableProtocolLaws(
+                for: LyingSelfDistance.self,
+                using: Gen<LyingSelfDistance>.lyingSelfDistance(),
+                strideGenerator: Gen<Int>.int(in: -10...10),
+                options: LawCheckOptions(budget: .sanity),
+                laws: .ownOnly
+            )
+        }
+        let laws = violation?.results.map(\.protocolLaw) ?? []
+        #expect(
+            laws.contains("Strideable.selfDistanceIsZero"),
+            "expected selfDistanceIsZero in violation set; got: \(laws)"
+        )
+    }
+
+    @Test func detectsOffByOneAdvanceRoundTrips() async throws {
+        let violation = await #expect(throws: ProtocolLawViolation.self) {
+            try await checkStrideableProtocolLaws(
+                for: OffByOneAdvance.self,
+                using: Gen<OffByOneAdvance>.offByOneAdvance(),
+                strideGenerator: Gen<Int>.int(in: -10...10),
+                options: LawCheckOptions(budget: .sanity),
+                laws: .ownOnly
+            )
+        }
+        let laws = violation?.results.map(\.protocolLaw) ?? []
+        #expect(
+            laws.contains("Strideable.distanceRoundTrip")
+                || laws.contains("Strideable.advanceRoundTrip"),
+            "expected a round-trip law in violation set; got: \(laws)"
+        )
+    }
+
     // MARK: - Codable round-trip planted bug + .partial mode
 
     @Test func detectsDroppingFieldUnderStrictMode() async throws {

@@ -143,6 +143,45 @@ struct ModuleScannerTests {
         #expect(map.entries[0].conformances == [.codable])
     }
 
+    // MARK: - Unemittable protocol filter
+
+    @Test func iteratorProtocolOnlyFiltersToEmptyConformances() throws {
+        let dir = try makeFixtureDir([
+            "Cursor.swift": """
+                struct Cursor: IteratorProtocol {
+                    mutating func next() -> Int? { nil }
+                }
+                """
+        ])
+        defer { try? FileManager.default.removeItem(atPath: dir) }
+
+        let map = ModuleScanner.scan(sourceFiles: filePaths(in: dir))
+        try #require(map.entries.count == 1)
+        #expect(map.entries[0].conformances == [])
+    }
+
+    @Test func strideableOnlyEmitsAsComparable() throws {
+        // Strideable's check function takes an extra `strideGenerator:` arg
+        // the scanner can't synthesize, so Strideable is filtered from
+        // emit. But Strideable refines Comparable in stdlib — `set(from:)`
+        // auto-adds Comparable, surviving the filter.
+        let dir = try makeFixtureDir([
+            "Step.swift": """
+                struct Step: Strideable {
+                    let value: Int
+                    static func < (lhs: Step, rhs: Step) -> Bool { lhs.value < rhs.value }
+                    func distance(to other: Step) -> Int { other.value - value }
+                    func advanced(by step: Int) -> Step { Step(value: value + step) }
+                }
+                """
+        ])
+        defer { try? FileManager.default.removeItem(atPath: dir) }
+
+        let map = ModuleScanner.scan(sourceFiles: filePaths(in: dir))
+        try #require(map.entries.count == 1)
+        #expect(map.entries[0].conformances == [.comparable])
+    }
+
     // MARK: - Idempotence
 
     @Test func sortedFileOrderProducesDeterministicOutput() throws {

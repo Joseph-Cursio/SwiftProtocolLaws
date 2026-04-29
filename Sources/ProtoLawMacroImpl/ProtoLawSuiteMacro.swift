@@ -30,8 +30,8 @@ public struct ProtoLawSuiteMacro: PeerMacro {
         }
         let inheritedNames = inheritedTypeNames(of: target.inheritanceClause)
         let conformances = KnownProtocol.set(from: inheritedNames)
-        let mostSpecific = KnownProtocol.mostSpecific(in: conformances)
-        let emitSet = mostSpecific.filter { $0 != .iteratorProtocol }
+        let macroEmittable = conformances.subtracting(KnownProtocol.unemittable)
+        let emitSet = KnownProtocol.mostSpecific(in: macroEmittable)
         if emitSet.isEmpty {
             context.diagnose(Diagnostic(
                 node: declaration,

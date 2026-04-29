@@ -71,16 +71,18 @@ enum GeneratedFileEmitter {
     ) -> [String] {
         var lines: [String] = []
         lines.append(provenanceComment(for: entry))
-        // Skip entries whose post-filter set is empty (only iteratorProtocol
-        // matched) so we don't emit empty suites.
-        let emitSet = entry.conformances.filter { $0 != .iteratorProtocol }
-        guard !emitSet.isEmpty else {
+        // Skip entries whose conformance set is empty after the upstream
+        // most-specific + unemittable filter (`ModuleScanner`) — typically
+        // types whose only recognized stdlib conformance is `IteratorProtocol`
+        // or `Strideable`, neither of which the plugin can emit a compilable
+        // call for from inheritance-clause syntax alone.
+        guard !entry.conformances.isEmpty else {
             lines.append("// No emit-able stdlib conformance recognized.")
             return lines
         }
         lines.append("@Suite struct \(entry.typeName)ProtocolLawTests {")
         let generatorExpr = generatorExpression(for: entry)
-        let orderedConformances = testEmissionOrder.filter { emitSet.contains($0) }
+        let orderedConformances = testEmissionOrder.filter { entry.conformances.contains($0) }
         for (index, conformance) in orderedConformances.enumerated() {
             if index > 0 { lines.append("") }
             let suppressionKey = "\(conformance.testNameFragment)_\(entry.typeName)"

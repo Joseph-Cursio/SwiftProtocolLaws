@@ -15,6 +15,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
     case sequence
     case collection
     case setAlgebra
+    case strideable
 
     /// Maps a single inheritance-clause type name to a `KnownProtocol`.
     /// `Encodable`/`Decodable` are intentionally absent — only the pair
@@ -29,13 +30,18 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case "Sequence": return .sequence
         case "Collection": return .collection
         case "SetAlgebra": return .setAlgebra
+        case "Strideable": return .strideable
         default: return nil
         }
     }
 
     /// Resolve a list of raw inherited-type names into the recognized
     /// `KnownProtocol` set, including the `Encodable + Decodable` →
-    /// `.codable` pairing.
+    /// `.codable` pairing and the `Strideable` ⇒ `Comparable` implication
+    /// (Strideable's stdlib definition refines Comparable, so any
+    /// Strideable type is by definition Comparable; auto-adding Comparable
+    /// lets the macro/plugin emit `checkComparableProtocolLaws` for types
+    /// that only spell `: Strideable` in their inheritance clause).
     package static func set(from typeNames: [String]) -> Set<KnownProtocol> {
         var result: Set<KnownProtocol> = []
         var hasEncodable = false
@@ -50,8 +56,20 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         if hasEncodable && hasDecodable {
             result.insert(.codable)
         }
+        if result.contains(.strideable) {
+            result.insert(.comparable)
+        }
         return result
     }
+
+    /// Protocols whose check functions can't be emitted by the macro / plugin
+    /// from inheritance-clause syntax alone. `IteratorProtocol`'s check is
+    /// parameterized over a host `Sequence`, and `Strideable`'s requires a
+    /// separate `strideGenerator:` over the associated `Stride` type. Both
+    /// callers filter these out *before* applying `mostSpecific` so that
+    /// subsumed peers (notably `Comparable` for Strideable) survive into the
+    /// emit set.
+    package static let unemittable: Set<KnownProtocol> = [.iteratorProtocol, .strideable]
 
     /// Filters `protocols` down to its most-specific members per PRD §4.3
     /// inheritance semantics: when one recognized protocol's check already
@@ -61,6 +79,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
     /// Concretely:
     /// - Hashable subsumes Equatable.
     /// - Comparable subsumes Equatable.
+    /// - Strideable subsumes Comparable (and transitively Equatable).
     /// - Collection subsumes Sequence subsumes IteratorProtocol.
     package static func mostSpecific(in protocols: Set<KnownProtocol>) -> Set<KnownProtocol> {
         var result = protocols
@@ -75,6 +94,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
     private var subsumedProtocols: Set<KnownProtocol> {
         switch self {
         case .hashable, .comparable: return [.equatable]
+        case .strideable: return [.comparable]
         case .collection: return [.sequence, .iteratorProtocol]
         case .sequence: return [.iteratorProtocol]
         case .equatable, .codable, .iteratorProtocol, .setAlgebra: return []
@@ -93,6 +113,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .sequence: return "checkSequenceProtocolLaws"
         case .collection: return "checkCollectionProtocolLaws"
         case .setAlgebra: return "checkSetAlgebraProtocolLaws"
+        case .strideable: return "checkStrideableProtocolLaws"
         }
     }
 
@@ -108,6 +129,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .sequence: return "sequence"
         case .collection: return "collection"
         case .setAlgebra: return "setAlgebra"
+        case .strideable: return "strideable"
         }
     }
 }

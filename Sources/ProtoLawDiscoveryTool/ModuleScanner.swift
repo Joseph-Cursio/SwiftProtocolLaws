@@ -119,7 +119,9 @@ enum ModuleScanner {
             )
             return ConformanceMap.Entry(
                 typeName: typeName,
-                conformances: KnownProtocol.mostSpecific(in: raw),
+                conformances: KnownProtocol.mostSpecific(
+                    in: raw.subtracting(KnownProtocol.unemittable)
+                ),
                 provenances: aggregate.provenances.sorted(),
                 derivationStrategy: DerivationStrategist.strategy(for: shape)
             )

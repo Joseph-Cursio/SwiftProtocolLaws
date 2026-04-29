@@ -189,6 +189,17 @@ Floating-point `NaN` is the canonical intentional violation; types containing `F
 | Totality | Conventional | `x <= y` or `y <= x` for all `x`, `y` (relaxed for `Float`/`Double` because of `NaN`) |
 | Operator consistency | Strict | `>`, `>=`, `<` are consistent with `<=` |
 
+#### `Strideable` (extends `Comparable` protocol laws)
+
+| Protocol Law | Tier | Description |
+|---|---|---|
+| Distance round-trip | Strict | `x.advanced(by: x.distance(to: y)) == y` |
+| Advance round-trip | Strict | `x.distance(to: x.advanced(by: n)) == n` |
+| Zero-advance identity | Strict | `x.advanced(by: .zero) == x` |
+| Self-distance is zero | Strict | `x.distance(to: x) == .zero` |
+
+`checkStrideableProtocolLaws` requires both a value generator and an explicit `strideGenerator: Generator<Value.Stride, _>` because `Stride` is an associated type (`Int` for `Int`/`Index`-style strideables, `TimeInterval` for `Date`, etc.). It runs the inherited `Comparable` suite first per the §4.3 inheritance convention.
+
 #### `Codable`
 
 | Protocol Law | Tier | Description |
@@ -258,7 +269,6 @@ ProtocolLawKit v1 covers the protocols enumerated above. The Swift Standard Libr
 - `AdditiveArithmetic`, `Numeric`, `SignedNumeric` — algebraic laws (associativity, commutativity, identity, additive inverse).
 - `BinaryInteger`, `SignedInteger`, `UnsignedInteger`, `FixedWidthInteger` — integer arithmetic and bitwise operator consistency, overflow-trap vs `&`-overflow contracts.
 - `FloatingPoint`, `BinaryFloatingPoint` — IEEE-754 contracts excluding `NaN`-domain edges (which are `.allowNaN`-gated).
-- `Strideable` — `advanced(by:).distance(to: original) == -n` round-trip.
 - `RawRepresentable` — `T(rawValue: x.rawValue) == x` round-trip for synthesized cases.
 - `LosslessStringConvertible` — `T(String(describing: x)) == x` round-trip.
 - `StringProtocol` — extends `BidirectionalCollection` with text-specific laws (Unicode-correctness invariants).

@@ -151,11 +151,15 @@ struct EmitterGoldenTests {
         #expect(output.contains("/path/Bad.swift: unreadable"))
     }
 
-    @Test func iteratorProtocolOnlyEmitsNoEmitComment() {
+    @Test func emptyConformancesEmitNoEmitComment() {
+        // The scanner filters unemittable protocols (IteratorProtocol,
+        // Strideable) upstream; an empty conformance set is the wire form
+        // the emitter sees for types whose only recognized stdlib
+        // conformance was unemittable.
         let output = GeneratedFileEmitter.emit(
             target: "X",
             map: ConformanceMap(
-                entries: [entry("Cursor", conformances: [.iteratorProtocol])],
+                entries: [entry("Cursor", conformances: [])],
                 parseFailures: []
             )
         )

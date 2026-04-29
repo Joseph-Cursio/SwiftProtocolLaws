@@ -159,6 +159,7 @@ extension KnownProtocol {
         case .sequence: return "Sequence"
         case .collection: return "Collection"
         case .setAlgebra: return "SetAlgebra"
+        case .strideable: return "Strideable"
         }
     }
 }
