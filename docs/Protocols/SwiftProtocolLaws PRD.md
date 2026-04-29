@@ -224,6 +224,16 @@ Floating-point `NaN` is the canonical intentional violation; types containing `F
 
 The Conventional tier reflects that some app architectures legitimately compute `id` from mutable state; cross-process stability (the same logical entity getting the same id across program runs) is contextual and not checked. The kit's law tests within-process stability only — the canonical "no two reads agree" failure mode (e.g., `var id: UUID { UUID() }`) is what fires.
 
+#### `CaseIterable`
+
+| Protocol Law | Tier | Description |
+|---|---|---|
+| Exactly-once enumeration | Strict | `Set(allCases).count == allCases.count` — `allCases` lists each case exactly once |
+
+For compiler-synthesized conformances on enums this holds by construction. The check exists as the self-test gate against hand-rolled `allCases` getters that accidentally drop or duplicate cases. The law is static (no per-sample property), so the `using:` parameter is accepted for API symmetry but ignored.
+
+`CaseIterable` joins `IteratorProtocol` and `Strideable` on the macro/plugin's unemittable list — most `: CaseIterable` adoptions exist to expose `allCases` for list iteration rather than to test protocol-level correctness, and synthesized conformances never violate this law. Users invoke `checkCaseIterableProtocolLaws` manually when they want it.
+
 #### `Codable`
 
 | Protocol Law | Tier | Description |
@@ -294,8 +304,6 @@ ProtocolLawKit v1 covers the protocols enumerated above. The Swift Standard Libr
 - `BinaryInteger`, `SignedInteger`, `UnsignedInteger`, `FixedWidthInteger` — integer arithmetic and bitwise operator consistency, overflow-trap vs `&`-overflow contracts.
 - `FloatingPoint`, `BinaryFloatingPoint` — IEEE-754 contracts excluding `NaN`-domain edges (which are `.allowNaN`-gated).
 - `StringProtocol` — extends `BidirectionalCollection` with text-specific laws (Unicode-correctness invariants).
-- `CaseIterable` — `allCases` enumerates each case exactly once.
-
 **Heuristic / deferred (laws are weak, contextual, or require runtime instrumentation):**
 
 - `Sendable` — value semantics is a heuristic, not a checkable invariant from outside the type. A `checkSendableContractLaws` Heuristic-tier suite (mutation-after-share spot checks) is a research item, not a v1.1 deliverable.

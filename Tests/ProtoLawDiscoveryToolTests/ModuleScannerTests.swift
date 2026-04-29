@@ -3,6 +3,11 @@ import Testing
 @testable import ProtoLawDiscoveryTool
 @testable import ProtoLawCore
 
+// One scenario per recognized conformance shape; the suite legitimately
+// grows past SwiftLint's default body-length threshold as new protocols
+// ship. Paired with an explicit re-enable at end of file.
+// swiftlint:disable type_body_length
+
 struct ModuleScannerTests {
 
     // MARK: - Single-file conformances
@@ -150,6 +155,24 @@ struct ModuleScannerTests {
             "Cursor.swift": """
                 struct Cursor: IteratorProtocol {
                     mutating func next() -> Int? { nil }
+                }
+                """
+        ])
+        defer { try? FileManager.default.removeItem(atPath: dir) }
+
+        let map = ModuleScanner.scan(sourceFiles: filePaths(in: dir))
+        try #require(map.entries.count == 1)
+        #expect(map.entries[0].conformances == [])
+    }
+
+    @Test func caseIterableOnlyFiltersToEmptyConformances() throws {
+        // CaseIterable is unemittable; on its own it leaves nothing for
+        // the macro/plugin to emit. Users call checkCaseIterableProtocolLaws
+        // manually if they want the law check.
+        let dir = try makeFixtureDir([
+            "Direction.swift": """
+                enum Direction: CaseIterable {
+                    case north, south
                 }
                 """
         ])
@@ -320,3 +343,5 @@ struct ModuleScannerTests {
         (try? FileManager.default.contentsOfDirectory(atPath: dir).map { dir + $0 }) ?? []
     }
 }
+
+// swiftlint:enable type_body_length

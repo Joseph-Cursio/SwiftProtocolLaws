@@ -19,6 +19,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
     case rawRepresentable
     case losslessStringConvertible
     case identifiable
+    case caseIterable
 
     /// Maps a single inheritance-clause type name to a `KnownProtocol`.
     /// `Encodable`/`Decodable` are intentionally absent — only the pair
@@ -39,7 +40,8 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         "Strideable": .strideable,
         "RawRepresentable": .rawRepresentable,
         "LosslessStringConvertible": .losslessStringConvertible,
-        "Identifiable": .identifiable
+        "Identifiable": .identifiable,
+        "CaseIterable": .caseIterable
     ]
 
     /// Resolve a list of raw inherited-type names into the recognized
@@ -69,14 +71,27 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         return result
     }
 
-    /// Protocols whose check functions can't be emitted by the macro / plugin
-    /// from inheritance-clause syntax alone. `IteratorProtocol`'s check is
-    /// parameterized over a host `Sequence`, and `Strideable`'s requires a
-    /// separate `strideGenerator:` over the associated `Stride` type. Both
-    /// callers filter these out *before* applying `mostSpecific` so that
+    /// Protocols whose check functions are *not* emitted by the macro /
+    /// plugin from inheritance-clause syntax alone:
+    ///
+    /// - `IteratorProtocol`'s check is parameterized over a host `Sequence`.
+    /// - `Strideable`'s requires a separate `strideGenerator:` over the
+    ///   associated `Stride` type.
+    /// - `CaseIterable`'s law is static (no per-sample property) and most
+    ///   `: CaseIterable` adoptions exist to expose `allCases` for list
+    ///   iteration, not to test protocol-level correctness — auto-emitting
+    ///   adds noise without meaningful coverage on synthesized
+    ///   conformances. Users who do want the law check call
+    ///   `checkCaseIterableProtocolLaws` manually.
+    ///
+    /// All callers filter these out *before* applying `mostSpecific` so that
     /// subsumed peers (notably `Comparable` for Strideable) survive into the
     /// emit set.
-    package static let unemittable: Set<KnownProtocol> = [.iteratorProtocol, .strideable]
+    package static let unemittable: Set<KnownProtocol> = [
+        .iteratorProtocol,
+        .strideable,
+        .caseIterable
+    ]
 
     /// Filters `protocols` down to its most-specific members per PRD §4.3
     /// inheritance semantics: when one recognized protocol's check already
@@ -105,7 +120,8 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .collection: return [.sequence, .iteratorProtocol]
         case .sequence: return [.iteratorProtocol]
         case .equatable, .codable, .iteratorProtocol, .setAlgebra,
-             .rawRepresentable, .losslessStringConvertible, .identifiable: return []
+             .rawRepresentable, .losslessStringConvertible, .identifiable,
+             .caseIterable: return []
         }
     }
 
@@ -125,6 +141,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .rawRepresentable: return "checkRawRepresentableProtocolLaws"
         case .losslessStringConvertible: return "checkLosslessStringConvertibleProtocolLaws"
         case .identifiable: return "checkIdentifiableProtocolLaws"
+        case .caseIterable: return "checkCaseIterableProtocolLaws"
         }
     }
 
@@ -144,6 +161,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .rawRepresentable: return "rawRepresentable"
         case .losslessStringConvertible: return "losslessStringConvertible"
         case .identifiable: return "identifiable"
+        case .caseIterable: return "caseIterable"
         }
     }
 }

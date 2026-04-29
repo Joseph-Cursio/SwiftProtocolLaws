@@ -163,6 +163,7 @@ extension KnownProtocol {
         case .rawRepresentable: return "RawRepresentable"
         case .losslessStringConvertible: return "LosslessStringConvertible"
         case .identifiable: return "Identifiable"
+        case .caseIterable: return "CaseIterable"
         }
     }
 }
