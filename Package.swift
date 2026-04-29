@@ -5,7 +5,11 @@ import PackageDescription
 let package = Package(
     name: "SwiftProtocolLaws",
     platforms: [
-        .macOS(.v14)
+        .macOS(.v14),
+        .iOS(.v17),
+        .tvOS(.v17),
+        .watchOS(.v10),
+        .visionOS(.v1)
     ],
     products: [
         .library(
