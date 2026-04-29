@@ -41,13 +41,14 @@ Each is a real production bug class. None is caught by `swift build`.
 | `Equatable` | reflexivity, symmetry, transitivity, negation consistency |
 | `Hashable` | hash/equality consistency, stability within a process, distribution |
 | `Comparable` | antisymmetry, transitivity, totality, operator consistency |
+| `Strideable` | distance round-trip, advance round-trip, zero-advance identity, self-distance is zero |
 | `Codable` | round-trip fidelity (`.strict` / `.semantic` / `.partial` modes) |
 | `IteratorProtocol` | termination stability, single-pass yield |
 | `Sequence` | `underestimatedCount` lower bound, multi-pass consistency, `makeIterator()` independence |
 | `Collection` | count consistency, index validity, non-mutation |
 | `SetAlgebra` | union/intersection idempotence + commutativity, empty identity |
 
-Inheritance is implicit: `checkComparable…` runs Equatable's laws automatically, `checkCollection…` runs Sequence's and IteratorProtocol's. PRD §4.3 is the spec.
+Inheritance is implicit: `checkComparable…` runs Equatable's laws automatically, `checkStrideable…` runs Comparable's (and transitively Equatable's), `checkCollection…` runs Sequence's and IteratorProtocol's. PRD §4.3 is the spec.
 
 ## Installation
 
