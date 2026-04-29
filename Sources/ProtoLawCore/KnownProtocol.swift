@@ -22,20 +22,21 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
     /// `Encodable`/`Decodable` are intentionally absent — only the pair
     /// resolves to `.codable`, handled by `KnownProtocol.set(from:)`.
     package static func from(typeName: String) -> KnownProtocol? {
-        switch typeName {
-        case "Equatable": return .equatable
-        case "Hashable": return .hashable
-        case "Comparable": return .comparable
-        case "Codable": return .codable
-        case "IteratorProtocol": return .iteratorProtocol
-        case "Sequence": return .sequence
-        case "Collection": return .collection
-        case "SetAlgebra": return .setAlgebra
-        case "Strideable": return .strideable
-        case "RawRepresentable": return .rawRepresentable
-        default: return nil
-        }
+        typeNameMap[typeName]
     }
+
+    private static let typeNameMap: [String: KnownProtocol] = [
+        "Equatable": .equatable,
+        "Hashable": .hashable,
+        "Comparable": .comparable,
+        "Codable": .codable,
+        "IteratorProtocol": .iteratorProtocol,
+        "Sequence": .sequence,
+        "Collection": .collection,
+        "SetAlgebra": .setAlgebra,
+        "Strideable": .strideable,
+        "RawRepresentable": .rawRepresentable
+    ]
 
     /// Resolve a list of raw inherited-type names into the recognized
     /// `KnownProtocol` set, including the `Encodable + Decodable` →

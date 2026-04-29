@@ -2,6 +2,11 @@ import Testing
 import PropertyBased
 @testable import ProtocolLawKit
 
+// PRD §8 self-test gate accumulates one detection test per Strict-tier
+// law across all protocols the kit covers; the suite legitimately grows
+// past SwiftLint's default body-length threshold as new protocols ship.
+// swiftlint:disable type_body_length
+
 /// PRD §8 framework self-test gate. Each test plants a violation and asserts
 /// the framework catches it. If any of these regress green-on-buggy, the
 /// framework has lost the ability to detect that class of violation and
@@ -299,3 +304,5 @@ struct PlantedBugDetectionTests {
         #expect(laws.contains("Codable.roundTripFidelity[JSON]"))
     }
 }
+
+// swiftlint:enable type_body_length
