@@ -146,28 +146,6 @@ enum AdvisorySuggester {
     }
 }
 
-/// User-facing protocol name used in advisory diagnostics — matches the
-/// declaration form a developer would write in an inheritance clause.
-extension KnownProtocol {
-    var declarationName: String {
-        switch self {
-        case .equatable: return "Equatable"
-        case .hashable: return "Hashable"
-        case .comparable: return "Comparable"
-        case .codable: return "Codable"
-        case .iteratorProtocol: return "IteratorProtocol"
-        case .sequence: return "Sequence"
-        case .collection: return "Collection"
-        case .bidirectionalCollection: return "BidirectionalCollection"
-        case .randomAccessCollection: return "RandomAccessCollection"
-        case .mutableCollection: return "MutableCollection"
-        case .rangeReplaceableCollection: return "RangeReplaceableCollection"
-        case .setAlgebra: return "SetAlgebra"
-        case .strideable: return "Strideable"
-        case .rawRepresentable: return "RawRepresentable"
-        case .losslessStringConvertible: return "LosslessStringConvertible"
-        case .identifiable: return "Identifiable"
-        case .caseIterable: return "CaseIterable"
-        }
-    }
-}
+// `KnownProtocol.declarationName` is the canonical spelled-name accessor;
+// `ProtoLawCore` owns it so this target and `ProtoLawMacroImpl` share one
+// source of truth.

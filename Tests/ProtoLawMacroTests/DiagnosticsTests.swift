@@ -1,9 +1,26 @@
+import ProtoLawCore
 import SwiftSyntaxMacros
 import SwiftSyntaxMacrosTestSupport
 import Testing
 @testable import ProtoLawMacroImpl
 
 struct DiagnosticsTests {
+
+    /// Direct `#expect` pin on the dynamic `noKnownConformance` message.
+    /// `assertMacroExpansion` reports message mismatches via `XCTFail`,
+    /// which Swift Testing's `@Test` doesn't always pick up — so the
+    /// `DiagnosticSpec` literals in the other tests can drift silently.
+    /// This test catches the drift directly at the `ProtoLawDiagnostic`
+    /// surface.
+    @Test func noKnownConformanceMessageListsEveryRecognizedProtocol() {
+        let message = ProtoLawDiagnostic.noKnownConformance.message
+        for known in KnownProtocol.allCases {
+            #expect(
+                message.contains(known.declarationName),
+                "noKnownConformance message is missing \(known.declarationName)"
+            )
+        }
+    }
 
     @Test func typeWithNoStdlibConformanceEmitsWarning() {
         assertMacroExpansion(
@@ -23,11 +40,14 @@ struct DiagnosticsTests {
                     message: """
                         Type has no recognized stdlib protocol conformance — no \
                         law checks emitted. Recognized protocols: Equatable, \
-                        Hashable, Comparable, Codable, Sequence, Collection, \
-                        SetAlgebra. Conformances declared via extensions outside \
-                        the type's primary declaration aren't visible to the macro \
-                        (it sees only the decoratee's syntax); upcoming whole-module \
-                        discovery (PRD §5.3) handles those cases.
+                        Hashable, Comparable, Codable, IteratorProtocol, Sequence, \
+                        Collection, BidirectionalCollection, RandomAccessCollection, \
+                        MutableCollection, RangeReplaceableCollection, SetAlgebra, \
+                        Strideable, RawRepresentable, LosslessStringConvertible, \
+                        Identifiable, CaseIterable. Conformances declared via \
+                        extensions outside the type's primary declaration aren't \
+                        visible to the macro (it sees only the decoratee's syntax); \
+                        whole-module discovery (PRD §5.3) handles those cases.
                         """,
                     line: 1,
                     column: 1,
@@ -56,11 +76,14 @@ struct DiagnosticsTests {
                     message: """
                         Type has no recognized stdlib protocol conformance — no \
                         law checks emitted. Recognized protocols: Equatable, \
-                        Hashable, Comparable, Codable, Sequence, Collection, \
-                        SetAlgebra. Conformances declared via extensions outside \
-                        the type's primary declaration aren't visible to the macro \
-                        (it sees only the decoratee's syntax); upcoming whole-module \
-                        discovery (PRD §5.3) handles those cases.
+                        Hashable, Comparable, Codable, IteratorProtocol, Sequence, \
+                        Collection, BidirectionalCollection, RandomAccessCollection, \
+                        MutableCollection, RangeReplaceableCollection, SetAlgebra, \
+                        Strideable, RawRepresentable, LosslessStringConvertible, \
+                        Identifiable, CaseIterable. Conformances declared via \
+                        extensions outside the type's primary declaration aren't \
+                        visible to the macro (it sees only the decoratee's syntax); \
+                        whole-module discovery (PRD §5.3) handles those cases.
                         """,
                     line: 1,
                     column: 1,
@@ -201,11 +224,14 @@ struct DiagnosticsTests {
                     message: """
                         Type has no recognized stdlib protocol conformance — no \
                         law checks emitted. Recognized protocols: Equatable, \
-                        Hashable, Comparable, Codable, Sequence, Collection, \
-                        SetAlgebra. Conformances declared via extensions outside \
-                        the type's primary declaration aren't visible to the macro \
-                        (it sees only the decoratee's syntax); upcoming whole-module \
-                        discovery (PRD §5.3) handles those cases.
+                        Hashable, Comparable, Codable, IteratorProtocol, Sequence, \
+                        Collection, BidirectionalCollection, RandomAccessCollection, \
+                        MutableCollection, RangeReplaceableCollection, SetAlgebra, \
+                        Strideable, RawRepresentable, LosslessStringConvertible, \
+                        Identifiable, CaseIterable. Conformances declared via \
+                        extensions outside the type's primary declaration aren't \
+                        visible to the macro (it sees only the decoratee's syntax); \
+                        whole-module discovery (PRD §5.3) handles those cases.
                         """,
                     line: 1,
                     column: 1,

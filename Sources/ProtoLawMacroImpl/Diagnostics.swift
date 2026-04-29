@@ -1,3 +1,4 @@
+import ProtoLawCore
 import SwiftDiagnostics
 
 /// Diagnostic messages emitted by `@ProtoLawSuite` expansion. Each case
@@ -35,13 +36,18 @@ internal enum ProtoLawDiagnostic: DiagnosticMessage {
         case .nonTypeDecl:
             return "@ProtoLawSuite must decorate a struct, class, enum, or actor."
         case .noKnownConformance:
+            // Built from `KnownProtocol.allCases.declarationName` so the
+            // list stays in sync as the kit adds protocols — past stale
+            // versions of this string lagged v1.1 and v1.2 by months.
+            let recognized = KnownProtocol.allCases
+                .map(\.declarationName)
+                .joined(separator: ", ")
             return "Type has no recognized stdlib protocol conformance — no "
-                + "law checks emitted. Recognized protocols: Equatable, "
-                + "Hashable, Comparable, Codable, Sequence, Collection, "
-                + "SetAlgebra. Conformances declared via extensions outside "
-                + "the type's primary declaration aren't visible to the macro "
-                + "(it sees only the decoratee's syntax); upcoming whole-module "
-                + "discovery (PRD §5.3) handles those cases."
+                + "law checks emitted. Recognized protocols: \(recognized). "
+                + "Conformances declared via extensions outside the type's "
+                + "primary declaration aren't visible to the macro (it sees "
+                + "only the decoratee's syntax); whole-module discovery "
+                + "(PRD §5.3) handles those cases."
         case .cannotDeriveGenerator(let reason):
             return reason
         case .discoverableGroupNotLiteral:

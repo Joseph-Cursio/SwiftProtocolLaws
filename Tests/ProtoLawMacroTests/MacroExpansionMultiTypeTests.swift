@@ -56,11 +56,14 @@ struct MacroExpansionMultiTypeTests {
                     message: """
                         Type has no recognized stdlib protocol conformance — no \
                         law checks emitted. Recognized protocols: Equatable, \
-                        Hashable, Comparable, Codable, Sequence, Collection, \
-                        SetAlgebra. Conformances declared via extensions outside \
-                        the type's primary declaration aren't visible to the macro \
-                        (it sees only the decoratee's syntax); upcoming whole-module \
-                        discovery (PRD §5.3) handles those cases.
+                        Hashable, Comparable, Codable, IteratorProtocol, Sequence, \
+                        Collection, BidirectionalCollection, RandomAccessCollection, \
+                        MutableCollection, RangeReplaceableCollection, SetAlgebra, \
+                        Strideable, RawRepresentable, LosslessStringConvertible, \
+                        Identifiable, CaseIterable. Conformances declared via \
+                        extensions outside the type's primary declaration aren't \
+                        visible to the macro (it sees only the decoratee's syntax); \
+                        whole-module discovery (PRD §5.3) handles those cases.
                         """,
                     line: 1,
                     column: 1,
