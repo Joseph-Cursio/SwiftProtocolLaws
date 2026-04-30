@@ -461,13 +461,26 @@ The five NaN-domain laws are gated on `LawCheckOptions.allowNaN`. Default `false
 
 `FixedWidthInteger` is orthogonal to `SignedInteger` and `UnsignedInteger` — `Int32` conforms to both `FixedWidthInteger & SignedInteger`, `UInt` conforms to both `FixedWidthInteger & UnsignedInteger`. The discovery plugin emits both checks under most-specific dedupe (matching the v1.2 `MutableCollection + RangeReplaceableCollection` sibling precedent). `nonzeroBitCount` is a FixedWidthInteger-only requirement; the corresponding law lives here rather than on `BinaryInteger`.
 
+#### `StringProtocol` (extends `BidirectionalCollection` protocol laws)
+
+| Protocol Law | Tier | Description |
+|---|---|---|
+| String-init round-trip | Strict | `String(String(s)) == String(s)` — converting a value to `String` is idempotent |
+| Count matches String-init | Strict | `s.count == String(s).count` — character count preserved across the String conversion |
+| isEmpty matches count zero | Strict | `s.isEmpty == (s.count == 0)` |
+| Has prefix empty | Strict | `s.hasPrefix("") == true` |
+| Has suffix empty | Strict | `s.hasSuffix("") == true` |
+| Lowercased idempotent | Strict | `s.lowercased().lowercased() == s.lowercased()` |
+| Uppercased idempotent | Strict | `s.uppercased().uppercased() == s.uppercased()` |
+| UTF-8 view invariance | Strict | `Array(s.utf8) == Array(String(s).utf8)` — byte-level representation is invariant of the StringProtocol view |
+
+`StringProtocol` is the last protocol in the v1.1+ candidates list. Its conformers in stdlib are limited to `String` and `Substring`; custom conformers are essentially nonexistent in real-world Swift code. The kit's value here is twofold: a self-test gate that the framework's StringProtocol detection works, and an in-place property-based test of Apple's `String` / `Substring` implementations against algebraic invariants the stdlib documents informally. The Pass 2 sub-package's `StdlibStringProtocolLawsTests.swift` exercises both.
+
 #### Coverage Scope
 
 ProtocolLawKit v1 covers the protocols enumerated above. The Swift Standard Library has roughly 54 public protocols (see `docs/Swift Standard Library Protocols.md` for the full inventory); v1's coverage is deliberate and audited rather than exhaustive. Other stdlib protocols are categorized as follows:
 
-**v1.1+ candidates (testable laws, clear contracts):**
-
-- `StringProtocol` — extends `BidirectionalCollection` with text-specific laws (Unicode-correctness invariants).
+**v1.1+ candidates (testable laws, clear contracts):** *(empty — all candidates have shipped as of v1.5.0)*
 
 **Shipped in v1.4 M1 (algebraic chain):**
 
@@ -492,6 +505,10 @@ ProtocolLawKit v1 covers the protocols enumerated above. The Swift Standard Libr
 **Shipped in v1.4 M5:**
 
 - `BinaryFloatingPoint` (4 own Strict laws — radix-2 constraint, significand/exponent reconstruction, binade membership, integer-conversion exactness). Chains through to FloatingPoint via `.all`; `allowNaN` propagates to the inherited suite.
+
+**Shipped in v1.5:**
+
+- `StringProtocol` (8 own Strict laws — String-init round-trip, count match across String conversion, isEmpty / count-zero consistency, hasPrefix / hasSuffix on the empty string, lowercased / uppercased idempotence, UTF-8 view invariance). Chains through to BidirectionalCollection (and transitively Collection / Sequence / IteratorProtocol) via `.all`. Comparable / Hashable / LosslessStringConvertible — which StringProtocol also refines in stdlib — are not auto-run; types declaring those still emit their own checks under most-specific dedupe.
 
 These exact-equality algebraic / bitwise laws fire on integer-like types (`Int`, `Decimal`, BigInt). Floating-point types satisfy the algebraic ones only approximately due to IEEE-754 rounding; v1.4 M4 ships `FloatingPoint`-specific laws that account for rounding.
 **Heuristic / deferred (laws are weak, contextual, or require runtime instrumentation):**
