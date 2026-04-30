@@ -1,8 +1,8 @@
-ProtoLawDiscoveryTool: wrote /Users/joecursio/xcode_projects/swiftprotocollaws/Validation/results/AWSLambdaRuntime.generated.swift
+ProtoLawDiscoveryTool: wrote /Users/josephcursio/xcode_projects/SwiftProtocolLaws/Validation/results/AWSLambdaRuntime.generated.swift
   target: AWSLambdaRuntime
   source files scanned: 43
   types detected: 35
-  types needing manual gen() (35):
+  types needing manual gen() (32):
     - AmazonHeaders
     - ByteBuffer
     - ClientApplication
@@ -12,7 +12,6 @@ ProtoLawDiscoveryTool: wrote /Users/joecursio/xcode_projects/swiftprotocollaws/V
     - ControlPlaneRequest
     - ControlPlaneRequestEncoder
     - ControlPlaneResponse
-    - ErrorResponse
     - Invocation
     - InvocationMetadata
     - JSONLogHandler
@@ -29,8 +28,6 @@ ProtoLawDiscoveryTool: wrote /Users/joecursio/xcode_projects/swiftprotocollaws/V
     - LambdaRuntimeClient
     - LambdaRuntimeError
     - LoggingConfiguration
-    - Request
-    - Response
     - SendingStorage
     - StreamingClosureHandler
     - StreamingLambdaStatusAndHeadersResponse

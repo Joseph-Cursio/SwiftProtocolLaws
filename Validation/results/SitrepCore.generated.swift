@@ -8,16 +8,19 @@
 import Testing
 import ProtocolLawKit
 
-// Array — /Users/joecursio/xcode_projects/Sitrep/Sources/SitrepCore/Extensions.swift:22 (extension)
+// Array — /Users/josephcursio/xcode_projects/Sitrep/Sources/SitrepCore/Extensions.swift:13 (extension)
 // No emit-able stdlib conformance recognized.
 
-// BodyStripper — /Users/joecursio/xcode_projects/Sitrep/Sources/SitrepCore/BodyStripper.swift:25 (primary)
+// BodyStripper — /Users/josephcursio/xcode_projects/Sitrep/Sources/SitrepCore/BodyStripper.swift:15 (primary)
 // No emit-able stdlib conformance recognized.
 
-// ClassDeclSyntax — /Users/joecursio/xcode_projects/Sitrep/Sources/SitrepCore/FileVisitor.swift:443 (extension)
+// ClassDeclSyntax — /Users/josephcursio/xcode_projects/Sitrep/Sources/SitrepCore/FileVisitor.swift:229 (extension)
 // No emit-able stdlib conformance recognized.
 
-// Configuration — /Users/joecursio/xcode_projects/Sitrep/Sources/SitrepCore/Configuration.swift:10 (primary), /Users/joecursio/xcode_projects/Sitrep/Sources/SitrepCore/Configuration.swift:101 (extension)
+// Comment — /Users/josephcursio/xcode_projects/Sitrep/Sources/SitrepCore/Comment.swift:14 (primary)
+// No emit-able stdlib conformance recognized.
+
+// Configuration — /Users/josephcursio/xcode_projects/Sitrep/Sources/SitrepCore/Configuration.swift:5 (primary), /Users/josephcursio/xcode_projects/Sitrep/Sources/SitrepCore/Configuration.swift:29 (extension)
 @Suite struct ConfigurationProtocolLawTests {
     @Test func codable_Configuration() async throws {
         try await checkCodableProtocolLaws(
@@ -27,19 +30,28 @@ import ProtocolLawKit
     }
 }
 
-// EnumDeclSyntax — /Users/joecursio/xcode_projects/Sitrep/Sources/SitrepCore/FileVisitor.swift:477 (extension)
+// EnumDeclSyntax — /Users/josephcursio/xcode_projects/Sitrep/Sources/SitrepCore/FileVisitor.swift:234 (extension)
 // No emit-able stdlib conformance recognized.
 
-// ExtensionDeclSyntax — /Users/joecursio/xcode_projects/Sitrep/Sources/SitrepCore/FileVisitor.swift:571 (extension)
+// ExtensionDeclSyntax — /Users/josephcursio/xcode_projects/Sitrep/Sources/SitrepCore/FileVisitor.swift:249 (extension)
 // No emit-able stdlib conformance recognized.
 
-// FileVisitor — /Users/joecursio/xcode_projects/Sitrep/Sources/SitrepCore/FileVisitor.swift:32 (primary)
+// File — /Users/josephcursio/xcode_projects/Sitrep/Sources/SitrepCore/File.swift:15 (primary)
 // No emit-able stdlib conformance recognized.
 
-// ProtocolDeclSyntax — /Users/joecursio/xcode_projects/Sitrep/Sources/SitrepCore/FileVisitor.swift:540 (extension)
+// FileVisitor — /Users/josephcursio/xcode_projects/Sitrep/Sources/SitrepCore/FileVisitor.swift:17 (primary)
 // No emit-able stdlib conformance recognized.
 
-// Report — /Users/joecursio/xcode_projects/Sitrep/Sources/SitrepCore/Report.swift:25 (primary)
+// Function — /Users/josephcursio/xcode_projects/Sitrep/Sources/SitrepCore/Function.swift:14 (primary)
+// No emit-able stdlib conformance recognized.
+
+// Node — /Users/josephcursio/xcode_projects/Sitrep/Sources/SitrepCore/Node.swift:14 (primary)
+// No emit-able stdlib conformance recognized.
+
+// ProtocolDeclSyntax — /Users/josephcursio/xcode_projects/Sitrep/Sources/SitrepCore/FileVisitor.swift:244 (extension)
+// No emit-able stdlib conformance recognized.
+
+// Report — /Users/josephcursio/xcode_projects/Sitrep/Sources/SitrepCore/Report.swift:14 (primary)
 @Suite struct ReportProtocolLawTests {
     @Test func codable_Report() async throws {
         try await checkCodableProtocolLaws(
@@ -49,29 +61,17 @@ import ProtocolLawKit
     }
 }
 
-// Results — /Users/joecursio/xcode_projects/Sitrep/Sources/SitrepCore/Results.swift:39 (primary)
+// Results — /Users/josephcursio/xcode_projects/Sitrep/Sources/SitrepCore/Results.swift:13 (primary)
 // No emit-able stdlib conformance recognized.
 
-// Scan — /Users/joecursio/xcode_projects/Sitrep/Sources/SitrepCore/Scan.swift:32 (primary)
+// Scan — /Users/josephcursio/xcode_projects/Sitrep/Sources/SitrepCore/Scan.swift:15 (primary)
 // No emit-able stdlib conformance recognized.
 
-// String — /Users/joecursio/xcode_projects/Sitrep/Sources/SitrepCore/Extensions.swift:48 (extension)
+// String — /Users/josephcursio/xcode_projects/Sitrep/Sources/SitrepCore/Extensions.swift:28 (extension)
 // No emit-able stdlib conformance recognized.
 
-// StructDeclSyntax — /Users/joecursio/xcode_projects/Sitrep/Sources/SitrepCore/FileVisitor.swift:509 (extension)
+// StructDeclSyntax — /Users/josephcursio/xcode_projects/Sitrep/Sources/SitrepCore/FileVisitor.swift:239 (extension)
 // No emit-able stdlib conformance recognized.
 
-// SwiftSourceComment — /Users/joecursio/xcode_projects/Sitrep/Sources/SitrepCore/SwiftSourceComment.swift:22 (primary)
-// No emit-able stdlib conformance recognized.
-
-// SwiftSourceFunction — /Users/joecursio/xcode_projects/Sitrep/Sources/SitrepCore/SwiftSourceFunction.swift:32 (primary)
-// No emit-able stdlib conformance recognized.
-
-// SwiftSourceNode — /Users/joecursio/xcode_projects/Sitrep/Sources/SitrepCore/SwiftSourceNode.swift:29 (primary)
-// No emit-able stdlib conformance recognized.
-
-// SwiftSourceType — /Users/joecursio/xcode_projects/Sitrep/Sources/SitrepCore/SwiftSourceType.swift:24 (primary)
-// No emit-able stdlib conformance recognized.
-
-// VisitedFile — /Users/joecursio/xcode_projects/Sitrep/Sources/SitrepCore/VisitedFile.swift:36 (primary)
+// Type — /Users/josephcursio/xcode_projects/Sitrep/Sources/SitrepCore/Extensions.swift:66 (extension), /Users/josephcursio/xcode_projects/Sitrep/Sources/SitrepCore/Type.swift:14 (primary), /Users/josephcursio/xcode_projects/Sitrep/Sources/SitrepCore/Type.swift:67 (extension)
 // No emit-able stdlib conformance recognized.

@@ -1,4 +1,4 @@
-ProtoLawDiscoveryTool: wrote /Users/joecursio/xcode_projects/swiftprotocollaws/Validation/results/SitrepCore.generated.swift
+ProtoLawDiscoveryTool: wrote /Users/josephcursio/xcode_projects/SwiftProtocolLaws/Validation/results/SitrepCore.generated.swift
   target: SitrepCore
   source files scanned: 12
   types detected: 18
@@ -6,18 +6,18 @@ ProtoLawDiscoveryTool: wrote /Users/joecursio/xcode_projects/swiftprotocollaws/V
     - Array
     - BodyStripper
     - ClassDeclSyntax
+    - Comment
     - Configuration
     - EnumDeclSyntax
     - ExtensionDeclSyntax
+    - File
     - FileVisitor
+    - Function
+    - Node
     - ProtocolDeclSyntax
     - Report
     - Results
     - Scan
     - String
     - StructDeclSyntax
-    - SwiftSourceComment
-    - SwiftSourceFunction
-    - SwiftSourceNode
-    - SwiftSourceType
-    - VisitedFile
+    - Type

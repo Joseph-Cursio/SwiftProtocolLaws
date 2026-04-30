@@ -1,8 +1,8 @@
-ProtoLawDiscoveryTool: wrote /Users/joecursio/xcode_projects/swiftprotocollaws/Validation/results/ArgumentParser.generated.swift
+ProtoLawDiscoveryTool: wrote /Users/josephcursio/xcode_projects/SwiftProtocolLaws/Validation/results/ArgumentParser.generated.swift
   target: ArgumentParser
   source files scanned: 49
   types detected: 99
-  types needing manual gen() (99):
+  types needing manual gen() (98):
     - Argument
     - ArgumentArrayParsingStrategy
     - ArgumentDecoder
@@ -46,7 +46,6 @@ ProtoLawDiscoveryTool: wrote /Users/joecursio/xcode_projects/swiftprotocollaws/V
     - FlagExclusivity
     - FlagInversion
     - Float
-    - GenerateCompletions
     - HelpCommand
     - HelpGenerator
     - HelpRequested
