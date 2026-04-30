@@ -1,0 +1,174 @@
+import PropertyBased
+
+/// Run `AdditiveArithmetic` protocol laws over `Value` (PRD §4.3).
+///
+/// Five Strict-tier algebraic laws — a violation under any of them is a bug:
+/// - `additionAssociativity` — `(x + y) + z == x + (y + z)`
+/// - `additionCommutativity` — `x + y == y + x`
+/// - `zeroAdditiveIdentity` — `x + .zero == x`
+/// - `subtractionInverse` — `(x + y) - y == x`
+/// - `selfSubtractionIsZero` — `x - x == .zero`
+///
+/// `AdditiveArithmetic` refines `Equatable` in stdlib; the law signatures
+/// require both. No inherited suite runs because `Equatable` is not
+/// auto-recursed by other roots in the kit.
+///
+/// **Generator caveat for FixedWidthInteger types.** `Int.max + 1` traps;
+/// the law functions trust the caller's generator to stay within a range
+/// that does not overflow under three-way addition / subtraction. For `Int`
+/// or `Int32`, pass a bounded generator like `Gen<Int>.int(in: -1_000...1_000)`
+/// at `.standard` budget. Arbitrary-precision integer types need no bound.
+///
+/// **Not for IEEE-754 floating-point.** Associativity and the subtraction
+/// inverse hold only approximately for `Float` / `Double` because addition
+/// rounds. The laws above use exact `==` and will report violations on
+/// floating-point inputs that are mathematically — but not bitwise — equal.
+/// Use `checkFloatingPointProtocolLaws` (v1.4 M4) for IEEE-754 types; their
+/// laws account for rounding via approximate-equality semantics.
+@discardableResult
+public func checkAdditiveArithmeticProtocolLaws<
+    Value: AdditiveArithmetic & Equatable & Sendable,
+    Shrinker: SendableSequenceType
+>(
+    for type: Value.Type = Value.self,
+    using generator: Generator<Value, Shrinker>,
+    options: LawCheckOptions = LawCheckOptions()
+) async throws -> [CheckResult] {
+    try ReplayEnvironmentValidator.verify(options)
+    let results = [
+        await checkAdditionAssociativity(generator: generator, options: options),
+        await checkAdditionCommutativity(generator: generator, options: options),
+        await checkZeroAdditiveIdentity(generator: generator, options: options),
+        await checkSubtractionInverse(generator: generator, options: options),
+        await checkSelfSubtractionIsZero(generator: generator, options: options)
+    ]
+    try ProtocolLawViolation.throwIfViolations(in: results, enforcement: options.enforcement)
+    return results
+}
+
+private func checkAdditionAssociativity<
+    Value: AdditiveArithmetic & Equatable & Sendable,
+    Shrinker: SendableSequenceType
+>(
+    generator: Generator<Value, Shrinker>,
+    options: LawCheckOptions
+) async -> CheckResult {
+    await PerLawDriver.run(
+        protocolLaw: "AdditiveArithmetic.additionAssociativity",
+        tier: .strict,
+        options: options,
+        check: LawCheck(
+            sample: { rng in (
+                generator.run(using: &rng),
+                generator.run(using: &rng),
+                generator.run(using: &rng)
+            ) },
+            property: { input in
+                let (one, two, three) = input
+                return (one + two) + three == one + (two + three)
+            },
+            formatCounterexample: { input, _ in
+                let (one, two, three) = input
+                let lhs = (one + two) + three
+                let rhs = one + (two + three)
+                return "x = \(one), y = \(two), z = \(three); "
+                    + "(x + y) + z = \(lhs), x + (y + z) = \(rhs)"
+            }
+        )
+    )
+}
+
+private func checkAdditionCommutativity<
+    Value: AdditiveArithmetic & Equatable & Sendable,
+    Shrinker: SendableSequenceType
+>(
+    generator: Generator<Value, Shrinker>,
+    options: LawCheckOptions
+) async -> CheckResult {
+    await PerLawDriver.run(
+        protocolLaw: "AdditiveArithmetic.additionCommutativity",
+        tier: .strict,
+        options: options,
+        check: LawCheck(
+            sample: { rng in (generator.run(using: &rng), generator.run(using: &rng)) },
+            property: { input in
+                let (first, second) = input
+                return first + second == second + first
+            },
+            formatCounterexample: { input, _ in
+                let (first, second) = input
+                return "x = \(first), y = \(second); "
+                    + "x + y = \(first + second), y + x = \(second + first)"
+            }
+        )
+    )
+}
+
+private func checkZeroAdditiveIdentity<
+    Value: AdditiveArithmetic & Equatable & Sendable,
+    Shrinker: SendableSequenceType
+>(
+    generator: Generator<Value, Shrinker>,
+    options: LawCheckOptions
+) async -> CheckResult {
+    await PerLawDriver.run(
+        protocolLaw: "AdditiveArithmetic.zeroAdditiveIdentity",
+        tier: .strict,
+        options: options,
+        check: LawCheck(
+            sample: { rng in generator.run(using: &rng) },
+            property: { sample in sample + .zero == sample },
+            formatCounterexample: { sample, _ in
+                "x = \(sample); x + .zero = \(sample + .zero), expected x"
+            }
+        )
+    )
+}
+
+private func checkSubtractionInverse<
+    Value: AdditiveArithmetic & Equatable & Sendable,
+    Shrinker: SendableSequenceType
+>(
+    generator: Generator<Value, Shrinker>,
+    options: LawCheckOptions
+) async -> CheckResult {
+    await PerLawDriver.run(
+        protocolLaw: "AdditiveArithmetic.subtractionInverse",
+        tier: .strict,
+        options: options,
+        check: LawCheck(
+            sample: { rng in (generator.run(using: &rng), generator.run(using: &rng)) },
+            property: { input in
+                let (first, second) = input
+                return (first + second) - second == first
+            },
+            formatCounterexample: { input, _ in
+                let (first, second) = input
+                let lhs = (first + second) - second
+                return "x = \(first), y = \(second); "
+                    + "(x + y) - y = \(lhs), expected x = \(first)"
+            }
+        )
+    )
+}
+
+private func checkSelfSubtractionIsZero<
+    Value: AdditiveArithmetic & Equatable & Sendable,
+    Shrinker: SendableSequenceType
+>(
+    generator: Generator<Value, Shrinker>,
+    options: LawCheckOptions
+) async -> CheckResult {
+    await PerLawDriver.run(
+        protocolLaw: "AdditiveArithmetic.selfSubtractionIsZero",
+        tier: .strict,
+        options: options,
+        check: LawCheck(
+            sample: { rng in generator.run(using: &rng) },
+            property: { sample in sample - sample == .zero },
+            formatCounterexample: { sample, _ in
+                "x = \(sample); x - x = \(sample - sample), expected .zero"
+            }
+        )
+    )
+}
