@@ -412,6 +412,31 @@ struct MacroExpansionTests {
         )
     }
 
+    @Test func floatingPointSubsumesAlgebraicChain() {
+        // FloatingPoint subsumes SignedNumeric → Numeric → AdditiveArithmetic
+        // because exact-equality algebraic laws don't hold on IEEE-754. A
+        // type spelled `: FloatingPoint` emits only the FloatingPoint check.
+        assertMacroExpansion(
+            """
+            @ProtoLawSuite
+            struct Quad: FloatingPoint {}
+            """,
+            expandedSource: """
+            struct Quad: FloatingPoint {}
+
+            struct QuadProtocolLawTests {
+                @Test func floatingPoint_Quad() async throws {
+                        try await checkFloatingPointProtocolLaws(
+                            for: Quad.self,
+                            using: Quad.gen()
+                        )
+                    }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
     @Test func fixedWidthAndSignedIntegerSurviveAsSiblings() {
         // FixedWidthInteger and SignedInteger are independent siblings —
         // FixedWidthInteger refines BinaryInteger, SignedInteger refines

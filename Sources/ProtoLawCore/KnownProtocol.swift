@@ -31,6 +31,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
     case signedInteger
     case unsignedInteger
     case fixedWidthInteger
+    case floatingPoint
 
     /// Maps a single inheritance-clause type name to a `KnownProtocol`.
     /// `Encodable`/`Decodable` are intentionally absent — only the pair
@@ -63,7 +64,8 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         "BinaryInteger": .binaryInteger,
         "SignedInteger": .signedInteger,
         "UnsignedInteger": .unsignedInteger,
-        "FixedWidthInteger": .fixedWidthInteger
+        "FixedWidthInteger": .fixedWidthInteger,
+        "FloatingPoint": .floatingPoint
     ]
 
     /// Resolve a list of raw inherited-type names into the recognized
@@ -163,6 +165,15 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
             return [.binaryInteger, .numeric, .additiveArithmetic]
         case .fixedWidthInteger:
             return [.binaryInteger, .numeric, .additiveArithmetic]
+        case .floatingPoint:
+            // FloatingPoint refines SignedNumeric in stdlib but its
+            // `checkFloatingPointProtocolLaws` does NOT auto-run the
+            // algebraic chain — IEEE-754 rounding makes exact-equality
+            // associativity/distributivity laws fire spurious violations.
+            // Subsuming the chain here causes the macro/discovery to drop
+            // the inherited checks for `: FloatingPoint` types, which is
+            // the desired behavior.
+            return [.signedNumeric, .numeric, .additiveArithmetic]
         case .equatable, .codable, .iteratorProtocol, .setAlgebra,
              .rawRepresentable, .losslessStringConvertible, .identifiable,
              .caseIterable, .additiveArithmetic: return []
@@ -197,6 +208,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .signedInteger: return "checkSignedIntegerProtocolLaws"
         case .unsignedInteger: return "checkUnsignedIntegerProtocolLaws"
         case .fixedWidthInteger: return "checkFixedWidthIntegerProtocolLaws"
+        case .floatingPoint: return "checkFloatingPointProtocolLaws"
         }
     }
 
@@ -229,6 +241,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .signedInteger: return "SignedInteger"
         case .unsignedInteger: return "UnsignedInteger"
         case .fixedWidthInteger: return "FixedWidthInteger"
+        case .floatingPoint: return "FloatingPoint"
         }
     }
 
@@ -260,6 +273,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .signedInteger: return "signedInteger"
         case .unsignedInteger: return "unsignedInteger"
         case .fixedWidthInteger: return "fixedWidthInteger"
+        case .floatingPoint: return "floatingPoint"
         }
     }
 }
