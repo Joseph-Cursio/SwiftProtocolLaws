@@ -4,7 +4,7 @@
 /// The macro and the discovery plugin both call `DerivationStrategist`
 /// with their own `TypeShape` (built from SwiftSyntax in each case) and
 /// emit identical generator-reference text from the returned strategy.
-package enum DerivationStrategy: Sendable, Equatable {
+public enum DerivationStrategy: Sendable, Equatable {
     /// User explicitly defines `<TypeName>.gen()`. M1's convention; the
     /// emitter just references `<TypeName>.gen()` and the compiler resolves.
     case userGen
@@ -39,11 +39,11 @@ package enum DerivationStrategy: Sendable, Equatable {
 /// `MemberSpec`s only after every stored property of the source type has
 /// been resolved to a `RawType`; otherwise the strategy falls through to
 /// `.todo`.
-package struct MemberSpec: Sendable, Equatable {
-    package let name: String
-    package let rawType: RawType
+public struct MemberSpec: Sendable, Equatable {
+    public let name: String
+    public let rawType: RawType
 
-    package init(name: String, rawType: RawType) {
+    public init(name: String, rawType: RawType) {
         self.name = name
         self.rawType = rawType
     }
@@ -51,7 +51,7 @@ package struct MemberSpec: Sendable, Equatable {
 
 /// Recognized stdlib raw types for `RawRepresentable` derivation. Each
 /// case maps to a generator the emitter can spell out inline.
-package enum RawType: String, Sendable, Equatable, CaseIterable {
+public enum RawType: String, Sendable, Equatable, CaseIterable {
     case int = "Int"
     case string = "String"
     case bool = "Bool"
@@ -67,7 +67,7 @@ package enum RawType: String, Sendable, Equatable, CaseIterable {
     case uint32 = "UInt32"
     case uint64 = "UInt64"
 
-    package init?(typeName: String) {
+    public init?(typeName: String) {
         guard let match = RawType.allCases.first(where: { $0.rawValue == typeName }) else {
             return nil
         }
@@ -78,7 +78,7 @@ package enum RawType: String, Sendable, Equatable, CaseIterable {
     /// type. The emitter inlines this into the lifted `compactMap`. Names
     /// match `Gen+Int.swift` / `Gen+Float.swift` / `Gen.swift` / `Gen+String.swift`
     /// in upstream `swift-property-based` 1.2.x.
-    package var generatorExpression: String {
+    public var generatorExpression: String {
         switch self {
         case .int: return "Gen<Int>.int()"
         case .string: return "Gen<Character>.letterOrNumber.string(of: 0...8)"
@@ -104,11 +104,11 @@ package enum RawType: String, Sendable, Equatable, CaseIterable {
 /// memberwise-Arbitrary strategy. Members whose type spelling doesn't
 /// resolve to a `RawType` are still listed here — the strategist filters
 /// and falls through to `.todo` if any one fails.
-package struct StoredMember: Sendable, Equatable {
-    package let name: String
-    package let typeName: String
+public struct StoredMember: Sendable, Equatable {
+    public let name: String
+    public let typeName: String
 
-    package init(name: String, typeName: String) {
+    public init(name: String, typeName: String) {
         self.name = name
         self.typeName = typeName
     }
@@ -117,37 +117,37 @@ package struct StoredMember: Sendable, Equatable {
 /// Syntax-agnostic shape of a type declaration — built from SwiftSyntax
 /// by the macro impl and the discovery plugin separately, consumed by
 /// `DerivationStrategist` to choose a strategy.
-package struct TypeShape: Sendable, Equatable {
-    package enum Kind: String, Sendable, Equatable {
+public struct TypeShape: Sendable, Equatable {
+    public enum Kind: String, Sendable, Equatable {
         case `struct`, `class`, `enum`, `actor`
     }
 
-    package let name: String
-    package let kind: Kind
+    public let name: String
+    public let kind: Kind
     /// Inheritance-clause type names verbatim, in source order. Used to
     /// detect `CaseIterable`, `RawRepresentable` raw types, and (in
     /// future M3.5) member-conformance scanning.
-    package let inheritedTypes: [String]
+    public let inheritedTypes: [String]
     /// Whether the user explicitly provides a `gen()` static method on
     /// the type or via an extension in the same file. The macro/plugin
     /// determines this from the surrounding source; the strategist
     /// honors it as the highest-priority strategy (Strategy A from
     /// PRD §5.7).
-    package let hasUserGen: Bool
+    public let hasUserGen: Bool
     /// Stored properties seen in the type's primary declaration, in
     /// source order. Empty for enums, actors, and any type whose
     /// primary body the macro/scanner couldn't see (e.g. extension-only
     /// types). The memberwise-Arbitrary strategy reads this.
-    package let storedMembers: [StoredMember]
+    public let storedMembers: [StoredMember]
     /// `true` when the type's primary body contains any `init(...)`
     /// declaration. Swift suppresses the synthesized memberwise init in
     /// that case, so memberwise-Arbitrary derivation falls through to
     /// `.todo` — the synthesized init the strategy would call no longer
     /// exists. Inits declared in extensions don't suppress synthesis and
     /// don't set this flag.
-    package let hasUserInit: Bool
+    public let hasUserInit: Bool
 
-    package init(
+    public init(
         name: String,
         kind: Kind,
         inheritedTypes: [String],
@@ -167,15 +167,15 @@ package struct TypeShape: Sendable, Equatable {
 /// Pure-logic strategist. Consumes a `TypeShape`, returns a
 /// `DerivationStrategy`. No SwiftSyntax dependency — the syntax-to-shape
 /// conversion lives in each consumer (macro impl, discovery tool).
-package enum DerivationStrategist {
+public enum DerivationStrategist {
 
     /// Maximum number of stored properties supported by memberwise
     /// derivation. Bound by `swift-property-based`'s `zip` overloads,
     /// which ship for arities 2–10. Single-member types don't need
     /// `zip` at all — they go through `Generator.map` directly.
-    package static let memberwiseArityLimit = 10
+    public static let memberwiseArityLimit = 10
 
-    package static func strategy(for shape: TypeShape) -> DerivationStrategy {
+    public static func strategy(for shape: TypeShape) -> DerivationStrategy {
         // Priority order from PRD §5.7. Strategy A — explicit user-provided
         // `gen()` — wins unconditionally. Users who want a derived
         // generator simply don't define `gen()`.

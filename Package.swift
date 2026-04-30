@@ -19,6 +19,17 @@ let package = Package(
         .library(
             name: "ProtoLawMacro",
             targets: ["ProtoLawMacro"]
+        ),
+        // PRD §5.7 generator-derivation strategist exposed as its own
+        // shipped library so downstream tools (SwiftInferProperties M3+,
+        // per its PRD §11) call into the shared priority order rather than
+        // reimplementing it. The module's public surface is just the
+        // strategist + its input/output value types — `KnownProtocol` and
+        // `MemberwiseEmitter` stay `package`-scoped for now (M1 of the
+        // SwiftInferProperties cross-validation work doesn't need either).
+        .library(
+            name: "ProtoLawCore",
+            targets: ["ProtoLawCore"]
         )
     ],
     dependencies: [
@@ -46,11 +57,13 @@ let package = Package(
             ]
         ),
 
-        // Package-internal shared types (PRD §4.3 KnownProtocol +
-        // §5.7 generator-derivation strategist) used by both the macro
-        // implementation and the discovery tool. Marked
-        // `package`-visibility — visible across our targets but not part
-        // of the shipped library surface.
+        // Shared core target. The §5.7 generator-derivation strategist is
+        // exposed publicly via the `ProtoLawCore` product (added v1.6.0)
+        // for downstream consumption by SwiftInferProperties M3+. The
+        // PRD §4.3 `KnownProtocol` enum and the `MemberwiseEmitter`
+        // text-renderer stay `package`-scoped — they're consumed only by
+        // `ProtoLawMacroImpl` and `ProtoLawDiscoveryTool` inside this
+        // package and aren't part of the shipped API contract.
         .target(
             name: "ProtoLawCore",
             dependencies: []
