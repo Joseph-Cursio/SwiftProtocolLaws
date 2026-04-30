@@ -30,6 +30,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
     case binaryInteger
     case signedInteger
     case unsignedInteger
+    case fixedWidthInteger
 
     /// Maps a single inheritance-clause type name to a `KnownProtocol`.
     /// `Encodable`/`Decodable` are intentionally absent — only the pair
@@ -61,7 +62,8 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         "SignedNumeric": .signedNumeric,
         "BinaryInteger": .binaryInteger,
         "SignedInteger": .signedInteger,
-        "UnsignedInteger": .unsignedInteger
+        "UnsignedInteger": .unsignedInteger,
+        "FixedWidthInteger": .fixedWidthInteger
     ]
 
     /// Resolve a list of raw inherited-type names into the recognized
@@ -159,6 +161,8 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
             return [.binaryInteger, .signedNumeric, .numeric, .additiveArithmetic]
         case .unsignedInteger:
             return [.binaryInteger, .numeric, .additiveArithmetic]
+        case .fixedWidthInteger:
+            return [.binaryInteger, .numeric, .additiveArithmetic]
         case .equatable, .codable, .iteratorProtocol, .setAlgebra,
              .rawRepresentable, .losslessStringConvertible, .identifiable,
              .caseIterable, .additiveArithmetic: return []
@@ -192,6 +196,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .binaryInteger: return "checkBinaryIntegerProtocolLaws"
         case .signedInteger: return "checkSignedIntegerProtocolLaws"
         case .unsignedInteger: return "checkUnsignedIntegerProtocolLaws"
+        case .fixedWidthInteger: return "checkFixedWidthIntegerProtocolLaws"
         }
     }
 
@@ -223,6 +228,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .binaryInteger: return "BinaryInteger"
         case .signedInteger: return "SignedInteger"
         case .unsignedInteger: return "UnsignedInteger"
+        case .fixedWidthInteger: return "FixedWidthInteger"
         }
     }
 
@@ -253,6 +259,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .binaryInteger: return "binaryInteger"
         case .signedInteger: return "signedInteger"
         case .unsignedInteger: return "unsignedInteger"
+        case .fixedWidthInteger: return "fixedWidthInteger"
         }
     }
 }

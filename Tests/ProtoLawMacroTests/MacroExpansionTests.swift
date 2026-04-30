@@ -412,6 +412,40 @@ struct MacroExpansionTests {
         )
     }
 
+    @Test func fixedWidthAndSignedIntegerSurviveAsSiblings() {
+        // FixedWidthInteger and SignedInteger are independent siblings —
+        // FixedWidthInteger refines BinaryInteger, SignedInteger refines
+        // BinaryInteger and SignedNumeric, neither subsumes the other.
+        // Both checks should emit (matches the v1.2 Mutable+Bidirectional
+        // sibling pattern).
+        assertMacroExpansion(
+            """
+            @ProtoLawSuite
+            struct Word: FixedWidthInteger, SignedInteger {}
+            """,
+            expandedSource: """
+            struct Word: FixedWidthInteger, SignedInteger {}
+
+            struct WordProtocolLawTests {
+                @Test func fixedWidthInteger_Word() async throws {
+                        try await checkFixedWidthIntegerProtocolLaws(
+                            for: Word.self,
+                            using: Word.gen()
+                        )
+                    }
+
+                @Test func signedInteger_Word() async throws {
+                        try await checkSignedIntegerProtocolLaws(
+                            for: Word.self,
+                            using: Word.gen()
+                        )
+                    }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
     @Test func unsignedIntegerCollapsesToSingleEmission() {
         // UnsignedInteger subsumes BinaryInteger → Numeric → AdditiveArithmetic.
         // Single emission expected.
