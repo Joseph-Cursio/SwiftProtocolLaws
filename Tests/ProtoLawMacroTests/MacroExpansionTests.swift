@@ -343,6 +343,49 @@ struct MacroExpansionTests {
         )
     }
 
+    @Test func signedNumericSubsumesNumericAndAdditiveArithmetic() {
+        // The algebraic chain refines AdditiveArithmetic ← Numeric ← SignedNumeric.
+        // A type spelled `: SignedNumeric` should emit only the SignedNumeric
+        // call; the inherited suites run at runtime via .all dispatch.
+        assertMacroExpansion(
+            """
+            @ProtoLawSuite
+            struct Quaternion: SignedNumeric {
+                init(integerLiteral value: Int) {}
+                init?(exactly source: some BinaryInteger) {}
+                var magnitude: Int { 0 }
+                static var zero: Quaternion { Quaternion(integerLiteral: 0) }
+                static func + (a: Quaternion, b: Quaternion) -> Quaternion { a }
+                static func - (a: Quaternion, b: Quaternion) -> Quaternion { a }
+                static func * (a: Quaternion, b: Quaternion) -> Quaternion { a }
+                static func *= (a: inout Quaternion, b: Quaternion) {}
+            }
+            """,
+            expandedSource: """
+            struct Quaternion: SignedNumeric {
+                init(integerLiteral value: Int) {}
+                init?(exactly source: some BinaryInteger) {}
+                var magnitude: Int { 0 }
+                static var zero: Quaternion { Quaternion(integerLiteral: 0) }
+                static func + (a: Quaternion, b: Quaternion) -> Quaternion { a }
+                static func - (a: Quaternion, b: Quaternion) -> Quaternion { a }
+                static func * (a: Quaternion, b: Quaternion) -> Quaternion { a }
+                static func *= (a: inout Quaternion, b: Quaternion) {}
+            }
+
+            struct QuaternionProtocolLawTests {
+                @Test func signedNumeric_Quaternion() async throws {
+                        try await checkSignedNumericProtocolLaws(
+                            for: Quaternion.self,
+                            using: Quaternion.gen()
+                        )
+                    }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
     @Test func mutableAndRangeReplaceableSurviveAsSiblings() {
         // MutableCollection and RangeReplaceableCollection are independent
         // refinements of Collection — neither subsumes the other, so both
