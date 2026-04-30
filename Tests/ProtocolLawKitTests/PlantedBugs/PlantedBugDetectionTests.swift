@@ -366,6 +366,7 @@ struct PlantedBugDetectionTests {
         let laws = violation?.results.map(\.protocolLaw) ?? []
         #expect(laws.contains("Codable.roundTripFidelity[JSON]"))
     }
+
 }
 
 // swiftlint:enable type_body_length

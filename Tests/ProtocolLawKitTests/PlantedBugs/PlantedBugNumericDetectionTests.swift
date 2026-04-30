@@ -1,0 +1,94 @@
+import Testing
+import PropertyBased
+@testable import ProtocolLawKit
+
+/// PRD §8 framework self-test gate — v1.4 numeric cluster (M1 share).
+/// Each test plants a violation against one of the cluster's Strict-tier
+/// laws and asserts the framework's detection.
+struct PlantedBugNumericDetectionTests {
+
+    // MARK: - AdditiveArithmetic Strict-tier planted bugs
+
+    @Test func detectsBadZeroIdentity() async throws {
+        let violation = await #expect(throws: ProtocolLawViolation.self) {
+            try await checkAdditiveArithmeticProtocolLaws(
+                for: BadZeroIdentity.self,
+                using: Gen<BadZeroIdentity>.badZeroIdentity(),
+                options: LawCheckOptions(budget: .sanity)
+            )
+        }
+        let laws = violation?.results.map(\.protocolLaw) ?? []
+        #expect(
+            laws.contains("AdditiveArithmetic.zeroAdditiveIdentity"),
+            "expected zeroAdditiveIdentity in violation set; got: \(laws)"
+        )
+    }
+
+    @Test func detectsNonAssociativeAddition() async throws {
+        let violation = await #expect(throws: ProtocolLawViolation.self) {
+            try await checkAdditiveArithmeticProtocolLaws(
+                for: NonAssociativeAddition.self,
+                using: Gen<NonAssociativeAddition>.nonAssociativeAddition(),
+                options: LawCheckOptions(budget: .sanity)
+            )
+        }
+        let laws = violation?.results.map(\.protocolLaw) ?? []
+        #expect(
+            laws.contains("AdditiveArithmetic.additionAssociativity"),
+            "expected additionAssociativity in violation set; got: \(laws)"
+        )
+    }
+
+    // MARK: - Numeric Strict-tier planted bugs
+
+    @Test func detectsNonCommutativeMultiply() async throws {
+        let violation = await #expect(throws: ProtocolLawViolation.self) {
+            try await checkNumericProtocolLaws(
+                for: NonCommutativeMultiply.self,
+                using: Gen<NonCommutativeMultiply>.nonCommutativeMultiply(),
+                options: LawCheckOptions(budget: .sanity),
+                laws: .ownOnly
+            )
+        }
+        let laws = violation?.results.map(\.protocolLaw) ?? []
+        #expect(
+            laws.contains("Numeric.multiplicationCommutativity"),
+            "expected multiplicationCommutativity in violation set; got: \(laws)"
+        )
+    }
+
+    @Test func detectsBrokenOneIdentity() async throws {
+        let violation = await #expect(throws: ProtocolLawViolation.self) {
+            try await checkNumericProtocolLaws(
+                for: BrokenOneIdentity.self,
+                using: Gen<BrokenOneIdentity>.brokenOneIdentity(),
+                options: LawCheckOptions(budget: .sanity),
+                laws: .ownOnly
+            )
+        }
+        let laws = violation?.results.map(\.protocolLaw) ?? []
+        #expect(
+            laws.contains("Numeric.oneMultiplicativeIdentity"),
+            "expected oneMultiplicativeIdentity in violation set; got: \(laws)"
+        )
+    }
+
+    // MARK: - SignedNumeric Strict-tier planted bugs
+
+    @Test func detectsBrokenNegationOffByOne() async throws {
+        let violation = await #expect(throws: ProtocolLawViolation.self) {
+            try await checkSignedNumericProtocolLaws(
+                for: BrokenNegationOffByOne.self,
+                using: Gen<BrokenNegationOffByOne>.brokenNegationOffByOne(),
+                options: LawCheckOptions(budget: .sanity),
+                laws: .ownOnly
+            )
+        }
+        let laws = violation?.results.map(\.protocolLaw) ?? []
+        #expect(
+            laws.contains("SignedNumeric.negationInvolution")
+                || laws.contains("SignedNumeric.additiveInverse"),
+            "expected a SignedNumeric involution / inverse violation; got: \(laws)"
+        )
+    }
+}
