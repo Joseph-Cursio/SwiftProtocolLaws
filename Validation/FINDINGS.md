@@ -266,3 +266,22 @@ Validation/run.sh ~/xcode_projects/swift-aws-lambda-runtime AWSLambdaRuntime
 Validation/run.sh ~/xcode_projects/Sitrep SitrepCore
 git diff Validation/results/
 ```
+
+## Pass 2 expansion 2026-04-29 — v1.4 stdlib numeric coverage
+
+The original Pass 2 (commit `599c843` and earlier) only ran the kit's laws against types from `swift-argument-parser` (`ExitCode`, `ArgumentVisibility`, `CompletionShell`). The v1.4 cluster shipped a new layer of laws — `AdditiveArithmetic` / `Numeric` / `SignedNumeric` / `BinaryInteger` / `SignedInteger` / `UnsignedInteger` / `FixedWidthInteger` / `FloatingPoint` / `BinaryFloatingPoint` — whose canonical reference implementations are stdlib `Int*` / `UInt*` / `Double` / `Float`. Pass 2 now exercises those reference implementations directly.
+
+`Validation/Tests/ValidationPass2Tests/StdlibNumericLawsTests.swift`:
+
+| Type | Laws checked | Trial budget | Result |
+|---|---|---|---|
+| `Int32` | `checkFixedWidthIntegerProtocolLaws` (which transitively runs BinaryInteger + Numeric + AdditiveArithmetic) | `.standard` (1,000) | passed |
+| `Int32` | `checkSignedIntegerProtocolLaws` (sibling chain to FixedWidthInteger) | `.standard` (1,000) | passed |
+| `UInt` | `checkFixedWidthIntegerProtocolLaws` | `.standard` (1,000) | passed |
+| `UInt` | `checkUnsignedIntegerProtocolLaws` | `.standard` (1,000) | passed |
+| `Double` | `checkBinaryFloatingPointProtocolLaws` (finite-only generator, `allowNaN: false`) | `.standard` (1,000) | passed |
+| `Double` | `checkBinaryFloatingPointProtocolLaws` (NaN-injecting generator, `allowNaN: true` — exercises NaN-domain laws) | `.standard` (1,000) | passed |
+
+This is the **first time the kit's own laws run end-to-end against stdlib types** — significant for the §8 closure narrative. Apple's reference implementations satisfy every Strict-tier law the v1.4 cluster checks, including the IEEE-754 NaN-domain laws under `allowNaN: true`. As with the original Pass 2, "no bug found" is the predicted result for the most heavily-tested numeric implementations on the planet, but the assertion is now real rather than asymptotic.
+
+The Pass 2 sub-package's `swift test` now runs 12 tests across 3 suites in ≈ 130 ms.
