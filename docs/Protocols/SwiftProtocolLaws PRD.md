@@ -411,6 +411,29 @@ Division-related laws skip samples with denominator `0` (vacuous-true), so calle
 
 For stdlib `UInt*` types both laws hold by construction. The checks exist as the self-test gate against custom `UnsignedInteger` conformers that lie about signedness or whose `magnitude` typealias points somewhere non-trivial.
 
+#### `FloatingPoint` (no inherited suite auto-run — see note)
+
+| Protocol Law | Tier | When | Description |
+|---|---|---|---|
+| Infinity is infinite | Strict | always-on | `Self.infinity.isInfinite` |
+| Negative-infinity comparison | Strict | always-on | `-Self.infinity < Self.infinity` |
+| Zero is zero | Strict | always-on | `Self.zero.isZero` |
+| Signed-zero equality | Strict | always-on | `Self.zero == -Self.zero` (IEEE-754 mandates equality) |
+| Rounded-zero identity | Strict | always-on | `Self.zero.rounded() == Self.zero` |
+| Additive inverse (finite) | Strict | always-on | `x.isFinite ⇒ x + (-x) == .zero` |
+| Next-up/next-down round-trip | Strict | always-on | finite, non-extreme, non-zero ⇒ `x.nextUp.nextDown == x` |
+| Sign matches less-than-zero | Strict | always-on | finite non-zero `x` ⇒ `x.sign` matches sign of `x < 0` |
+| Absolute value non-negative | Strict | always-on | `!x.isNaN ⇒ x.magnitude >= 0` |
+| NaN is NaN | Strict | `allowNaN` | `Self.nan.isNaN` |
+| NaN inequality | Strict | `allowNaN` | `Self.nan != Self.nan` (IEEE-754) |
+| NaN propagates addition | Strict | `allowNaN` | `(Self.nan + x).isNaN` |
+| NaN propagates multiplication | Strict | `allowNaN` | `(Self.nan * x).isNaN` |
+| NaN comparison is unordered | Strict | `allowNaN` | `!(Self.nan < x) && !(Self.nan > x) && !(Self.nan == x)` |
+
+`FloatingPoint` is the first kit protocol where the inherited chain is deliberately not auto-run. AdditiveArithmetic / Numeric / SignedNumeric laws use exact `==` and fire spurious violations on `Float` / `Double` because IEEE-754 multiplication and addition round. Users wanting algebraic coverage on a finite-only generator can call `checkSignedNumericProtocolLaws` directly.
+
+The five NaN-domain laws are gated on `LawCheckOptions.allowNaN`. Default `false` skips them; set to `true` when explicitly testing IEEE-754 NaN behavior. The kit ships `Gen<Double>.doubleWithNaN()` and `Gen<Float>.floatWithNaN()` helpers that inject `Self.nan` on roughly 1 of every 20 trials — useful for exercising the always-on laws' NaN-skip guards even when `allowNaN` is left at the default.
+
 #### `FixedWidthInteger` (extends `BinaryInteger` protocol laws)
 
 | Protocol Law | Tier | Description |
@@ -433,7 +456,7 @@ ProtocolLawKit v1 covers the protocols enumerated above. The Swift Standard Libr
 
 **v1.1+ candidates (testable laws, clear contracts):**
 
-- `FloatingPoint`, `BinaryFloatingPoint` — IEEE-754 contracts excluding `NaN`-domain edges (which are `.allowNaN`-gated). (v1.4 M4 + M5.)
+- `BinaryFloatingPoint` — radix-2 invariants, significand/exponent reconstruction, binade membership. (v1.4 M5.)
 - `StringProtocol` — extends `BidirectionalCollection` with text-specific laws (Unicode-correctness invariants).
 
 **Shipped in v1.4 M1 (algebraic chain):**
@@ -451,6 +474,10 @@ ProtocolLawKit v1 covers the protocols enumerated above. The Swift Standard Libr
 **Shipped in v1.4 M3:**
 
 - `FixedWidthInteger` (9 own Strict laws — bit-width matches type, four reportingOverflow consistency laws, wrapping arithmetic does not trap, min/max bounds reachable, byteSwapped involution, nonzero-bit-count range).
+
+**Shipped in v1.4 M4:**
+
+- `FloatingPoint` (9 always-on Strict laws + 5 NaN-domain Strict laws gated by `LawCheckOptions.allowNaN`). FloatingPoint deliberately does not auto-run the inherited `SignedNumeric` chain — IEEE-754 rounding makes the exact-equality algebraic laws fire spurious violations on `Float` / `Double`. Most-specific dedupe drops the algebraic chain for `: FloatingPoint` types. Users wanting algebraic coverage on a finite-only generator opt in by calling `checkSignedNumericProtocolLaws` directly.
 
 These exact-equality algebraic / bitwise laws fire on integer-like types (`Int`, `Decimal`, BigInt). Floating-point types satisfy the algebraic ones only approximately due to IEEE-754 rounding; v1.4 M4 ships `FloatingPoint`-specific laws that account for rounding.
 **Heuristic / deferred (laws are weak, contextual, or require runtime instrumentation):**
