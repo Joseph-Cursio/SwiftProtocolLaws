@@ -27,6 +27,9 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
     case additiveArithmetic
     case numeric
     case signedNumeric
+    case binaryInteger
+    case signedInteger
+    case unsignedInteger
 
     /// Maps a single inheritance-clause type name to a `KnownProtocol`.
     /// `Encodable`/`Decodable` are intentionally absent — only the pair
@@ -55,7 +58,10 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         "CaseIterable": .caseIterable,
         "AdditiveArithmetic": .additiveArithmetic,
         "Numeric": .numeric,
-        "SignedNumeric": .signedNumeric
+        "SignedNumeric": .signedNumeric,
+        "BinaryInteger": .binaryInteger,
+        "SignedInteger": .signedInteger,
+        "UnsignedInteger": .unsignedInteger
     ]
 
     /// Resolve a list of raw inherited-type names into the recognized
@@ -148,6 +154,11 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
             return [.collection, .sequence, .iteratorProtocol]
         case .numeric: return [.additiveArithmetic]
         case .signedNumeric: return [.numeric, .additiveArithmetic]
+        case .binaryInteger: return [.numeric, .additiveArithmetic]
+        case .signedInteger:
+            return [.binaryInteger, .signedNumeric, .numeric, .additiveArithmetic]
+        case .unsignedInteger:
+            return [.binaryInteger, .numeric, .additiveArithmetic]
         case .equatable, .codable, .iteratorProtocol, .setAlgebra,
              .rawRepresentable, .losslessStringConvertible, .identifiable,
              .caseIterable, .additiveArithmetic: return []
@@ -178,6 +189,9 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .additiveArithmetic: return "checkAdditiveArithmeticProtocolLaws"
         case .numeric: return "checkNumericProtocolLaws"
         case .signedNumeric: return "checkSignedNumericProtocolLaws"
+        case .binaryInteger: return "checkBinaryIntegerProtocolLaws"
+        case .signedInteger: return "checkSignedIntegerProtocolLaws"
+        case .unsignedInteger: return "checkUnsignedIntegerProtocolLaws"
         }
     }
 
@@ -206,6 +220,9 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .additiveArithmetic: return "AdditiveArithmetic"
         case .numeric: return "Numeric"
         case .signedNumeric: return "SignedNumeric"
+        case .binaryInteger: return "BinaryInteger"
+        case .signedInteger: return "SignedInteger"
+        case .unsignedInteger: return "UnsignedInteger"
         }
     }
 
@@ -233,6 +250,9 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .additiveArithmetic: return "additiveArithmetic"
         case .numeric: return "numeric"
         case .signedNumeric: return "signedNumeric"
+        case .binaryInteger: return "binaryInteger"
+        case .signedInteger: return "signedInteger"
+        case .unsignedInteger: return "unsignedInteger"
         }
     }
 }

@@ -386,6 +386,56 @@ struct MacroExpansionTests {
         )
     }
 
+    @Test func signedIntegerCollapsesDiamondToSingleEmission() {
+        // SignedInteger refines BOTH BinaryInteger and SignedNumeric in stdlib.
+        // The diamond should collapse under mostSpecific to a single
+        // `checkSignedIntegerProtocolLaws` call; runtime dispatch through
+        // .all then runs both inherited suites.
+        assertMacroExpansion(
+            """
+            @ProtoLawSuite
+            struct WideInt: SignedInteger {}
+            """,
+            expandedSource: """
+            struct WideInt: SignedInteger {}
+
+            struct WideIntProtocolLawTests {
+                @Test func signedInteger_WideInt() async throws {
+                        try await checkSignedIntegerProtocolLaws(
+                            for: WideInt.self,
+                            using: WideInt.gen()
+                        )
+                    }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
+    @Test func unsignedIntegerCollapsesToSingleEmission() {
+        // UnsignedInteger subsumes BinaryInteger → Numeric → AdditiveArithmetic.
+        // Single emission expected.
+        assertMacroExpansion(
+            """
+            @ProtoLawSuite
+            struct BigUInt: UnsignedInteger {}
+            """,
+            expandedSource: """
+            struct BigUInt: UnsignedInteger {}
+
+            struct BigUIntProtocolLawTests {
+                @Test func unsignedInteger_BigUInt() async throws {
+                        try await checkUnsignedIntegerProtocolLaws(
+                            for: BigUInt.self,
+                            using: BigUInt.gen()
+                        )
+                    }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
     @Test func mutableAndRangeReplaceableSurviveAsSiblings() {
         // MutableCollection and RangeReplaceableCollection are independent
         // refinements of Collection — neither subsumes the other, so both
