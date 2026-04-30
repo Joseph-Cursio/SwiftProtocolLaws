@@ -58,4 +58,22 @@ struct PlantedBugIntegerDetectionTests {
             "expected magnitudeIsSelf in violation set; got: \(laws)"
         )
     }
+
+    // MARK: - FixedWidthInteger Strict-tier planted bug
+
+    @Test func detectsBrokenByteSwapped() async throws {
+        let violation = await #expect(throws: ProtocolLawViolation.self) {
+            try await checkFixedWidthIntegerProtocolLaws(
+                for: BrokenByteSwapped.self,
+                using: Gen<BrokenByteSwapped>.brokenByteSwapped(),
+                options: LawCheckOptions(budget: .sanity),
+                laws: .ownOnly
+            )
+        }
+        let laws = violation?.results.map(\.protocolLaw) ?? []
+        #expect(
+            laws.contains("FixedWidthInteger.byteSwappedInvolution"),
+            "expected byteSwappedInvolution in violation set; got: \(laws)"
+        )
+    }
 }

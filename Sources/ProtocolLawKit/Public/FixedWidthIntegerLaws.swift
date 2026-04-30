@@ -325,4 +325,3 @@ private func checkNonzeroBitCountRange<
         )
     )
 }
-
