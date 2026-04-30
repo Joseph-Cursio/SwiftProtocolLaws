@@ -371,23 +371,69 @@ Three-way multiplication overflows under unbounded random sampling on `Int` / `I
 
 `Value.min` traps under negation for two's-complement signed integers (`-Int.min` overflows); bounded generators that exclude `Value.min` avoid the trap.
 
+#### `BinaryInteger` (extends `Numeric` protocol laws)
+
+| Protocol Law | Tier | Description |
+|---|---|---|
+| Division/multiplication round-trip | Strict | `y != 0 ⇒ (x / y) * y + (x % y) == x` |
+| Remainder magnitude bound | Strict | `y != 0 ⇒ \|x % y\| < \|y\|` (or `x % y == 0`) |
+| Self-division is one | Strict | `x != 0 ⇒ x / x == 1` |
+| Division-by-one identity | Strict | `x / 1 == x` |
+| Quotient-and-remainder consistency | Strict | `x.quotientAndRemainder(dividingBy: y) == (x/y, x%y)` |
+| Bitwise AND idempotence | Strict | `x & x == x` |
+| Bitwise OR idempotence | Strict | `x \| x == x` |
+| Bitwise AND commutativity | Strict | `x & y == y & x` |
+| Bitwise OR commutativity | Strict | `x \| y == y \| x` |
+| Bitwise XOR self-is-zero | Strict | `x ^ x == 0` |
+| Bitwise XOR zero-identity | Strict | `x ^ 0 == x` |
+| Bitwise double-negation | Strict | `~~x == x` |
+| Bitwise AND distributes over OR | Strict | `x & (y \| z) == (x & y) \| (x & z)` |
+| Bitwise De Morgan | Strict | `~(x & y) == ~x \| ~y` |
+| Shift-by-zero identity | Strict | `x << 0 == x && x >> 0 == x` |
+| Trailing-zero bit-count range | Strict | `0 ≤ x.trailingZeroBitCount ≤ x.bitWidth` |
+
+Division-related laws skip samples with denominator `0` (vacuous-true), so callers don't need to filter their own generators. Use `Gen<T: FixedWidthInteger>.boundedForArithmetic()` for fixed-width signed/unsigned types — it picks a per-type magnitude bound (`2^(bitWidth/4)`) so the inherited Numeric laws' triple multiplication doesn't overflow under random sampling. `nonzeroBitCount` is FixedWidthInteger-only and lands in v1.4 M3.
+
+#### `SignedInteger` (extends `BinaryInteger` and `SignedNumeric` protocol laws)
+
+| Protocol Law | Tier | Description |
+|---|---|---|
+| Signum consistency | Strict | `x.signum() == 1` if `x > 0`, `-1` if `x < 0`, `0` if `x == 0` |
+
+`SignedInteger` sits at the diamond between `BinaryInteger` and `SignedNumeric`. The `.all` dispatch runs `BinaryInteger`'s full inherited chain first (which includes `Numeric` and `AdditiveArithmetic`), then `SignedNumeric`'s own laws via `.ownOnly` to avoid double-running `Numeric`'s six laws. Most useful coverage comes from the inherited suites.
+
+#### `UnsignedInteger` (extends `BinaryInteger` protocol laws)
+
+| Protocol Law | Tier | Description |
+|---|---|---|
+| Non-negative | Strict | `x >= 0` |
+| Magnitude is self | Strict | `x.magnitude == x` |
+
+For stdlib `UInt*` types both laws hold by construction. The checks exist as the self-test gate against custom `UnsignedInteger` conformers that lie about signedness or whose `magnitude` typealias points somewhere non-trivial.
+
 #### Coverage Scope
 
 ProtocolLawKit v1 covers the protocols enumerated above. The Swift Standard Library has roughly 54 public protocols (see `docs/Swift Standard Library Protocols.md` for the full inventory); v1's coverage is deliberate and audited rather than exhaustive. Other stdlib protocols are categorized as follows:
 
 **v1.1+ candidates (testable laws, clear contracts):**
 
-- `BinaryInteger`, `SignedInteger`, `UnsignedInteger`, `FixedWidthInteger` — integer arithmetic and bitwise operator consistency, overflow-trap vs `&`-overflow contracts. (v1.4 M2 + M3.)
+- `FixedWidthInteger` — overflow-trap vs `&`-overflow contracts, byteSwapped involution, reportingOverflow consistency. (v1.4 M3.)
 - `FloatingPoint`, `BinaryFloatingPoint` — IEEE-754 contracts excluding `NaN`-domain edges (which are `.allowNaN`-gated). (v1.4 M4 + M5.)
 - `StringProtocol` — extends `BidirectionalCollection` with text-specific laws (Unicode-correctness invariants).
 
-**Shipped in v1.4 M1:**
+**Shipped in v1.4 M1 (algebraic chain):**
 
 - `AdditiveArithmetic` (5 Strict laws — addition associativity, commutativity, zero identity, subtraction inverse, self-subtraction-is-zero).
 - `Numeric` (6 Strict laws — multiplication associativity + commutativity, multiplicative identity, zero annihilation, left/right distributivity).
 - `SignedNumeric` (4 Strict laws — negation involution, additive inverse, negation distributes over addition, negate-mutation consistency).
 
-These exact-equality algebraic laws fire on integer-like types (`Int`, `Decimal`, BigInt). Floating-point types satisfy them only approximately due to IEEE-754 rounding; v1.4 M4 ships `FloatingPoint`-specific laws that account for rounding.
+**Shipped in v1.4 M2 (integer cluster):**
+
+- `BinaryInteger` (16 Strict laws — division/multiplication round-trip, remainder-magnitude bound, self-division-is-one, division-by-one identity, quotient-and-remainder consistency, bitwise AND/OR idempotence + commutativity, XOR self-is-zero, XOR zero-identity, double-negation, AND-distributes-over-OR, De Morgan, shift-by-zero identity, trailing-zero-bit-count range).
+- `SignedInteger` (1 own Strict law — signum consistency).
+- `UnsignedInteger` (2 own Strict laws — non-negative, magnitude-is-self).
+
+These exact-equality algebraic / bitwise laws fire on integer-like types (`Int`, `Decimal`, BigInt). Floating-point types satisfy the algebraic ones only approximately due to IEEE-754 rounding; v1.4 M4 ships `FloatingPoint`-specific laws that account for rounding.
 **Heuristic / deferred (laws are weak, contextual, or require runtime instrumentation):**
 
 - `Sendable` — value semantics is a heuristic, not a checkable invariant from outside the type. A `checkSendableContractLaws` Heuristic-tier suite (mutation-after-share spot checks) is a research item, not a v1.1 deliverable.

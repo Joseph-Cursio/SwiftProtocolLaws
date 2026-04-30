@@ -58,6 +58,9 @@ Each is a real production bug class. None is caught by `swift build`.
 | `AdditiveArithmetic` | addition associativity + commutativity, zero identity, subtraction inverse, self-subtraction is zero |
 | `Numeric` | multiplication associativity + commutativity, multiplicative identity, zero annihilation, left/right distributivity |
 | `SignedNumeric` | negation involution, additive inverse, negation distributes over addition, negate-mutation consistency |
+| `BinaryInteger` | division/multiplication round-trip, remainder bound, self/by-one division, quotient-remainder consistency, bitwise AND/OR/XOR idempotence + commutativity + identity, double-negation, AND distributes over OR, De Morgan, shift-by-zero identity, trailing-zero bit count range |
+| `SignedInteger` | signum consistency |
+| `UnsignedInteger` | non-negative, magnitude is self |
 
 Inheritance is implicit: `checkComparable…` runs Equatable's laws automatically, `checkStrideable…` runs Comparable's (and transitively Equatable's), `checkCollection…` runs Sequence's and IteratorProtocol's, `checkRandomAccessCollection…` runs the whole `BidirectionalCollection → Collection → Sequence → IteratorProtocol` chain, and the algebraic chain `checkSignedNumeric…` → `checkNumeric…` → `checkAdditiveArithmetic…` runs in linear order. PRD §4.3 is the spec.
 
@@ -210,7 +213,7 @@ Replay-validation is opt-in: pass an `expectedReplayEnvironment` and the kit ref
 
 | Component | Status |
 |---|---|
-| `ProtocolLawKit` (PRD Contribution 1) | M1–M5 + v1.1 round-trip cluster + v1.2 collection-refinements cluster + v1.4 M1 algebraic chain shipped — laws, suppression, `PropertyBackend`, confidence reporting |
+| `ProtocolLawKit` (PRD Contribution 1) | M1–M5 + v1.1 round-trip cluster + v1.2 collection-refinements cluster + v1.4 M1–M2 numeric chain shipped — laws, suppression, `PropertyBackend`, confidence reporting |
 | `ProtoLawMacro` peer macro (PRD §5.3 Macro Mode) | M1 shipped |
 | `swift package protolawcheck` discovery plugin (PRD §5.3 Discovery Mode) | M2 shipped |
 | Generator derivation (PRD §5.7) — `CaseIterable` + `RawRepresentable` enums | M3 shipped |
