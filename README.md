@@ -63,6 +63,7 @@ Each is a real production bug class. None is caught by `swift build`.
 | `UnsignedInteger` | non-negative, magnitude is self |
 | `FixedWidthInteger` | bit-width matches type, four reportingOverflow consistency laws, wrapping arithmetic does not trap, min/max bounds reachable, byteSwapped involution, nonzero bit count range |
 | `FloatingPoint` | infinity is infinite, signed-zero equality, additive inverse on finite, next-up/down round-trip, sign matches less-than-zero, absolute value non-negative, plus 5 NaN-domain laws gated by `LawCheckOptions.allowNaN` |
+| `BinaryFloatingPoint` | radix-2 constraint, significand/exponent reconstruction, binade membership, integer-conversion exactness |
 
 Inheritance is implicit: `checkComparable…` runs Equatable's laws automatically, `checkStrideable…` runs Comparable's (and transitively Equatable's), `checkCollection…` runs Sequence's and IteratorProtocol's, `checkRandomAccessCollection…` runs the whole `BidirectionalCollection → Collection → Sequence → IteratorProtocol` chain, and the algebraic chain `checkSignedNumeric…` → `checkNumeric…` → `checkAdditiveArithmetic…` runs in linear order. PRD §4.3 is the spec.
 
@@ -215,7 +216,7 @@ Replay-validation is opt-in: pass an `expectedReplayEnvironment` and the kit ref
 
 | Component | Status |
 |---|---|
-| `ProtocolLawKit` (PRD Contribution 1) | M1–M5 + v1.1 round-trip cluster + v1.2 collection-refinements cluster + v1.4 M1–M4 numeric/integer/FloatingPoint shipped — laws, suppression, `PropertyBackend`, confidence reporting |
+| `ProtocolLawKit` (PRD Contribution 1) | M1–M5 + v1.1 round-trip cluster + v1.2 collection-refinements cluster + v1.4.0 numeric/integer/FloatingPoint cluster shipped — laws, suppression, `PropertyBackend`, confidence reporting |
 | `ProtoLawMacro` peer macro (PRD §5.3 Macro Mode) | M1 shipped |
 | `swift package protolawcheck` discovery plugin (PRD §5.3 Discovery Mode) | M2 shipped |
 | Generator derivation (PRD §5.7) — `CaseIterable` + `RawRepresentable` enums | M3 shipped |

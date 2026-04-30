@@ -434,6 +434,17 @@ For stdlib `UInt*` types both laws hold by construction. The checks exist as the
 
 The five NaN-domain laws are gated on `LawCheckOptions.allowNaN`. Default `false` skips them; set to `true` when explicitly testing IEEE-754 NaN behavior. The kit ships `Gen<Double>.doubleWithNaN()` and `Gen<Float>.floatWithNaN()` helpers that inject `Self.nan` on roughly 1 of every 20 trials — useful for exercising the always-on laws' NaN-skip guards even when `allowNaN` is left at the default.
 
+#### `BinaryFloatingPoint` (extends `FloatingPoint` protocol laws)
+
+| Protocol Law | Tier | Description |
+|---|---|---|
+| Radix-2 constraint | Strict | `Self.radix == 2` (binade math depends on this) |
+| Significand/exponent reconstruction | Strict | finite non-zero `x` ⇒ `Value(sign: x.sign, exponent: x.exponent, significand: x.significand) == x` |
+| Binade membership | Strict | finite normal non-zero `x` ⇒ `\|x.binade\| <= \|x\| < 2·\|x.binade\|` |
+| Converting from integer exactness | Strict | for `n` where `Value(exactly: n) != nil`: `Int(exactly: Value(exactly: n)!) == n` |
+
+`x.binade` carries the sign of `x` in stdlib, and `binade.nextUp` returns the next *representable value* (not the next binade). The membership law uses `2·|binade|` as the upper bound and compares magnitudes so the law holds for negative samples.
+
 #### `FixedWidthInteger` (extends `BinaryInteger` protocol laws)
 
 | Protocol Law | Tier | Description |
@@ -456,7 +467,6 @@ ProtocolLawKit v1 covers the protocols enumerated above. The Swift Standard Libr
 
 **v1.1+ candidates (testable laws, clear contracts):**
 
-- `BinaryFloatingPoint` — radix-2 invariants, significand/exponent reconstruction, binade membership. (v1.4 M5.)
 - `StringProtocol` — extends `BidirectionalCollection` with text-specific laws (Unicode-correctness invariants).
 
 **Shipped in v1.4 M1 (algebraic chain):**
@@ -478,6 +488,10 @@ ProtocolLawKit v1 covers the protocols enumerated above. The Swift Standard Libr
 **Shipped in v1.4 M4:**
 
 - `FloatingPoint` (9 always-on Strict laws + 5 NaN-domain Strict laws gated by `LawCheckOptions.allowNaN`). FloatingPoint deliberately does not auto-run the inherited `SignedNumeric` chain — IEEE-754 rounding makes the exact-equality algebraic laws fire spurious violations on `Float` / `Double`. Most-specific dedupe drops the algebraic chain for `: FloatingPoint` types. Users wanting algebraic coverage on a finite-only generator opt in by calling `checkSignedNumericProtocolLaws` directly.
+
+**Shipped in v1.4 M5:**
+
+- `BinaryFloatingPoint` (4 own Strict laws — radix-2 constraint, significand/exponent reconstruction, binade membership, integer-conversion exactness). Chains through to FloatingPoint via `.all`; `allowNaN` propagates to the inherited suite.
 
 These exact-equality algebraic / bitwise laws fire on integer-like types (`Int`, `Decimal`, BigInt). Floating-point types satisfy the algebraic ones only approximately due to IEEE-754 rounding; v1.4 M4 ships `FloatingPoint`-specific laws that account for rounding.
 **Heuristic / deferred (laws are weak, contextual, or require runtime instrumentation):**
