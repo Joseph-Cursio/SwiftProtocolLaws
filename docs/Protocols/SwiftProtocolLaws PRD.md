@@ -411,13 +411,28 @@ Division-related laws skip samples with denominator `0` (vacuous-true), so calle
 
 For stdlib `UInt*` types both laws hold by construction. The checks exist as the self-test gate against custom `UnsignedInteger` conformers that lie about signedness or whose `magnitude` typealias points somewhere non-trivial.
 
+#### `FixedWidthInteger` (extends `BinaryInteger` protocol laws)
+
+| Protocol Law | Tier | Description |
+|---|---|---|
+| Bit-width matches type | Strict | `x.bitWidth == Self.bitWidth` |
+| Adding-reporting-overflow consistency | Strict | `x.addingReportingOverflow(y).partialValue == x &+ y` |
+| Subtracting-reporting-overflow consistency | Strict | `x.subtractingReportingOverflow(y).partialValue == x &- y` |
+| Multiplied-reporting-overflow consistency | Strict | `x.multipliedReportingOverflow(by: y).partialValue == x &* y` |
+| Divided-reporting-overflow on div-by-zero | Strict | `x.dividedReportingOverflow(by: 0).overflow == true` |
+| Wrapping arithmetic does not trap | Strict | `x &+ y`, `x &- y`, `x &* y` always produce a value (no trap) |
+| Min/max bounds reachable | Strict | `Self.min <= x <= Self.max` |
+| Byte-swapped involution | Strict | `x.byteSwapped.byteSwapped == x` |
+| Nonzero-bit-count range | Strict | `0 ≤ x.nonzeroBitCount ≤ x.bitWidth` |
+
+`FixedWidthInteger` is orthogonal to `SignedInteger` and `UnsignedInteger` — `Int32` conforms to both `FixedWidthInteger & SignedInteger`, `UInt` conforms to both `FixedWidthInteger & UnsignedInteger`. The discovery plugin emits both checks under most-specific dedupe (matching the v1.2 `MutableCollection + RangeReplaceableCollection` sibling precedent). `nonzeroBitCount` is a FixedWidthInteger-only requirement; the corresponding law lives here rather than on `BinaryInteger`.
+
 #### Coverage Scope
 
 ProtocolLawKit v1 covers the protocols enumerated above. The Swift Standard Library has roughly 54 public protocols (see `docs/Swift Standard Library Protocols.md` for the full inventory); v1's coverage is deliberate and audited rather than exhaustive. Other stdlib protocols are categorized as follows:
 
 **v1.1+ candidates (testable laws, clear contracts):**
 
-- `FixedWidthInteger` — overflow-trap vs `&`-overflow contracts, byteSwapped involution, reportingOverflow consistency. (v1.4 M3.)
 - `FloatingPoint`, `BinaryFloatingPoint` — IEEE-754 contracts excluding `NaN`-domain edges (which are `.allowNaN`-gated). (v1.4 M4 + M5.)
 - `StringProtocol` — extends `BidirectionalCollection` with text-specific laws (Unicode-correctness invariants).
 
@@ -432,6 +447,10 @@ ProtocolLawKit v1 covers the protocols enumerated above. The Swift Standard Libr
 - `BinaryInteger` (16 Strict laws — division/multiplication round-trip, remainder-magnitude bound, self-division-is-one, division-by-one identity, quotient-and-remainder consistency, bitwise AND/OR idempotence + commutativity, XOR self-is-zero, XOR zero-identity, double-negation, AND-distributes-over-OR, De Morgan, shift-by-zero identity, trailing-zero-bit-count range).
 - `SignedInteger` (1 own Strict law — signum consistency).
 - `UnsignedInteger` (2 own Strict laws — non-negative, magnitude-is-self).
+
+**Shipped in v1.4 M3:**
+
+- `FixedWidthInteger` (9 own Strict laws — bit-width matches type, four reportingOverflow consistency laws, wrapping arithmetic does not trap, min/max bounds reachable, byteSwapped involution, nonzero-bit-count range).
 
 These exact-equality algebraic / bitwise laws fire on integer-like types (`Int`, `Decimal`, BigInt). Floating-point types satisfy the algebraic ones only approximately due to IEEE-754 rounding; v1.4 M4 ships `FloatingPoint`-specific laws that account for rounding.
 **Heuristic / deferred (laws are weak, contextual, or require runtime instrumentation):**
