@@ -12,12 +12,15 @@ import ProtocolLawKit
 /// when the §8 gate becomes the active priority.
 ///
 /// Targets are public types from `swift-argument-parser` (1.6.0+):
-/// - `ExitCode` — Int32-backed `Hashable` struct (Error + RawRepresentable).
+/// - `ExitCode` — Int32-backed `Hashable` + `RawRepresentable` struct.
 /// - `ArgumentVisibility` — three-static-instance `Hashable` struct.
+/// - `CompletionShell` — closed-set String-backed `RawRepresentable` struct
+///   with a failable `init?(rawValue:)` (zsh / bash / fish only).
 ///
-/// Both are tiny but representative: a wrapper-around-a-primitive and a
-/// closed-set state type. If either harbored a hash/equality-consistency
-/// bug, the kit's Strict-tier checks would surface it.
+/// All three are tiny but representative: a wrapper-around-a-primitive, a
+/// closed-set state type, and a closed-set String-backed `RawRepresentable`.
+/// If any of them harbored a hash/equality-consistency or round-trip bug,
+/// the kit's Strict-tier checks would surface it.
 struct ExternalPackageTests {
 
     // MARK: - ExitCode
@@ -30,12 +33,30 @@ struct ExternalPackageTests {
         )
     }
 
+    @Test func exitCodeRawRepresentableLawsHold() async throws {
+        try await checkRawRepresentableProtocolLaws(
+            for: ExitCode.self,
+            using: Gen<ExitCode>.exitCode(),
+            options: LawCheckOptions(budget: .standard)
+        )
+    }
+
     // MARK: - ArgumentVisibility
 
     @Test func argumentVisibilityHashableLawsHold() async throws {
         try await checkHashableProtocolLaws(
             for: ArgumentVisibility.self,
             using: Gen<ArgumentVisibility>.argumentVisibility(),
+            options: LawCheckOptions(budget: .standard)
+        )
+    }
+
+    // MARK: - CompletionShell
+
+    @Test func completionShellRawRepresentableLawsHold() async throws {
+        try await checkRawRepresentableProtocolLaws(
+            for: CompletionShell.self,
+            using: Gen<CompletionShell>.completionShell(),
             options: LawCheckOptions(budget: .standard)
         )
     }
@@ -65,5 +86,15 @@ extension Gen where Value == ArgumentVisibility {
             ArgumentVisibility.private
         ]
         return Gen<ArgumentVisibility?>.element(of: cases).compactMap { $0 }
+    }
+}
+
+extension Gen where Value == CompletionShell {
+    /// `CompletionShell.init?(rawValue:)` only succeeds for "zsh" / "bash" /
+    /// "fish"; sample over the three documented public constants so every
+    /// generated value round-trips.
+    static func completionShell() -> Generator<CompletionShell, some SendableSequenceType> {
+        let cases: [CompletionShell] = [.zsh, .bash, .fish]
+        return Gen<CompletionShell?>.element(of: cases).compactMap { $0 }
     }
 }
