@@ -285,3 +285,36 @@ The original Pass 2 (commit `599c843` and earlier) only ran the kit's laws again
 This is the **first time the kit's own laws run end-to-end against stdlib types** — significant for the §8 closure narrative. Apple's reference implementations satisfy every Strict-tier law the v1.4 cluster checks, including the IEEE-754 NaN-domain laws under `allowNaN: true`. As with the original Pass 2, "no bug found" is the predicted result for the most heavily-tested numeric implementations on the planet, but the assertion is now real rather than asymptotic.
 
 The Pass 2 sub-package's `swift test` now runs 12 tests across 3 suites in ≈ 130 ms.
+
+## Revalidation 2026-04-29 (later) — v1.4 numeric/integer/FloatingPoint cluster
+
+After v1.4 (AdditiveArithmetic, Numeric, SignedNumeric, BinaryInteger, SignedInteger, UnsignedInteger, FixedWidthInteger, FloatingPoint, BinaryFloatingPoint — 9 new protocols, 61 new Strict-tier laws) shipped, Pass 1 was rerun against all four packages with the v1.4 plugin against the same SHAs as the v1.1/v1.2/v1.3 revalidation earlier in the day.
+
+### Result: byte-identical output across all four packages
+
+| Package | Suites before → after | New `@Test` checks emitted |
+|---|---|---|
+| `swift-argument-parser` | 16 → 16 | — |
+| `Hummingbird` | 10 → 10 | — |
+| `swift-aws-lambda-runtime` | 8 → 8 | — |
+| `Sitrep` (`SitrepCore`) | 2 → 2 | — |
+
+**`git diff Validation/results/` returned empty** — the rescan produced bit-identical output to the committed results from earlier in the day. Zero new emit-able conformances across ~252 declared types in ~209 source files.
+
+### Why this null result was predicted
+
+The plan agent's M5 §6 (`docs/Protocols/v1.4 plan.md`) called this:
+
+> Searching the four packages for inheritance clauses spelling any of the nine new protocols would pick up almost nothing:
+>
+> - `: AdditiveArithmetic`, `: Numeric`, `: SignedNumeric`, `: BinaryInteger`, `: SignedInteger`, `: UnsignedInteger`, `: FixedWidthInteger` — these are essentially never adopted by app code. They exist to constrain stdlib generic algorithms; the only types that adopt them are stdlib's own `Int`/`UInt` family. Custom-precision integer libraries (Numerics, BigInt) are the rare exceptions.
+> - `: FloatingPoint`, `: BinaryFloatingPoint` — same story; only `Float`/`Double`/`Float80`/`Float16` conform.
+
+Confirmed empirically. The v1.4 cluster's value isn't in surfacing new app-code conformers — it's in being *available* when a custom-precision numeric type is written, *and* in giving the kit's own laws something to run against stdlib types directly via the Pass 2 expansion above.
+
+### What this means for the §8 closure narrative
+
+The revalidation reinforces the v0.3 §8 calibration: well-tested code rarely contains kit-detectable bugs in the specific protocols the kit covers. The v1.4 cluster's contribution to PRD §8 is:
+
+1. **Pass 1 scope coverage.** All 18 protocols the kit covers in v1.4.0 are exercised by the discovery plugin. The fact that the plugin emits zero new checks for these packages doesn't mean the plugin is broken — it means the packages don't declare the protocols, which is the predicted state of mainstream Swift code.
+2. **Pass 2 stdlib coverage.** Six new tests in `StdlibNumericLawsTests.swift` exercise the v1.4 laws against `Int32` / `UInt` / `Double` at `.standard` budget. All pass. First time the kit's own laws have run against stdlib types via the validation harness — addresses the long-standing gap where Pass 2 only exercised ArgumentParser-specific types.
