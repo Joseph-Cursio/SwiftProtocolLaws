@@ -79,6 +79,34 @@ struct LawIdentifierTests {
         }
     }
 
+    @Test func bidirectionalCollectionFactoryProducesCorrectQualifiedNames() {
+        for law in BidirectionalCollectionLaw.allCases {
+            let id = LawIdentifier.bidirectionalCollection(law)
+            #expect(id.qualifiedName == "BidirectionalCollection.\(law.rawValue)")
+        }
+    }
+
+    @Test func randomAccessCollectionFactoryProducesCorrectQualifiedNames() {
+        for law in RandomAccessCollectionLaw.allCases {
+            let id = LawIdentifier.randomAccessCollection(law)
+            #expect(id.qualifiedName == "RandomAccessCollection.\(law.rawValue)")
+        }
+    }
+
+    @Test func mutableCollectionFactoryProducesCorrectQualifiedNames() {
+        for law in MutableCollectionLaw.allCases {
+            let id = LawIdentifier.mutableCollection(law)
+            #expect(id.qualifiedName == "MutableCollection.\(law.rawValue)")
+        }
+    }
+
+    @Test func rangeReplaceableCollectionFactoryProducesCorrectQualifiedNames() {
+        for law in RangeReplaceableCollectionLaw.allCases {
+            let id = LawIdentifier.rangeReplaceableCollection(law)
+            #expect(id.qualifiedName == "RangeReplaceableCollection.\(law.rawValue)")
+        }
+    }
+
     // MARK: - Enums cover every runtime law name (anti-divergence guards)
 
     /// The motivating case for this suite: PRD v0.3 added four
@@ -132,6 +160,64 @@ struct LawIdentifierTests {
         )
         let runtimeLaws = Set(results.map(\.protocolLaw))
         let enumLaws = Set(ComparableLaw.allCases.map { "Comparable.\($0.rawValue)" })
+        #expect(runtimeLaws.subtracting(enumLaws).isEmpty)
+    }
+
+    @Test func bidirectionalCollectionEnumCoversRuntimeLaws() async throws {
+        let results = try await checkBidirectionalCollectionProtocolLaws(
+            for: [Int].self,
+            using: Gen<Int>.int(in: 0...20).array(of: 0...5),
+            options: LawCheckOptions(budget: .sanity),
+            laws: .ownOnly
+        )
+        let runtimeLaws = Set(results.map(\.protocolLaw))
+        let enumLaws = Set(
+            BidirectionalCollectionLaw.allCases.map { "BidirectionalCollection.\($0.rawValue)" }
+        )
+        #expect(runtimeLaws.subtracting(enumLaws).isEmpty)
+    }
+
+    @Test func randomAccessCollectionEnumCoversRuntimeLaws() async throws {
+        let results = try await checkRandomAccessCollectionProtocolLaws(
+            for: [Int].self,
+            using: Gen<Int>.int(in: 0...20).array(of: 0...5),
+            options: LawCheckOptions(budget: .sanity),
+            laws: .ownOnly
+        )
+        let runtimeLaws = Set(results.map(\.protocolLaw))
+        let enumLaws = Set(
+            RandomAccessCollectionLaw.allCases.map { "RandomAccessCollection.\($0.rawValue)" }
+        )
+        #expect(runtimeLaws.subtracting(enumLaws).isEmpty)
+    }
+
+    @Test func mutableCollectionEnumCoversRuntimeLaws() async throws {
+        let results = try await checkMutableCollectionProtocolLaws(
+            for: [Int].self,
+            using: Gen<Int>.int(in: 0...20).array(of: 0...5),
+            options: LawCheckOptions(budget: .sanity),
+            laws: .ownOnly
+        )
+        let runtimeLaws = Set(results.map(\.protocolLaw))
+        let enumLaws = Set(
+            MutableCollectionLaw.allCases.map { "MutableCollection.\($0.rawValue)" }
+        )
+        #expect(runtimeLaws.subtracting(enumLaws).isEmpty)
+    }
+
+    @Test func rangeReplaceableCollectionEnumCoversRuntimeLaws() async throws {
+        let results = try await checkRangeReplaceableCollectionProtocolLaws(
+            for: [Int].self,
+            using: Gen<Int>.int(in: 0...20).array(of: 0...5),
+            options: LawCheckOptions(budget: .sanity),
+            laws: .ownOnly
+        )
+        let runtimeLaws = Set(results.map(\.protocolLaw))
+        let enumLaws = Set(
+            RangeReplaceableCollectionLaw.allCases.map {
+                "RangeReplaceableCollection.\($0.rawValue)"
+            }
+        )
         #expect(runtimeLaws.subtracting(enumLaws).isEmpty)
     }
 
