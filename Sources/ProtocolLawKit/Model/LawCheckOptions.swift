@@ -36,6 +36,16 @@ public struct LawCheckOptions: Sendable {
     /// is `.exact`; relaxations exist for legitimate toolchain bumps.
     public var replayRelaxation: EnvironmentRelaxation
 
+    /// Opt-in flag for NaN-domain `FloatingPoint` laws (PRD §4.3).
+    /// Default `false` runs the always-on FloatingPoint laws (which guard
+    /// non-finite samples internally). `true` adds five NaN-specific Strict
+    /// laws — `nanIsNaN`, `nanInequality`, `nanPropagatesAddition`,
+    /// `nanPropagatesMultiplication`, `nanComparisonIsUnordered` — that
+    /// exercise IEEE-754 NaN behavior. Other protocol checks (Equatable,
+    /// Hashable, etc.) are unaffected; for those, supply a finite-only
+    /// generator if your value type is floating-point.
+    public var allowNaN: Bool
+
     public init(
         budget: TrialBudget = .standard,
         enforcement: EnforcementMode = .default,
@@ -43,7 +53,8 @@ public struct LawCheckOptions: Sendable {
         suppressions: [LawSuppression] = [],
         backend: any PropertyBackend = SwiftPropertyBasedBackend(),
         expectedReplayEnvironment: Environment? = nil,
-        replayRelaxation: EnvironmentRelaxation = .exact
+        replayRelaxation: EnvironmentRelaxation = .exact,
+        allowNaN: Bool = false
     ) {
         self.budget = budget
         self.enforcement = enforcement
@@ -52,5 +63,6 @@ public struct LawCheckOptions: Sendable {
         self.backend = backend
         self.expectedReplayEnvironment = expectedReplayEnvironment
         self.replayRelaxation = replayRelaxation
+        self.allowNaN = allowNaN
     }
 }

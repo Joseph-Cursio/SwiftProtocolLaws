@@ -31,3 +31,36 @@ extension Gen where Value: FixedWidthInteger & UnsignedInteger & Sendable {
         return value(in: Value.zero ... bound)
     }
 }
+
+extension Gen where Value == Double {
+    /// `Double` generator that injects `Self.nan` on roughly 1 of every 20
+    /// trials, with the rest in `-1e6 ... 1e6` finite range.
+    ///
+    /// Use with `checkFloatingPointProtocolLaws(..., options:
+    /// LawCheckOptions(allowNaN: true))` when you want the always-on laws
+    /// to also exercise their NaN-skip guards. The NaN-domain laws
+    /// (`nanInequality`, `nanPropagates*`, etc.) construct `Self.nan`
+    /// internally and don't require a NaN-producing generator — but having
+    /// NaN samples in the always-on laws helps catch broken `isNaN` /
+    /// `isFinite` predicates on custom FloatingPoint conformers.
+    public static func doubleWithNaN() -> Generator<Double, some SendableSequenceType> {
+        Gen<Int>.int(in: 0 ..< 20)
+            .map { tag -> Double in
+                if tag == 0 { return Double.nan }
+                return Double.random(in: -1_000_000.0 ... 1_000_000.0)
+            }
+    }
+}
+
+extension Gen where Value == Float {
+    /// `Float` generator that injects `Self.nan` on roughly 1 of every 20
+    /// trials, with the rest in `-1e6 ... 1e6` finite range. See the
+    /// `Double` overload for rationale.
+    public static func floatWithNaN() -> Generator<Float, some SendableSequenceType> {
+        Gen<Int>.int(in: 0 ..< 20)
+            .map { tag -> Float in
+                if tag == 0 { return Float.nan }
+                return Float.random(in: -1_000_000.0 ... 1_000_000.0)
+            }
+    }
+}
