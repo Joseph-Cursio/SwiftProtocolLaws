@@ -318,3 +318,75 @@ The revalidation reinforces the v0.3 §8 calibration: well-tested code rarely co
 
 1. **Pass 1 scope coverage.** All 18 protocols the kit covers in v1.4.0 are exercised by the discovery plugin. The fact that the plugin emits zero new checks for these packages doesn't mean the plugin is broken — it means the packages don't declare the protocols, which is the predicted state of mainstream Swift code.
 2. **Pass 2 stdlib coverage.** Six new tests in `StdlibNumericLawsTests.swift` exercise the v1.4 laws against `Int32` / `UInt` / `Double` at `.standard` budget. All pass. First time the kit's own laws have run against stdlib types via the validation harness — addresses the long-standing gap where Pass 2 only exercised ArgumentParser-specific types.
+
+## Pass 2 expansion 2026-04-29 — custom-precision numeric coverage
+
+After v1.4 shipped, three external libraries were wired into Pass 2 to test the kit's algebraic / integer / FloatingPoint laws against the canonical non-stdlib implementations of those protocols.
+
+`Validation/Package.swift` gains two new deps:
+- `attaswift/BigInt` (5.7.0) — arbitrary-precision integers
+- `apple/swift-numerics` (1.1.1) — `Complex<RealType>`
+
+### `attaswift/BigInt` — `BigInt` and `BigUInt`
+
+`Validation/Tests/ValidationPass2Tests/BigIntLawsTests.swift`:
+
+| Type | Law check | Suppressions | Result |
+|---|---|---|---|
+| `BigInt` | `checkBinaryIntegerProtocolLaws` (16 own + inherited Numeric + AdditiveArithmetic) | none | passed @ `.standard` |
+| `BigInt` | `checkSignedIntegerProtocolLaws` (1 own + inherited BinaryInteger + SignedNumeric) | none | passed @ `.standard` |
+| `BigUInt` | `checkBinaryIntegerProtocolLaws` | `bitwiseDoubleNegation`, `bitwiseDeMorgan` (as `intentionalViolation`) | passed with documented exceptions |
+| `BigUInt` | `checkUnsignedIntegerProtocolLaws` | same | passed with documented exceptions |
+
+**Real finding: `BigUInt.~` does not satisfy De Morgan's law.** Counterexample (replay seed `JJV3lDSZMUfh1OXBSpPuu+SMxMVOzze42idwOvk3nK4=`):
+
+```
+x = 406803, y = 51776
+x & y = 0
+~(x & y) = 0
+~x | ~y = 18446744073709551615  (= UInt64.max)
+```
+
+The root cause is that `BigUInt`'s bitwise NOT depends on the underlying word-array storage size, not on a fixed bit-width. `~BigUInt(0)` returns `BigUInt(0)` (zero-word storage) while `~BigUInt(x)` for non-zero `x` flips a full 64-bit word. De Morgan's law requires consistent bit-width semantics on both sides; arbitrary-precision unsigned types fundamentally don't have that.
+
+`BigInt` (signed) is unaffected because `~x = -(x+1)` is an arithmetic identity that doesn't depend on storage. The `bigInt*` tests pass without suppressions.
+
+This is the **first property-based test of `attaswift/BigInt`'s protocol conformance** as far as we can tell — the package is 10+ years old and has unit tests but no published property-based suite that targets the protocol-level laws. The De Morgan / double-negation finding is genuine: callers using `BigUInt` for bitwise operations should not assume stdlib's fixed-width De Morgan identities transfer cleanly.
+
+The suppression-based test shape — `intentionalViolation` for the bit-width-dependent laws, with explicit reasons in the suppression record — is the PRD §4.7 escape hatch working as designed: the violations are *expected*, the test suite still passes, and a future regression that causes a *different* law to fail (one not on the suppression list) would still fail loudly.
+
+### `Foundation.Decimal`
+
+`Validation/Tests/ValidationPass2Tests/DecimalLawsTests.swift`:
+
+| Type | Law check | Suppressions | Result |
+|---|---|---|---|
+| `Decimal` | `checkSignedNumericProtocolLaws` (4 own + inherited Numeric + AdditiveArithmetic) | none | passed @ `.standard` |
+| `Decimal` | `checkNumericProtocolLaws` (own only) | none | passed @ `.standard` |
+| `Decimal` | `checkAdditiveArithmeticProtocolLaws` (5 own) | none | passed @ `.standard` |
+
+`Decimal`'s 128-bit mantissa with exact decimal arithmetic (no IEEE-754 rounding for in-range integer values) means the algebraic laws hold cleanly for bounded magnitudes. This is the kind of "exact-equality numeric type" that v1.4 M1's exact-equality assumption was written for.
+
+### `apple/swift-numerics` `Complex<Double>`
+
+`Validation/Tests/ValidationPass2Tests/ComplexLawsTests.swift`:
+
+| Type | Law check | Suppressions | Result |
+|---|---|---|---|
+| `Complex<Double>` | `checkNumericProtocolLaws` (own only) | `multiplicationAssociativity`, `leftDistributivity`, `rightDistributivity`, `additionAssociativity`, `subtractionInverse` (as `intentionalViolation`) | passed with documented exceptions |
+| `Complex<Double>` | `checkSignedNumericProtocolLaws` (own only) | none | passed @ `.standard` |
+
+`Complex<Double>` is the empirical demonstration of why M1's doc-comments redirect FP users to M4. Its underlying components are `Double`, so multiplication and three-way addition round in IEEE-754 the same way `Double` does — the kit's exact-equality algebraic laws fire spurious violations under random sampling. **This is not a bug in `Complex<Double>`** (the laws hold to within rounding tolerance, which is what users of complex floating-point arithmetic actually rely on); it's a documentation case for "if you have a Numeric whose components are FloatingPoint, expect to suppress the rounding-sensitive laws and rely on the negation/inverse laws that don't depend on chained arithmetic."
+
+`Complex` itself doesn't conform to `FloatingPoint` (no `.infinity` / `.nan` on the type — only on `RealType`), so `checkFloatingPointProtocolLaws` doesn't apply. The kit currently has no protocol-level abstraction for "Numeric-on-floating-point-components"; explicit per-call suppression is the pragmatic v1.4 answer.
+
+### Summary
+
+| Library | Pass | Real findings |
+|---|---|---|
+| `attaswift/BigInt` (`BigInt`) | clean — 0 suppressions | — |
+| `attaswift/BigInt` (`BigUInt`) | passes with 2 documented suppressions | bitwise-NOT inconsistent across word-size boundaries (genuine algebraic divergence) |
+| `Foundation.Decimal` | clean — 0 suppressions | — |
+| `apple/swift-numerics` (`Complex<Double>`) | passes with 5 FP-rounding suppressions | rounding-sensitive law failures predicted by M1 docs |
+
+**One genuine algebraic finding** on `BigUInt` — the kit caught a real divergence between fixed-width and arbitrary-precision bitwise semantics that's not documented in the BigInt package's README. Total Pass 2 sub-package now runs 21 tests across 6 suites in ≈ 200 ms.

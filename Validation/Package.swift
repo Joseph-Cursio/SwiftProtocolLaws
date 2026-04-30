@@ -30,6 +30,16 @@ let package = Package(
     dependencies: [
         .package(name: "SwiftProtocolLaws", path: ".."),
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.6.0"),
+        // attaswift/BigInt — arbitrary-precision integers conforming to
+        // BinaryInteger / SignedInteger / UnsignedInteger / Numeric. v1.4
+        // M2's exact-arithmetic algebraic laws should hold cleanly here;
+        // first ever property-based test of BigInt's protocol conformance.
+        .package(url: "https://github.com/attaswift/BigInt.git", from: "5.5.0"),
+        // apple/swift-numerics — exposes Complex<RealType> conforming to
+        // Numeric / SignedNumeric. Complex<Double> multiplication is
+        // non-associative under exact equality due to IEEE-754 rounding;
+        // tests document that boundary explicitly.
+        .package(url: "https://github.com/apple/swift-numerics.git", from: "1.0.0"),
         // Pin to the parent of 35349601 — the buggy SHA where
         // `_Bitmap.symmetricDifference` used `&` (intersection) instead
         // of `^` (xor). DO NOT update without re-validating Pass 3:
@@ -47,7 +57,9 @@ let package = Package(
                 // ProtocolLawKit re-exports PropertyBased (`@_exported import`),
                 // so a direct dep on it isn't needed here.
                 .product(name: "ProtocolLawKit", package: "SwiftProtocolLaws"),
-                .product(name: "ArgumentParser", package: "swift-argument-parser")
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "BigInt", package: "BigInt"),
+                .product(name: "ComplexModule", package: "swift-numerics")
             ]
         ),
         .testTarget(
