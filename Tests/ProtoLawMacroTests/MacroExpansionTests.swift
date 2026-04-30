@@ -412,6 +412,33 @@ struct MacroExpansionTests {
         )
     }
 
+    @Test func stringProtocolSubsumesBidirectionalCollectionChain() {
+        // StringProtocol refines BidirectionalCollection (and transitively
+        // Collection / Sequence / IteratorProtocol). Most-specific dedupe
+        // collapses the chain to a single `checkStringProtocolLaws` call.
+        // Hashable / Comparable / LosslessStringConvertible stay
+        // unsubsumed — they test different invariants.
+        assertMacroExpansion(
+            """
+            @ProtoLawSuite
+            struct CharBuffer: StringProtocol {}
+            """,
+            expandedSource: """
+            struct CharBuffer: StringProtocol {}
+
+            struct CharBufferProtocolLawTests {
+                @Test func stringProtocol_CharBuffer() async throws {
+                        try await checkStringProtocolLaws(
+                            for: CharBuffer.self,
+                            using: CharBuffer.gen()
+                        )
+                    }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
     @Test func binaryFloatingPointSubsumesFloatingPoint() {
         // BinaryFloatingPoint subsumes FloatingPoint and (transitively)
         // the algebraic chain. A type spelled `: BinaryFloatingPoint`

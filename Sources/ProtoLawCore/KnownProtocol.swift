@@ -33,6 +33,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
     case fixedWidthInteger
     case floatingPoint
     case binaryFloatingPoint
+    case stringProtocol
 
     /// Maps a single inheritance-clause type name to a `KnownProtocol`.
     /// `Encodable`/`Decodable` are intentionally absent — only the pair
@@ -67,7 +68,8 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         "UnsignedInteger": .unsignedInteger,
         "FixedWidthInteger": .fixedWidthInteger,
         "FloatingPoint": .floatingPoint,
-        "BinaryFloatingPoint": .binaryFloatingPoint
+        "BinaryFloatingPoint": .binaryFloatingPoint,
+        "StringProtocol": .stringProtocol
     ]
 
     /// Resolve a list of raw inherited-type names into the recognized
@@ -178,6 +180,15 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
             return [.signedNumeric, .numeric, .additiveArithmetic]
         case .binaryFloatingPoint:
             return [.floatingPoint, .signedNumeric, .numeric, .additiveArithmetic]
+        case .stringProtocol:
+            // StringProtocol refines BidirectionalCollection in stdlib;
+            // its own check auto-runs the BidirectionalCollection chain
+            // via .all, so subsume the whole collection-side chain here.
+            // Comparable / Hashable / LosslessStringConvertible are
+            // siblings (StringProtocol refines them too) but their checks
+            // exercise different invariants — keep them un-subsumed so a
+            // type spelled `: StringProtocol, Hashable` still emits both.
+            return [.bidirectionalCollection, .collection, .sequence, .iteratorProtocol]
         case .equatable, .codable, .iteratorProtocol, .setAlgebra,
              .rawRepresentable, .losslessStringConvertible, .identifiable,
              .caseIterable, .additiveArithmetic: return []
@@ -214,6 +225,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .fixedWidthInteger: return "checkFixedWidthIntegerProtocolLaws"
         case .floatingPoint: return "checkFloatingPointProtocolLaws"
         case .binaryFloatingPoint: return "checkBinaryFloatingPointProtocolLaws"
+        case .stringProtocol: return "checkStringProtocolLaws"
         }
     }
 
@@ -248,6 +260,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .fixedWidthInteger: return "FixedWidthInteger"
         case .floatingPoint: return "FloatingPoint"
         case .binaryFloatingPoint: return "BinaryFloatingPoint"
+        case .stringProtocol: return "StringProtocol"
         }
     }
 
@@ -281,6 +294,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .fixedWidthInteger: return "fixedWidthInteger"
         case .floatingPoint: return "floatingPoint"
         case .binaryFloatingPoint: return "binaryFloatingPoint"
+        case .stringProtocol: return "stringProtocol"
         }
     }
 }
