@@ -32,6 +32,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
     case unsignedInteger
     case fixedWidthInteger
     case floatingPoint
+    case binaryFloatingPoint
 
     /// Maps a single inheritance-clause type name to a `KnownProtocol`.
     /// `Encodable`/`Decodable` are intentionally absent — only the pair
@@ -65,7 +66,8 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         "SignedInteger": .signedInteger,
         "UnsignedInteger": .unsignedInteger,
         "FixedWidthInteger": .fixedWidthInteger,
-        "FloatingPoint": .floatingPoint
+        "FloatingPoint": .floatingPoint,
+        "BinaryFloatingPoint": .binaryFloatingPoint
     ]
 
     /// Resolve a list of raw inherited-type names into the recognized
@@ -174,6 +176,8 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
             // the inherited checks for `: FloatingPoint` types, which is
             // the desired behavior.
             return [.signedNumeric, .numeric, .additiveArithmetic]
+        case .binaryFloatingPoint:
+            return [.floatingPoint, .signedNumeric, .numeric, .additiveArithmetic]
         case .equatable, .codable, .iteratorProtocol, .setAlgebra,
              .rawRepresentable, .losslessStringConvertible, .identifiable,
              .caseIterable, .additiveArithmetic: return []
@@ -209,6 +213,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .unsignedInteger: return "checkUnsignedIntegerProtocolLaws"
         case .fixedWidthInteger: return "checkFixedWidthIntegerProtocolLaws"
         case .floatingPoint: return "checkFloatingPointProtocolLaws"
+        case .binaryFloatingPoint: return "checkBinaryFloatingPointProtocolLaws"
         }
     }
 
@@ -242,6 +247,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .unsignedInteger: return "UnsignedInteger"
         case .fixedWidthInteger: return "FixedWidthInteger"
         case .floatingPoint: return "FloatingPoint"
+        case .binaryFloatingPoint: return "BinaryFloatingPoint"
         }
     }
 
@@ -274,6 +280,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .unsignedInteger: return "unsignedInteger"
         case .fixedWidthInteger: return "fixedWidthInteger"
         case .floatingPoint: return "floatingPoint"
+        case .binaryFloatingPoint: return "binaryFloatingPoint"
         }
     }
 }

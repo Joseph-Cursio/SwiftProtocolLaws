@@ -412,6 +412,31 @@ struct MacroExpansionTests {
         )
     }
 
+    @Test func binaryFloatingPointSubsumesFloatingPoint() {
+        // BinaryFloatingPoint subsumes FloatingPoint and (transitively)
+        // the algebraic chain. A type spelled `: BinaryFloatingPoint`
+        // emits only the BinaryFloatingPoint check.
+        assertMacroExpansion(
+            """
+            @ProtoLawSuite
+            struct Quad: BinaryFloatingPoint {}
+            """,
+            expandedSource: """
+            struct Quad: BinaryFloatingPoint {}
+
+            struct QuadProtocolLawTests {
+                @Test func binaryFloatingPoint_Quad() async throws {
+                        try await checkBinaryFloatingPointProtocolLaws(
+                            for: Quad.self,
+                            using: Quad.gen()
+                        )
+                    }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
     @Test func floatingPointSubsumesAlgebraicChain() {
         // FloatingPoint subsumes SignedNumeric → Numeric → AdditiveArithmetic
         // because exact-equality algebraic laws don't hold on IEEE-754. A
