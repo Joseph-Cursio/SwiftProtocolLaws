@@ -96,9 +96,11 @@ cd Validation && swift test
 | Type | Source | Law checked | Trial budget | Result |
 |---|---|---|---|---|
 | `ArgumentParser.ExitCode` | wrapper around `Int32`, `RawRepresentable + Hashable` | `Hashable` (Equatable + equality consistency + stability + distribution) | `.standard` (1,000) | passed |
+| `ArgumentParser.ExitCode` | as above | `RawRepresentable` (round-trip) — added 2026-04-29 | `.standard` (1,000) | passed |
 | `ArgumentParser.ArgumentVisibility` | three-static-instance struct, `Hashable` | `Hashable` (full inherited suite) | `.standard` (1,000) | passed |
+| `ArgumentParser.CompletionShell` | closed-set String-backed `RawRepresentable` (zsh/bash/fish) — added 2026-04-29 | `RawRepresentable` (round-trip) | `.standard` (1,000) | passed |
 
-Both types' Hashable conformances satisfy every Strict-tier law the kit checks. No violations surfaced — the predicted result for a heavily-tested Apple-flagship package, but the assertion is now real rather than asymptotic.
+All four conformances satisfy every Strict-tier law the kit checks. The two RawRepresentable checks were added alongside the v1.1 RawRepresentable law shipping; both pass at `.standard` budget against the public surface.
 
 ### What pass 2 actually proves
 
@@ -218,3 +220,49 @@ cd Validation && swift test --filter SwiftCollectionsRetroactiveTests
 ```
 
 If `swift-collections` ever gains a public observation path through `_Bitmap.symmetricDifference`, the `treeSetPassesAllLawsAtBuggySHA` test will start failing — re-evaluate at that point.
+
+## Revalidation 2026-04-29 — v1.1 + v1.2 + v1.3 against the same packages
+
+After v1.1 (Strideable, RawRepresentable, LosslessStringConvertible, Identifiable, CaseIterable), v1.2 (BidirectionalCollection, RandomAccessCollection, MutableCollection, RangeReplaceableCollection), and v1.3 (Strategy 3 memberwise-Arbitrary derivation) shipped, Pass 1 was rerun against all four packages. Pass 3 was not rerun — none of the new laws apply to `_Bitmap.symmetricDifference`'s dispatch path; the archaeology result is unchanged.
+
+Cloned package SHAs at rescan time:
+
+| Package | Source pin |
+|---|---|
+| `swift-argument-parser` | `1.6.1-2-gd075877` (already on disk) |
+| `Hummingbird` | `581594a` (HEAD of `main`) |
+| `swift-aws-lambda-runtime` | `f3bd0ae` (HEAD of `main`) |
+| `Sitrep` | `4.0.0` |
+
+### Suite/test deltas (path-noise filtered)
+
+| Package | Suites before → after | New `@Test` checks emitted | New types deriving `gen()` |
+|---|---|---|---|
+| `swift-argument-parser` | 15 → **16** | `randomAccessCollection_ArgumentSet`, `rawRepresentable_CompletionShell`, `rawRepresentable_ExitCode` | `GenerateCompletions` |
+| `Hummingbird` | 10 → 10 | — | — |
+| `swift-aws-lambda-runtime` | 8 → 8 | — | `ErrorResponse`, `Request`, `Response` |
+| `Sitrep` (`SitrepCore`) | 2 → 2 | — | — |
+
+Three new emitted law-checks (all in ArgumentParser), four new derived generators (one in ArgumentParser, three in AWSLambdaRuntime). The ArgumentSet `RandomAccessCollection` check transitively re-runs Bidirectional + Collection + Sequence + Iterator — a single new `@Test func` exercises the whole chain.
+
+### Why Hummingbird and SitrepCore yielded zero new checks
+
+The v1.1 round-trip cluster fires on inheritance clauses spelling `: RawRepresentable`, `: Identifiable`, etc. Hummingbird's public surface is dominated by HTTP / routing types whose conformances are `Codable`, `Hashable`, or `Sendable` — none of which the new laws add coverage for. SitrepCore is small (18 types) and similarly doesn't surface the new clauses. This is consistent with §8's broader finding: the population of `:Strideable` / `:RawRepresentable` types on real-world Swift codebases is concentrated in a few enums per package.
+
+### Upstream package churn (separate from law deltas)
+
+- Hummingbird: 74 → 73 source files; `Data` no longer surfaces as a detected type (upstream rename/removal between Pass 1 and revalidation).
+- SitrepCore: typename refactoring at `4.0.0` — `SwiftSourceComment/Function/Node/Type` and `VisitedFile` were renamed to `Comment / Function / Node / Type / File`.
+
+Neither churn affected the suite or law-check counts.
+
+### How to re-run the revalidation
+
+```bash
+swift build --product ProtoLawDiscoveryTool -c release
+Validation/run.sh ~/xcode_projects/swift-argument-parser ArgumentParser
+Validation/run.sh ~/xcode_projects/Hummingbird Hummingbird
+Validation/run.sh ~/xcode_projects/swift-aws-lambda-runtime AWSLambdaRuntime
+Validation/run.sh ~/xcode_projects/Sitrep SitrepCore
+git diff Validation/results/
+```
