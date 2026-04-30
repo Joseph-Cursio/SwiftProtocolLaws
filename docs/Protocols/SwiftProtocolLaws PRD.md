@@ -335,16 +335,59 @@ The four refinements are independent siblings except for the `RandomAccessCollec
 
 The four `symmetricDifference*` laws were added in response to a real-world miss: pre-fix `swift-collections@35349601`, `TreeSet.symmetricDifference` returned the *intersection* via a `_Bitmap` typo (`&` instead of `^`). The original five-law SetAlgebra suite — union/intersection idempotence + commutativity + emptyIdentity — does not exercise `symmetricDifference` at all and would not have caught the bug. The retroactive validation in `Validation/Pass3` pins the kit against the pre-fix SHA and asserts the new laws fire.
 
+#### `AdditiveArithmetic`
+
+| Protocol Law | Tier | Description |
+|---|---|---|
+| Addition associativity | Strict | `(x + y) + z == x + (y + z)` |
+| Addition commutativity | Strict | `x + y == y + x` |
+| Zero additive identity | Strict | `x + .zero == x` |
+| Subtraction inverse | Strict | `(x + y) - y == x` |
+| Self-subtraction is zero | Strict | `x - x == .zero` |
+
+These exact-equality algebraic laws fire on integer-like types (`Int`, `Decimal`, BigInt). Floating-point types satisfy them only approximately due to IEEE-754 rounding — for `Float` / `Double`, use `checkFloatingPointProtocolLaws` (v1.4 M4) instead. For FixedWidthInteger types, callers should pass a magnitude-bounded generator at `.standard` budget to avoid overflow traps.
+
+#### `Numeric` (extends `AdditiveArithmetic` protocol laws)
+
+| Protocol Law | Tier | Description |
+|---|---|---|
+| Multiplication associativity | Strict | `(x * y) * z == x * (y * z)` |
+| Multiplication commutativity | Strict | `x * y == y * x` |
+| One multiplicative identity | Strict | `x * 1 == x` |
+| Zero annihilation | Strict | `x * 0 == 0` |
+| Left distributivity | Strict | `x * (y + z) == x*y + x*z` |
+| Right distributivity | Strict | `(x + y) * z == x*z + y*z` |
+
+Three-way multiplication overflows under unbounded random sampling on `Int` / `Int32`; pass a bounded generator (≈ ±cube-root of `T.max`) for fixed-width types at `.standard` budget. v1.4 M2 ships a `Gen<T: FixedWidthInteger>.boundedForArithmetic()` convenience helper.
+
+#### `SignedNumeric` (extends `Numeric` protocol laws)
+
+| Protocol Law | Tier | Description |
+|---|---|---|
+| Negation involution | Strict | `-(-x) == x` |
+| Additive inverse | Strict | `x + (-x) == .zero` |
+| Negation distributes over addition | Strict | `-(x + y) == (-x) + (-y)` |
+| Negate-mutation consistency | Strict | `var y = x; y.negate() ⇒ y == -x` |
+
+`Value.min` traps under negation for two's-complement signed integers (`-Int.min` overflows); bounded generators that exclude `Value.min` avoid the trap.
+
 #### Coverage Scope
 
 ProtocolLawKit v1 covers the protocols enumerated above. The Swift Standard Library has roughly 54 public protocols (see `docs/Swift Standard Library Protocols.md` for the full inventory); v1's coverage is deliberate and audited rather than exhaustive. Other stdlib protocols are categorized as follows:
 
 **v1.1+ candidates (testable laws, clear contracts):**
 
-- `AdditiveArithmetic`, `Numeric`, `SignedNumeric` — algebraic laws (associativity, commutativity, identity, additive inverse).
-- `BinaryInteger`, `SignedInteger`, `UnsignedInteger`, `FixedWidthInteger` — integer arithmetic and bitwise operator consistency, overflow-trap vs `&`-overflow contracts.
-- `FloatingPoint`, `BinaryFloatingPoint` — IEEE-754 contracts excluding `NaN`-domain edges (which are `.allowNaN`-gated).
+- `BinaryInteger`, `SignedInteger`, `UnsignedInteger`, `FixedWidthInteger` — integer arithmetic and bitwise operator consistency, overflow-trap vs `&`-overflow contracts. (v1.4 M2 + M3.)
+- `FloatingPoint`, `BinaryFloatingPoint` — IEEE-754 contracts excluding `NaN`-domain edges (which are `.allowNaN`-gated). (v1.4 M4 + M5.)
 - `StringProtocol` — extends `BidirectionalCollection` with text-specific laws (Unicode-correctness invariants).
+
+**Shipped in v1.4 M1:**
+
+- `AdditiveArithmetic` (5 Strict laws — addition associativity, commutativity, zero identity, subtraction inverse, self-subtraction-is-zero).
+- `Numeric` (6 Strict laws — multiplication associativity + commutativity, multiplicative identity, zero annihilation, left/right distributivity).
+- `SignedNumeric` (4 Strict laws — negation involution, additive inverse, negation distributes over addition, negate-mutation consistency).
+
+These exact-equality algebraic laws fire on integer-like types (`Int`, `Decimal`, BigInt). Floating-point types satisfy them only approximately due to IEEE-754 rounding; v1.4 M4 ships `FloatingPoint`-specific laws that account for rounding.
 **Heuristic / deferred (laws are weak, contextual, or require runtime instrumentation):**
 
 - `Sendable` — value semantics is a heuristic, not a checkable invariant from outside the type. A `checkSendableContractLaws` Heuristic-tier suite (mutation-after-share spot checks) is a research item, not a v1.1 deliverable.
