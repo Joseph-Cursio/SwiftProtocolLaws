@@ -149,7 +149,10 @@ public struct ProtoLawSuiteMacro: PeerMacro {
         conformances: Set<KnownProtocol>,
         strategy: DerivationStrategy
     ) -> DeclSyntax {
-        let generatorExpr = generatorExpression(for: typeName, strategy: strategy)
+        let generatorExpr = GeneratorExpressionEmitter.expression(
+            typeName: typeName,
+            strategy: strategy
+        )
         let testMethods = stableOrder(conformances).map { conformance in
             emitTest(conformance: conformance, typeName: typeName, generatorExpr: generatorExpr)
         }.joined(separator: "\n\n    ")
@@ -158,35 +161,6 @@ public struct ProtoLawSuiteMacro: PeerMacro {
                 \(raw: testMethods)
             }
             """
-    }
-
-    /// Translate a derivation strategy to the generator expression spelled
-    /// at each `using:` argument site. `userGen` and `todo` both spell
-    /// `<TypeName>.gen()`; the `todo` case relies on the compile error
-    /// from a missing `gen()` symbol to surface to the user, with the
-    /// macro's `noKnownConformance`-class diagnostic for context.
-    ///
-    /// `RawRepresentable` derivation emits the `compactMap` on its own
-    /// line so even types with long names + long raw-type generators
-    /// (e.g. `String`'s `Gen<Character>.letterOrNumber.string(of: 0...8)`)
-    /// stay within reasonable line widths.
-    private static func generatorExpression(
-        for typeName: String,
-        strategy: DerivationStrategy
-    ) -> String {
-        switch strategy {
-        case .userGen, .todo:
-            return "\(typeName).gen()"
-        case .caseIterable:
-            return "Gen<\(typeName)>.element(of: \(typeName).allCases)"
-        case .memberwiseArbitrary(let members):
-            return MemberwiseEmitter.expression(typeName: typeName, members: members)
-        case .rawRepresentable(let rawType):
-            return """
-                \(rawType.generatorExpression)
-                            .compactMap { \(typeName)(rawValue: $0) }
-                """
-        }
     }
 
     /// Stable iteration order so the emit is deterministic across runs —

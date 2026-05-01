@@ -81,7 +81,10 @@ enum GeneratedFileEmitter {
             return lines
         }
         lines.append("@Suite struct \(entry.typeName)ProtocolLawTests {")
-        let generatorExpr = generatorExpression(for: entry)
+        let generatorExpr = GeneratorExpressionEmitter.expression(
+            typeName: entry.typeName,
+            strategy: entry.derivationStrategy
+        )
         let orderedConformances = testEmissionOrder.filter { entry.conformances.contains($0) }
         for (index, conformance) in orderedConformances.enumerated() {
             if index > 0 { lines.append("") }
@@ -102,24 +105,6 @@ enum GeneratedFileEmitter {
         }
         lines.append("}")
         return lines
-    }
-
-    /// Translate a `ConformanceMap.Entry`'s strategy to the generator
-    /// expression spelled at each `using:` argument site. Mirrors the
-    /// macro's `generatorExpression` (PRD §5.7) — the shared
-    /// `DerivationStrategist` ensures both consumers stay aligned.
-    private static func generatorExpression(for entry: ConformanceMap.Entry) -> String {
-        switch entry.derivationStrategy {
-        case .userGen, .todo:
-            return "\(entry.typeName).gen()"
-        case .caseIterable:
-            return "Gen<\(entry.typeName)>.element(of: \(entry.typeName).allCases)"
-        case .memberwiseArbitrary(let members):
-            return MemberwiseEmitter.expression(typeName: entry.typeName, members: members)
-        case .rawRepresentable(let rawType):
-            return "\(rawType.generatorExpression)"
-                + ".compactMap { \(entry.typeName)(rawValue: $0) }"
-        }
     }
 
     private static func provenanceComment(for entry: ConformanceMap.Entry) -> String {

@@ -1,7 +1,8 @@
 /// Renders a `DerivationStrategy.memberwiseArbitrary(members:)` strategy
-/// to the Swift expression text the macro and the discovery plugin emit
-/// at every `using:` argument site. Pure string formatting — kept in
-/// `ProtoLawCore` so both consumers produce byte-identical output.
+/// to the Swift expression text the macro, the discovery plugin, and
+/// downstream emitters spell at every `using:` argument site. Pure
+/// string formatting — kept in `ProtoLawCore` so every consumer
+/// produces byte-identical output.
 ///
 /// One expression shape covers all valid member counts (1 through 10):
 ///
@@ -17,9 +18,15 @@
 /// because `swift-property-based` only ships the tuple-destructuring map
 /// overload at 2-arity. Using `$0.N` for all 2+ cases keeps the emit
 /// shape uniform across arities.
-package enum MemberwiseEmitter {
+///
+/// Promoted from `package` to `public` in the v1.7 K-prep-M1 cluster
+/// so SwiftInferProperties M5's lifted-test stub writeout can call
+/// the same emitter the macro / plugin use, instead of duplicating
+/// the logic and accruing drift the way M3.4's `MemberBlockInspector`
+/// port does.
+public enum MemberwiseEmitter {
 
-    package static func expression(typeName: String, members: [MemberSpec]) -> String {
+    public static func expression(typeName: String, members: [MemberSpec]) -> String {
         precondition(!members.isEmpty, "memberwise emitter requires ≥1 member")
         precondition(
             members.count <= DerivationStrategist.memberwiseArityLimit,
