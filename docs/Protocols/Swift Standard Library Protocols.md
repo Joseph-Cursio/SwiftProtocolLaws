@@ -351,6 +351,24 @@ ProtocolLawKit also defines a small set of protocols where the Swift Standard Li
 - **Requirement:** `static var identity: Self { get }`
 - A `Semigroup` with a two-sided identity element. The `identity` name is chosen over `empty` / `zero` to avoid overlap with `RangeReplaceableCollection.init()` and `AdditiveArithmetic.zero`. SwiftInferProperties' RefactorBridge bridges user-named identities (`.empty`, `.zero`, `.none`, `.default`) to the canonical `.identity` via a one-line static aliasing in the conformance writeout.
 
+### `CommutativeMonoid` *(v1.9)*
+
+- **Inherits:** `Monoid`
+- **Requirement:** none beyond Monoid — marker protocol
+- A `Monoid` whose `combine` operation is commutative. Triggers the `combineCommutativity` law check on top of the inherited Monoid + Semigroup chain. Stdlib has no general CommutativeMonoid (only `AdditiveArithmetic` for `+`/`zero`-shaped commutative types).
+
+### `Group` *(v1.9)*
+
+- **Inherits:** `Monoid`
+- **Requirement:** `static func inverse(_ x: Self) -> Self`
+- A `Monoid` in which every element has a two-sided inverse. Two own Strict laws: `combineLeftInverse` and `combineRightInverse`. Static-method `inverse(_:)` form (not `inverted()` instance method, not `negated()`) keeps witness-extraction uniform with `combine(_:_:)` / `identity`. Group does NOT subsume `CommutativeMonoid` — non-commutative groups are valid (matrix groups, permutation groups), and the two are incomparable arms in the protocol DAG.
+
+### `Semilattice` *(v1.9)*
+
+- **Inherits:** `CommutativeMonoid`
+- **Requirement:** none beyond CommutativeMonoid — marker protocol
+- A `CommutativeMonoid` whose `combine` is idempotent (`combine(a, a) == a`). Bounded join-semilattices (`(Set<T>, ∪, ∅)`, `(Int, max, .min)`) and bounded meet-semilattices (`(Int, min, .max)`, `(Bool, &&, true)`) share this conformance — the law is symmetric.
+
 ### Roadmap
 
-`Group`, `Semilattice`, `Ring` are intentionally not yet shipped — wider design work, deferred until SwiftInferProperties M8's algebraic-structure-composition pass motivates them. `CommutativeSemigroup` / `CommutativeMonoid` are deferred for the same reason — commutativity is structurally orthogonal to associativity / identity. `Functor` / `Applicative` / `Monad` are out of scope indefinitely.
+`Ring` is intentionally not yet shipped — two-op shape (additive group + multiplicative monoid + distributivity) doesn't fit the kit's single-op `combine`/`identity` pattern; designing a dual-witness or layered stack is reasonable v1.10+ work. SwiftInferProperties M8 still targets stdlib `Numeric` for the Ring promotion. `CommutativeGroup` is deferred — rare in idiomatic Swift since most everyday Abelian groups are integer/floating-point under `+` (already covered by `AdditiveArithmetic` / `Numeric`); SwiftInferProperties M8 emits separate `CommutativeMonoid` + `Group` proposals on the same type when both fire, which a future kit-side `CommutativeGroup` would collapse. `CommutativeSemigroup` is similarly deferred. `Functor` / `Applicative` / `Monad` are out of scope indefinitely.

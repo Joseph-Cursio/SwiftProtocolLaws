@@ -517,6 +517,14 @@ ProtocolLawKit v1 covers the protocols enumerated above. The Swift Standard Libr
 
 v1.8 establishes the precedent that the kit can add its own protocols where stdlib leaves a useful gap. Closes the SwiftInferProperties RefactorBridge loop (PRD §11) for merge-shape types — previously claim-only; now backed by a real protocol the discovery plugin verifies on every CI run. Same architectural invariant as stdlib protocols: one `KnownProtocol` case + four switch arms + a `Public/<Protocol>Laws.swift` file. Macro and discovery plugin pick the cases up automatically via the existing `KnownProtocol` dispatch — no source changes were needed in either consumer.
 
+**Shipped in v1.9 (kit-defined algebraic protocols — second cluster):**
+
+- `CommutativeMonoid` (1 Strict own law — `combineCommutativity`; chains through Monoid + Semigroup via `.all`). Refines Monoid; no new requirements — pure marker that triggers the commutativity law check on top of the inherited Monoid surface. Kit-defined because stdlib has no general `CommutativeMonoid` (only `AdditiveArithmetic` for `+`/`zero`-shaped commutative types).
+- `Group` (2 Strict own laws — `combineLeftInverse`, `combineRightInverse`; chains through Monoid + Semigroup via `.all`). Refines Monoid, adds `static func inverse(_ x: Self) -> Self`. Static-method form (rather than `inverted()` instance method) keeps the witness-extraction shape uniform with `combine(_:_:)` and `identity`. Group does NOT subsume CommutativeMonoid — non-commutative groups are valid; the two are incomparable arms in the protocol DAG.
+- `Semilattice` (1 Strict own law — `combineIdempotence`; chains through CommutativeMonoid + Monoid + Semigroup via `.all`). Refines CommutativeMonoid; no new requirements — pure marker that triggers the idempotence law. Bounded join-semilattices and bounded meet-semilattices share this conformance (the law is symmetric).
+
+v1.9's inheritance shape extends the v1.8 cluster: `Semigroup → Monoid → CommutativeMonoid → Semilattice` and `Semigroup → Monoid → Group`, with CommutativeMonoid + Group incomparable. Closes three more rows of SwiftInferProperties PRD v0.4 §5.4's algebraic-structure-composition table — previously claim-only; now backed by real conformances. `Ring` and `CommutativeGroup` deferred to v1.10+ pending real-corpora motivation. Same kit-architectural pattern as v1.8 — three new `KnownProtocol` cases + their switch arms + three `Public/<Protocol>.swift` + three `Public/<Protocol>Laws.swift`. Macro and discovery plugin again required zero source changes.
+
 These exact-equality algebraic / bitwise laws fire on integer-like types (`Int`, `Decimal`, BigInt). Floating-point types satisfy the algebraic ones only approximately due to IEEE-754 rounding; v1.4 M4 ships `FloatingPoint`-specific laws that account for rounding.
 **Heuristic / deferred (laws are weak, contextual, or require runtime instrumentation):**
 
