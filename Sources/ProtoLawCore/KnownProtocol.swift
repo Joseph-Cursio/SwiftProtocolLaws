@@ -37,6 +37,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
     case semigroup
     case monoid
     case commutativeMonoid
+    case group
 
     /// Maps a single inheritance-clause type name to a `KnownProtocol`.
     /// `Encodable`/`Decodable` are intentionally absent — only the pair
@@ -75,7 +76,8 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         "StringProtocol": .stringProtocol,
         "Semigroup": .semigroup,
         "Monoid": .monoid,
-        "CommutativeMonoid": .commutativeMonoid
+        "CommutativeMonoid": .commutativeMonoid,
+        "Group": .group
     ]
 
     /// Resolve a list of raw inherited-type names into the recognized
@@ -206,6 +208,16 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
             // so a type spelled `: Semigroup, Monoid, CommutativeMonoid` emits
             // only the CommutativeMonoid call.
             return [.monoid, .semigroup]
+        case .group:
+            // Group refines Monoid (independently of CommutativeMonoid — non-
+            // commutative groups are valid); checkGroupProtocolLaws runs
+            // Monoid's identity laws and Semigroup's associativity via .all,
+            // so a type spelled `: Monoid, Group` emits only the Group call.
+            // CommutativeMonoid is NOT subsumed — a type that's both
+            // CommutativeMonoid and Group surfaces both checks (incomparable
+            // arms in the protocol DAG; see SwiftInferProperties M8 plan
+            // open decision #6).
+            return [.monoid, .semigroup]
         case .equatable, .codable, .iteratorProtocol, .setAlgebra,
              .rawRepresentable, .losslessStringConvertible, .identifiable,
              .caseIterable, .additiveArithmetic, .semigroup: return []
@@ -246,6 +258,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .semigroup: return "checkSemigroupProtocolLaws"
         case .monoid: return "checkMonoidProtocolLaws"
         case .commutativeMonoid: return "checkCommutativeMonoidProtocolLaws"
+        case .group: return "checkGroupProtocolLaws"
         }
     }
 
@@ -284,6 +297,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .semigroup: return "Semigroup"
         case .monoid: return "Monoid"
         case .commutativeMonoid: return "CommutativeMonoid"
+        case .group: return "Group"
         }
     }
 
@@ -321,6 +335,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .semigroup: return "semigroup"
         case .monoid: return "monoid"
         case .commutativeMonoid: return "commutativeMonoid"
+        case .group: return "group"
         }
     }
 }
