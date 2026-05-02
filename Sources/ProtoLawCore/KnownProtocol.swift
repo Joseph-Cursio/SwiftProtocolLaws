@@ -36,6 +36,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
     case stringProtocol
     case semigroup
     case monoid
+    case commutativeMonoid
 
     /// Maps a single inheritance-clause type name to a `KnownProtocol`.
     /// `Encodable`/`Decodable` are intentionally absent — only the pair
@@ -73,7 +74,8 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         "BinaryFloatingPoint": .binaryFloatingPoint,
         "StringProtocol": .stringProtocol,
         "Semigroup": .semigroup,
-        "Monoid": .monoid
+        "Monoid": .monoid,
+        "CommutativeMonoid": .commutativeMonoid
     ]
 
     /// Resolve a list of raw inherited-type names into the recognized
@@ -198,6 +200,12 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
             // runs Semigroup's combineAssociativity via .all, so a type
             // spelled `: Semigroup, Monoid` emits only the Monoid call.
             return [.semigroup]
+        case .commutativeMonoid:
+            // CommutativeMonoid refines Monoid; checkCommutativeMonoidProtocolLaws
+            // runs Monoid's identity laws and Semigroup's associativity via .all,
+            // so a type spelled `: Semigroup, Monoid, CommutativeMonoid` emits
+            // only the CommutativeMonoid call.
+            return [.monoid, .semigroup]
         case .equatable, .codable, .iteratorProtocol, .setAlgebra,
              .rawRepresentable, .losslessStringConvertible, .identifiable,
              .caseIterable, .additiveArithmetic, .semigroup: return []
@@ -237,6 +245,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .stringProtocol: return "checkStringProtocolLaws"
         case .semigroup: return "checkSemigroupProtocolLaws"
         case .monoid: return "checkMonoidProtocolLaws"
+        case .commutativeMonoid: return "checkCommutativeMonoidProtocolLaws"
         }
     }
 
@@ -274,6 +283,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .stringProtocol: return "StringProtocol"
         case .semigroup: return "Semigroup"
         case .monoid: return "Monoid"
+        case .commutativeMonoid: return "CommutativeMonoid"
         }
     }
 
@@ -310,6 +320,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .stringProtocol: return "stringProtocol"
         case .semigroup: return "semigroup"
         case .monoid: return "monoid"
+        case .commutativeMonoid: return "commutativeMonoid"
         }
     }
 }
