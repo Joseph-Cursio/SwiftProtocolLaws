@@ -301,4 +301,64 @@ struct EmitterGoldenTests {
         #expect(output.contains("try await checkMonoidProtocolLaws("))
         #expect(output.contains("checkSemigroupProtocolLaws") == false)
     }
+
+    // MARK: - v1.9 kit-defined CommutativeMonoid / Group / Semilattice
+
+    @Test func emitsBareCommutativeMonoidEmitsOnlyCMonCall() {
+        let output = GeneratedFileEmitter.emit(
+            target: "MyModule",
+            map: ConformanceMap(
+                entries: [entry("Tally", conformances: [.commutativeMonoid])],
+                parseFailures: []
+            )
+        )
+        #expect(output.contains("@Test func commutativeMonoid_Tally() async throws {"))
+        #expect(output.contains("try await checkCommutativeMonoidProtocolLaws("))
+        #expect(output.contains("checkMonoidProtocolLaws") == false)
+        #expect(output.contains("checkSemigroupProtocolLaws") == false)
+    }
+
+    @Test func emitsBareGroupEmitsOnlyGroupCall() {
+        let output = GeneratedFileEmitter.emit(
+            target: "MyModule",
+            map: ConformanceMap(
+                entries: [entry("AdditiveInt", conformances: [.group])],
+                parseFailures: []
+            )
+        )
+        #expect(output.contains("@Test func group_AdditiveInt() async throws {"))
+        #expect(output.contains("try await checkGroupProtocolLaws("))
+        #expect(output.contains("checkMonoidProtocolLaws") == false)
+        #expect(output.contains("checkSemigroupProtocolLaws") == false)
+    }
+
+    @Test func emitsBareSemilatticeEmitsOnlySemilatticeCall() {
+        let output = GeneratedFileEmitter.emit(
+            target: "MyModule",
+            map: ConformanceMap(
+                entries: [entry("MaxInt", conformances: [.semilattice])],
+                parseFailures: []
+            )
+        )
+        #expect(output.contains("@Test func semilattice_MaxInt() async throws {"))
+        #expect(output.contains("try await checkSemilatticeProtocolLaws("))
+        #expect(output.contains("checkCommutativeMonoidProtocolLaws") == false)
+        #expect(output.contains("checkMonoidProtocolLaws") == false)
+        #expect(output.contains("checkSemigroupProtocolLaws") == false)
+    }
+
+    @Test func emitsCommutativeMonoidPlusGroupAsTwoCalls() {
+        // Incomparable arms in the protocol DAG — both checks emitted.
+        let output = GeneratedFileEmitter.emit(
+            target: "MyModule",
+            map: ConformanceMap(
+                entries: [entry("AdditiveInt", conformances: [.commutativeMonoid, .group])],
+                parseFailures: []
+            )
+        )
+        #expect(output.contains("@Test func commutativeMonoid_AdditiveInt() async throws {"))
+        #expect(output.contains("@Test func group_AdditiveInt() async throws {"))
+        #expect(output.contains("try await checkCommutativeMonoidProtocolLaws("))
+        #expect(output.contains("try await checkGroupProtocolLaws("))
+    }
 }

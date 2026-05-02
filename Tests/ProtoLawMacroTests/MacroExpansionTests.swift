@@ -678,6 +678,158 @@ struct MacroExpansionTests {
             macros: testMacros
         )
     }
+
+    // MARK: - v1.9 kit-defined CommutativeMonoid / Group / Semilattice
+
+    @Test func commutativeMonoidSubsumesMonoidAndSemigroup() {
+        // CommutativeMonoid refines Monoid (and transitively Semigroup).
+        // A type spelled `: Semigroup, Monoid, CommutativeMonoid` emits
+        // only the CommutativeMonoid call.
+        assertMacroExpansion(
+            """
+            @ProtoLawSuite
+            struct Tally: Semigroup, Monoid, CommutativeMonoid {}
+            """,
+            expandedSource: """
+            struct Tally: Semigroup, Monoid, CommutativeMonoid {}
+
+            struct TallyProtocolLawTests {
+                @Test func commutativeMonoid_Tally() async throws {
+                        try await checkCommutativeMonoidProtocolLaws(
+                            for: Tally.self,
+                            using: Tally.gen()
+                        )
+                    }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
+    @Test func bareCommutativeMonoidConformanceEmitsCMonCall() {
+        assertMacroExpansion(
+            """
+            @ProtoLawSuite
+            struct Tally: CommutativeMonoid {}
+            """,
+            expandedSource: """
+            struct Tally: CommutativeMonoid {}
+
+            struct TallyProtocolLawTests {
+                @Test func commutativeMonoid_Tally() async throws {
+                        try await checkCommutativeMonoidProtocolLaws(
+                            for: Tally.self,
+                            using: Tally.gen()
+                        )
+                    }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
+    @Test func groupSubsumesMonoidAndSemigroup() {
+        // Group refines Monoid; non-commutative groups are valid so Group
+        // does NOT subsume CommutativeMonoid. A type spelled
+        // `: Monoid, Group` emits only the Group call.
+        assertMacroExpansion(
+            """
+            @ProtoLawSuite
+            struct AdditiveInt: Monoid, Group {}
+            """,
+            expandedSource: """
+            struct AdditiveInt: Monoid, Group {}
+
+            struct AdditiveIntProtocolLawTests {
+                @Test func group_AdditiveInt() async throws {
+                        try await checkGroupProtocolLaws(
+                            for: AdditiveInt.self,
+                            using: AdditiveInt.gen()
+                        )
+                    }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
+    @Test func commutativeMonoidAndGroupAreIncomparable() {
+        // CommutativeMonoid and Group are incomparable arms in the
+        // protocol DAG (kit-side CommutativeGroup is out of v1.9 scope).
+        // A type spelled `: CommutativeMonoid, Group` emits BOTH calls.
+        assertMacroExpansion(
+            """
+            @ProtoLawSuite
+            struct AdditiveInt: CommutativeMonoid, Group {}
+            """,
+            expandedSource: """
+            struct AdditiveInt: CommutativeMonoid, Group {}
+
+            struct AdditiveIntProtocolLawTests {
+                @Test func commutativeMonoid_AdditiveInt() async throws {
+                        try await checkCommutativeMonoidProtocolLaws(
+                            for: AdditiveInt.self,
+                            using: AdditiveInt.gen()
+                        )
+                    }
+                @Test func group_AdditiveInt() async throws {
+                        try await checkGroupProtocolLaws(
+                            for: AdditiveInt.self,
+                            using: AdditiveInt.gen()
+                        )
+                    }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
+    @Test func semilatticeSubsumesCommutativeMonoidChain() {
+        // Semilattice refines CommutativeMonoid (and transitively Monoid +
+        // Semigroup). A type spelled with the full chain emits only the
+        // Semilattice call.
+        assertMacroExpansion(
+            """
+            @ProtoLawSuite
+            struct MaxInt: Semigroup, Monoid, CommutativeMonoid, Semilattice {}
+            """,
+            expandedSource: """
+            struct MaxInt: Semigroup, Monoid, CommutativeMonoid, Semilattice {}
+
+            struct MaxIntProtocolLawTests {
+                @Test func semilattice_MaxInt() async throws {
+                        try await checkSemilatticeProtocolLaws(
+                            for: MaxInt.self,
+                            using: MaxInt.gen()
+                        )
+                    }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
+    @Test func bareSemilatticeConformanceEmitsSemilatticeCall() {
+        assertMacroExpansion(
+            """
+            @ProtoLawSuite
+            struct MaxInt: Semilattice {}
+            """,
+            expandedSource: """
+            struct MaxInt: Semilattice {}
+
+            struct MaxIntProtocolLawTests {
+                @Test func semilattice_MaxInt() async throws {
+                        try await checkSemilatticeProtocolLaws(
+                            for: MaxInt.self,
+                            using: MaxInt.gen()
+                        )
+                    }
+            }
+            """,
+            macros: testMacros
+        )
+    }
 }
 
 // swiftlint:enable type_body_length file_length

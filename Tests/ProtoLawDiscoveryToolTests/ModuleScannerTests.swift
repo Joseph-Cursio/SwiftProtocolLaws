@@ -244,6 +244,123 @@ struct ModuleScannerTests {
         #expect(map.entries[0].conformances == [.monoid])
     }
 
+    // MARK: - v1.9 kit-defined CommutativeMonoid / Group / Semilattice
+
+    @Test func commutativeMonoidSubsumesMonoidChainAfterScan() throws {
+        // Most-specific dedupe collapses the full chain to just
+        // `[.commutativeMonoid]` — checkCommutativeMonoidProtocolLaws
+        // auto-runs Monoid's identity laws and Semigroup's
+        // combineAssociativity via .all.
+        let dir = try makeFixtureDir([
+            "Tally.swift": """
+                struct Tally: Semigroup, Monoid, CommutativeMonoid {
+                    let value: Int
+                    static let identity = Tally(value: 0)
+                    static func combine(_ lhs: Tally, _ rhs: Tally) -> Tally {
+                        Tally(value: lhs.value + rhs.value)
+                    }
+                }
+                """
+        ])
+        defer { try? FileManager.default.removeItem(atPath: dir) }
+
+        let map = ModuleScanner.scan(sourceFiles: filePaths(in: dir))
+        try #require(map.entries.count == 1)
+        #expect(map.entries[0].conformances == [.commutativeMonoid])
+    }
+
+    @Test func groupSubsumesMonoidAfterScan() throws {
+        // Group refines Monoid; CommutativeMonoid is NOT subsumed (non-
+        // commutative groups are valid). `: Monoid, Group` reduces to
+        // `[.group]`.
+        let dir = try makeFixtureDir([
+            "AdditiveInt.swift": """
+                struct AdditiveInt: Monoid, Group {
+                    let value: Int
+                    static let identity = AdditiveInt(value: 0)
+                    static func combine(
+                        _ lhs: AdditiveInt, _ rhs: AdditiveInt
+                    ) -> AdditiveInt {
+                        AdditiveInt(value: lhs.value + rhs.value)
+                    }
+                    static func inverse(_ x: AdditiveInt) -> AdditiveInt {
+                        AdditiveInt(value: -x.value)
+                    }
+                }
+                """
+        ])
+        defer { try? FileManager.default.removeItem(atPath: dir) }
+
+        let map = ModuleScanner.scan(sourceFiles: filePaths(in: dir))
+        try #require(map.entries.count == 1)
+        #expect(map.entries[0].conformances == [.group])
+    }
+
+    @Test func commutativeMonoidPlusGroupBothSurviveScan() throws {
+        // Incomparable arms — both surface in the conformance set.
+        let dir = try makeFixtureDir([
+            "AdditiveInt.swift": """
+                struct AdditiveInt: CommutativeMonoid, Group {
+                    let value: Int
+                    static let identity = AdditiveInt(value: 0)
+                    static func combine(
+                        _ lhs: AdditiveInt, _ rhs: AdditiveInt
+                    ) -> AdditiveInt {
+                        AdditiveInt(value: lhs.value + rhs.value)
+                    }
+                    static func inverse(_ x: AdditiveInt) -> AdditiveInt {
+                        AdditiveInt(value: -x.value)
+                    }
+                }
+                """
+        ])
+        defer { try? FileManager.default.removeItem(atPath: dir) }
+
+        let map = ModuleScanner.scan(sourceFiles: filePaths(in: dir))
+        try #require(map.entries.count == 1)
+        #expect(map.entries[0].conformances == [.commutativeMonoid, .group])
+    }
+
+    @Test func semilatticeSubsumesCommutativeMonoidChainAfterScan() throws {
+        // Semilattice refines CommutativeMonoid; full chain reduces to
+        // `[.semilattice]`.
+        let dir = try makeFixtureDir([
+            "MaxInt.swift": """
+                struct MaxInt: Semigroup, Monoid, CommutativeMonoid, Semilattice {
+                    let value: Int
+                    static let identity = MaxInt(value: .min)
+                    static func combine(_ lhs: MaxInt, _ rhs: MaxInt) -> MaxInt {
+                        MaxInt(value: max(lhs.value, rhs.value))
+                    }
+                }
+                """
+        ])
+        defer { try? FileManager.default.removeItem(atPath: dir) }
+
+        let map = ModuleScanner.scan(sourceFiles: filePaths(in: dir))
+        try #require(map.entries.count == 1)
+        #expect(map.entries[0].conformances == [.semilattice])
+    }
+
+    @Test func bareSemilatticeConformanceSurvivesScan() throws {
+        let dir = try makeFixtureDir([
+            "MaxInt.swift": """
+                struct MaxInt: Semilattice {
+                    let value: Int
+                    static let identity = MaxInt(value: .min)
+                    static func combine(_ lhs: MaxInt, _ rhs: MaxInt) -> MaxInt {
+                        MaxInt(value: max(lhs.value, rhs.value))
+                    }
+                }
+                """
+        ])
+        defer { try? FileManager.default.removeItem(atPath: dir) }
+
+        let map = ModuleScanner.scan(sourceFiles: filePaths(in: dir))
+        try #require(map.entries.count == 1)
+        #expect(map.entries[0].conformances == [.semilattice])
+    }
+
     @Test func strideableOnlyEmitsAsComparable() throws {
         // Strideable's check function takes an extra `strideGenerator:` arg
         // the scanner can't synthesize, so Strideable is filtered from
