@@ -22,8 +22,8 @@
 ///     static func combine(_ lhs: AdditiveInt, _ rhs: AdditiveInt) -> AdditiveInt {
 ///         AdditiveInt(value: lhs.value + rhs.value)
 ///     }
-///     static func inverse(_ x: AdditiveInt) -> AdditiveInt {
-///         AdditiveInt(value: -x.value)
+///     static func inverse(_ value: AdditiveInt) -> AdditiveInt {
+///         AdditiveInt(value: -value.value)
 ///     }
 /// }
 /// ```
@@ -51,8 +51,8 @@
 /// `combine(_:_:)` and `identity` so the witness-extraction shape stays
 /// uniform.
 public protocol Group: Monoid {
-    /// The two-sided inverse of `x`. Must satisfy
-    /// `combine(x, inverse(x)) == .identity == combine(inverse(x), x)`
-    /// for every `x` of `Self`.
-    static func inverse(_ x: Self) -> Self
+    /// The two-sided inverse of `value`. Must satisfy
+    /// `combine(value, inverse(value)) == .identity == combine(inverse(value), value)`
+    /// for every `value` of `Self`.
+    static func inverse(_ value: Self) -> Self
 }

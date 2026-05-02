@@ -2,6 +2,8 @@ import Testing
 @testable import ProtoLawDiscoveryTool
 @testable import ProtoLawCore
 
+// swiftlint:disable type_body_length
+
 struct EmitterGoldenTests {
 
     /// Convenience builder. Most existing emitter tests want `.userGen`
@@ -362,3 +364,5 @@ struct EmitterGoldenTests {
         #expect(output.contains("try await checkGroupProtocolLaws("))
     }
 }
+
+// swiftlint:enable type_body_length

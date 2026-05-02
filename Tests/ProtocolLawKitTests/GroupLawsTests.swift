@@ -87,8 +87,8 @@ struct AdditiveInt: Group, Equatable, Sendable, CustomStringConvertible {
         AdditiveInt(value: lhs.value &+ rhs.value)
     }
 
-    static func inverse(_ x: AdditiveInt) -> AdditiveInt {
-        AdditiveInt(value: 0 &- x.value)
+    static func inverse(_ value: AdditiveInt) -> AdditiveInt {
+        AdditiveInt(value: 0 &- value.value)
     }
 
     var description: String { "AInt(\(value))" }
@@ -115,9 +115,9 @@ struct BrokenInverse: Group, Equatable, Sendable, CustomStringConvertible {
         BrokenInverse(value: lhs.value &+ rhs.value)
     }
 
-    static func inverse(_ x: BrokenInverse) -> BrokenInverse {
-        // Wrong on purpose — should be `-x.value`, not `x.value`.
-        BrokenInverse(value: x.value)
+    static func inverse(_ value: BrokenInverse) -> BrokenInverse {
+        // Wrong on purpose — should be `-value.value`, not `value.value`.
+        BrokenInverse(value: value.value)
     }
 
     var description: String { "BI(\(value))" }
