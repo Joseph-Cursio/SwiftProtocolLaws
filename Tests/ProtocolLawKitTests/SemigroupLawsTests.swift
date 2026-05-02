@@ -38,11 +38,14 @@ struct SemigroupLawsTests {
     }
 }
 
-/// Test fixture: `String`-wrapping `Semigroup` whose `combine` is the
-/// canonical concatenation. Used as a positive control across both
-/// Semigroup and Monoid suites.
-struct StringMonoid: Semigroup, Equatable, Sendable, CustomStringConvertible {
+/// Test fixture: `String`-wrapping `Monoid` whose `combine` is the
+/// canonical concatenation and `identity` is the empty string. Used as a
+/// positive control across both Semigroup and Monoid suites — the
+/// canonical free monoid over the alphabet of Swift `Character`s.
+struct StringMonoid: Monoid, Equatable, Sendable, CustomStringConvertible {
     let value: String
+
+    static let identity = StringMonoid(value: "")
 
     static func combine(_ lhs: StringMonoid, _ rhs: StringMonoid) -> StringMonoid {
         StringMonoid(value: lhs.value + rhs.value)

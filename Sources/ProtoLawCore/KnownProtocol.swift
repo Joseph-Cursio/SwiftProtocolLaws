@@ -35,6 +35,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
     case binaryFloatingPoint
     case stringProtocol
     case semigroup
+    case monoid
 
     /// Maps a single inheritance-clause type name to a `KnownProtocol`.
     /// `Encodable`/`Decodable` are intentionally absent — only the pair
@@ -71,7 +72,8 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         "FloatingPoint": .floatingPoint,
         "BinaryFloatingPoint": .binaryFloatingPoint,
         "StringProtocol": .stringProtocol,
-        "Semigroup": .semigroup
+        "Semigroup": .semigroup,
+        "Monoid": .monoid
     ]
 
     /// Resolve a list of raw inherited-type names into the recognized
@@ -191,6 +193,11 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
             // exercise different invariants — keep them un-subsumed so a
             // type spelled `: StringProtocol, Hashable` still emits both.
             return [.bidirectionalCollection, .collection, .sequence, .iteratorProtocol]
+        case .monoid:
+            // Monoid refines kit-defined Semigroup; checkMonoidProtocolLaws
+            // runs Semigroup's combineAssociativity via .all, so a type
+            // spelled `: Semigroup, Monoid` emits only the Monoid call.
+            return [.semigroup]
         case .equatable, .codable, .iteratorProtocol, .setAlgebra,
              .rawRepresentable, .losslessStringConvertible, .identifiable,
              .caseIterable, .additiveArithmetic, .semigroup: return []
@@ -229,6 +236,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .binaryFloatingPoint: return "checkBinaryFloatingPointProtocolLaws"
         case .stringProtocol: return "checkStringProtocolLaws"
         case .semigroup: return "checkSemigroupProtocolLaws"
+        case .monoid: return "checkMonoidProtocolLaws"
         }
     }
 
@@ -265,6 +273,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .binaryFloatingPoint: return "BinaryFloatingPoint"
         case .stringProtocol: return "StringProtocol"
         case .semigroup: return "Semigroup"
+        case .monoid: return "Monoid"
         }
     }
 
@@ -300,6 +309,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .binaryFloatingPoint: return "binaryFloatingPoint"
         case .stringProtocol: return "stringProtocol"
         case .semigroup: return "semigroup"
+        case .monoid: return "monoid"
         }
     }
 }

@@ -1,0 +1,117 @@
+import PropertyBased
+
+/// Run `Monoid` protocol laws over `Value` (PRD §4.3 v1.8 — kit-defined).
+///
+/// Default `laws: .all` runs the inherited `Semigroup` suite first per
+/// PRD §4.3 inheritance semantics; `.ownOnly` skips it.
+///
+/// Returned-array order: inherited laws first (when `.all`), then the
+/// two Monoid own laws — `combineLeftIdentity`, `combineRightIdentity`
+/// (both Strict).
+///
+/// **Generator caveat shared with Semigroup.** Some monoids grow under
+/// `combine` (e.g. string concat). Identity laws use single samples so
+/// allocation isn't multiplied, but the inherited associativity check
+/// is three-way; same per-trial cost as the standalone Semigroup check.
+@discardableResult
+public func checkMonoidProtocolLaws<
+    Value: Monoid & Equatable & Sendable,
+    Shrinker: SendableSequenceType
+>(
+    for type: Value.Type = Value.self,
+    using generator: Generator<Value, Shrinker>,
+    options: LawCheckOptions = LawCheckOptions(),
+    laws: LawSelection = .all
+) async throws -> [CheckResult] {
+    try ReplayEnvironmentValidator.verify(options)
+    var results: [CheckResult] = []
+    if laws == .all {
+        results.append(contentsOf: await collectInheritedSemigroup(
+            for: type,
+            using: generator,
+            options: options
+        ))
+    }
+    results.append(contentsOf: [
+        await checkCombineLeftIdentity(generator: generator, options: options),
+        await checkCombineRightIdentity(generator: generator, options: options)
+    ])
+    try ProtocolLawViolation.throwIfViolations(in: results, enforcement: options.enforcement)
+    return results
+}
+
+private func collectInheritedSemigroup<
+    Value: Monoid & Equatable & Sendable,
+    Shrinker: SendableSequenceType
+>(
+    for type: Value.Type,
+    using generator: Generator<Value, Shrinker>,
+    options: LawCheckOptions
+) async -> [CheckResult] {
+    let inheritedOptions = LawCheckOptions(
+        budget: options.budget,
+        enforcement: .default,
+        seed: options.seed,
+        suppressions: options.suppressions,
+        backend: options.backend
+    )
+    do {
+        return try await checkSemigroupProtocolLaws(
+            for: type,
+            using: generator,
+            options: inheritedOptions
+        )
+    } catch let violation as ProtocolLawViolation {
+        return violation.results
+    } catch {
+        return []
+    }
+}
+
+private func checkCombineLeftIdentity<
+    Value: Monoid & Equatable & Sendable,
+    Shrinker: SendableSequenceType
+>(
+    generator: Generator<Value, Shrinker>,
+    options: LawCheckOptions
+) async -> CheckResult {
+    await PerLawDriver.run(
+        protocolLaw: "Monoid.combineLeftIdentity",
+        tier: .strict,
+        options: options,
+        check: LawCheck(
+            sample: { rng in generator.run(using: &rng) },
+            property: { sample in
+                Value.combine(Value.identity, sample) == sample
+            },
+            formatCounterexample: { sample, _ in
+                let actual = Value.combine(Value.identity, sample)
+                return "x = \(sample); combine(.identity, x) = \(actual), expected x"
+            }
+        )
+    )
+}
+
+private func checkCombineRightIdentity<
+    Value: Monoid & Equatable & Sendable,
+    Shrinker: SendableSequenceType
+>(
+    generator: Generator<Value, Shrinker>,
+    options: LawCheckOptions
+) async -> CheckResult {
+    await PerLawDriver.run(
+        protocolLaw: "Monoid.combineRightIdentity",
+        tier: .strict,
+        options: options,
+        check: LawCheck(
+            sample: { rng in generator.run(using: &rng) },
+            property: { sample in
+                Value.combine(sample, Value.identity) == sample
+            },
+            formatCounterexample: { sample, _ in
+                let actual = Value.combine(sample, Value.identity)
+                return "x = \(sample); combine(x, .identity) = \(actual), expected x"
+            }
+        )
+    )
+}
