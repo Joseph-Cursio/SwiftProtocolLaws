@@ -601,6 +601,83 @@ struct MacroExpansionTests {
             macros: testMacros
         )
     }
+
+    // MARK: - v1.8 kit-defined algebraic protocols
+
+    @Test func semigroupConformanceEmitsPeerSuite() {
+        assertMacroExpansion(
+            """
+            @ProtoLawSuite
+            struct Counter: Semigroup {
+                let value: Int
+            }
+            """,
+            expandedSource: """
+            struct Counter: Semigroup {
+                let value: Int
+            }
+
+            struct CounterProtocolLawTests {
+                @Test func semigroup_Counter() async throws {
+                        try await checkSemigroupProtocolLaws(
+                            for: Counter.self,
+                            using: Counter.gen()
+                        )
+                    }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
+    @Test func monoidSubsumesSemigroup() {
+        // Monoid refines kit-defined Semigroup. A type spelled
+        // `: Semigroup, Monoid` should emit only the Monoid call —
+        // checkMonoidProtocolLaws auto-runs Semigroup's law via .all.
+        assertMacroExpansion(
+            """
+            @ProtoLawSuite
+            struct Tally: Semigroup, Monoid {}
+            """,
+            expandedSource: """
+            struct Tally: Semigroup, Monoid {}
+
+            struct TallyProtocolLawTests {
+                @Test func monoid_Tally() async throws {
+                        try await checkMonoidProtocolLaws(
+                            for: Tally.self,
+                            using: Tally.gen()
+                        )
+                    }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
+    @Test func bareMonoidConformanceEmitsMonoidCall() {
+        // A type spelled `: Monoid` alone (Semigroup implied by refinement)
+        // emits the Monoid check with no Semigroup duplicate.
+        assertMacroExpansion(
+            """
+            @ProtoLawSuite
+            struct Tally: Monoid {}
+            """,
+            expandedSource: """
+            struct Tally: Monoid {}
+
+            struct TallyProtocolLawTests {
+                @Test func monoid_Tally() async throws {
+                        try await checkMonoidProtocolLaws(
+                            for: Tally.self,
+                            using: Tally.gen()
+                        )
+                    }
+            }
+            """,
+            macros: testMacros
+        )
+    }
 }
 
 // swiftlint:enable type_body_length file_length

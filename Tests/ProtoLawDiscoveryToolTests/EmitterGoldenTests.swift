@@ -277,4 +277,28 @@ struct EmitterGoldenTests {
         )
         #expect(output.contains("using: Coordinate.gen()"))
     }
+
+    // MARK: - v1.8 kit-defined algebraic protocols
+
+    @Test func emitsSemigroupSuite() {
+        let output = GeneratedFileEmitter.emit(
+            target: "MyModule",
+            map: ConformanceMap(entries: [entry("Counter", conformances: [.semigroup])], parseFailures: [])
+        )
+        #expect(output.contains("@Test func semigroup_Counter() async throws {"))
+        #expect(output.contains("try await checkSemigroupProtocolLaws("))
+    }
+
+    @Test func emitsBareMonoidEmitsOnlyMonoidCall() {
+        let output = GeneratedFileEmitter.emit(
+            target: "MyModule",
+            map: ConformanceMap(
+                entries: [entry("Tally", conformances: [.monoid])],
+                parseFailures: []
+            )
+        )
+        #expect(output.contains("@Test func monoid_Tally() async throws {"))
+        #expect(output.contains("try await checkMonoidProtocolLaws("))
+        #expect(output.contains("checkSemigroupProtocolLaws") == false)
+    }
 }

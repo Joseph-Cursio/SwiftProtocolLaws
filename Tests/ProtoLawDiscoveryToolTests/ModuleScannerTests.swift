@@ -6,7 +6,7 @@ import Testing
 // One scenario per recognized conformance shape; the suite legitimately
 // grows past SwiftLint's default body-length threshold as new protocols
 // ship. Paired with an explicit re-enable at end of file.
-// swiftlint:disable type_body_length
+// swiftlint:disable type_body_length file_length
 
 struct ModuleScannerTests {
 
@@ -183,6 +183,67 @@ struct ModuleScannerTests {
         #expect(map.entries[0].conformances == [])
     }
 
+    // MARK: - v1.8 kit-defined algebraic protocols
+
+    @Test func bareSemigroupSurvivesScan() throws {
+        let dir = try makeFixtureDir([
+            "Counter.swift": """
+                struct Counter: Semigroup {
+                    let value: Int
+                    static func combine(_ lhs: Counter, _ rhs: Counter) -> Counter {
+                        Counter(value: lhs.value + rhs.value)
+                    }
+                }
+                """
+        ])
+        defer { try? FileManager.default.removeItem(atPath: dir) }
+
+        let map = ModuleScanner.scan(sourceFiles: filePaths(in: dir))
+        try #require(map.entries.count == 1)
+        #expect(map.entries[0].conformances == [.semigroup])
+    }
+
+    @Test func monoidSubsumesSemigroupAfterScan() throws {
+        // Most-specific dedupe collapses `: Semigroup, Monoid` to just
+        // `[.monoid]` — checkMonoidProtocolLaws auto-runs Semigroup's
+        // combineAssociativity via .all.
+        let dir = try makeFixtureDir([
+            "Tally.swift": """
+                struct Tally: Semigroup, Monoid {
+                    let value: Int
+                    static let identity = Tally(value: 0)
+                    static func combine(_ lhs: Tally, _ rhs: Tally) -> Tally {
+                        Tally(value: lhs.value + rhs.value)
+                    }
+                }
+                """
+        ])
+        defer { try? FileManager.default.removeItem(atPath: dir) }
+
+        let map = ModuleScanner.scan(sourceFiles: filePaths(in: dir))
+        try #require(map.entries.count == 1)
+        #expect(map.entries[0].conformances == [.monoid])
+    }
+
+    @Test func bareMonoidConformanceSurvivesScan() throws {
+        let dir = try makeFixtureDir([
+            "Tally.swift": """
+                struct Tally: Monoid {
+                    let value: Int
+                    static let identity = Tally(value: 0)
+                    static func combine(_ lhs: Tally, _ rhs: Tally) -> Tally {
+                        Tally(value: lhs.value + rhs.value)
+                    }
+                }
+                """
+        ])
+        defer { try? FileManager.default.removeItem(atPath: dir) }
+
+        let map = ModuleScanner.scan(sourceFiles: filePaths(in: dir))
+        try #require(map.entries.count == 1)
+        #expect(map.entries[0].conformances == [.monoid])
+    }
+
     @Test func strideableOnlyEmitsAsComparable() throws {
         // Strideable's check function takes an extra `strideGenerator:` arg
         // the scanner can't synthesize, so Strideable is filtered from
@@ -344,4 +405,4 @@ struct ModuleScannerTests {
     }
 }
 
-// swiftlint:enable type_body_length
+// swiftlint:enable type_body_length file_length
