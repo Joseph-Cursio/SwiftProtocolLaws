@@ -510,6 +510,13 @@ ProtocolLawKit v1 covers the protocols enumerated above. The Swift Standard Libr
 
 - `StringProtocol` (8 own Strict laws — String-init round-trip, count match across String conversion, isEmpty / count-zero consistency, hasPrefix / hasSuffix on the empty string, lowercased / uppercased idempotence, UTF-8 view invariance). Chains through to BidirectionalCollection (and transitively Collection / Sequence / IteratorProtocol) via `.all`. Comparable / Hashable / LosslessStringConvertible — which StringProtocol also refines in stdlib — are not auto-run; types declaring those still emit their own checks under most-specific dedupe.
 
+**Shipped in v1.8 (kit-defined algebraic protocols — first non-stdlib cluster):**
+
+- `Semigroup` (1 Strict own law — `combineAssociativity`). Single requirement: `static func combine(_ lhs: Self, _ rhs: Self) -> Self`. Kit-defined because stdlib has no `Semigroup` protocol and `AdditiveArithmetic` doesn't fit the common merge-shape Swift case (`merge` / `combine` / `concat` / `union` operations that don't use `+` semantics).
+- `Monoid` (2 Strict own laws — `combineLeftIdentity`, `combineRightIdentity`; chains through to Semigroup via `.all`). Refines Semigroup, adds `static var identity: Self { get }`. The `identity` name is chosen over `empty` / `zero` to avoid overlap with `RangeReplaceableCollection.init()` and `AdditiveArithmetic.zero` semantics.
+
+v1.8 establishes the precedent that the kit can add its own protocols where stdlib leaves a useful gap. Closes the SwiftInferProperties RefactorBridge loop (PRD §11) for merge-shape types — previously claim-only; now backed by a real protocol the discovery plugin verifies on every CI run. Same architectural invariant as stdlib protocols: one `KnownProtocol` case + four switch arms + a `Public/<Protocol>Laws.swift` file. Macro and discovery plugin pick the cases up automatically via the existing `KnownProtocol` dispatch — no source changes were needed in either consumer.
+
 These exact-equality algebraic / bitwise laws fire on integer-like types (`Int`, `Decimal`, BigInt). Floating-point types satisfy the algebraic ones only approximately due to IEEE-754 rounding; v1.4 M4 ships `FloatingPoint`-specific laws that account for rounding.
 **Heuristic / deferred (laws are weak, contextual, or require runtime instrumentation):**
 

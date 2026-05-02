@@ -332,3 +332,25 @@ These protocols let custom types be initialized from literal syntax.
 -----
 
 *Based on the Swift Standard Library as of Swift 6.x. The exact count can vary slightly across Swift versions as protocols are added, renamed, or deprecated.*
+
+-----
+
+## Kit-defined Protocols
+
+ProtocolLawKit also defines a small set of protocols where the Swift Standard Library leaves a useful gap. These are kit-owned (not stdlib), shipped from `import ProtocolLawKit`, and verified by the kit's discovery plugin under the same `KnownProtocol`-driven dispatch as the stdlib protocols above.
+
+### `Semigroup` *(v1.8)*
+
+- **Inherits:** nothing
+- **Requirement:** `static func combine(_ lhs: Self, _ rhs: Self) -> Self`
+- A type with an associative binary `combine` operation. Stdlib has no Semigroup protocol; `AdditiveArithmetic` requires `+` / `-` / `zero` and doesn't fit the common merge-shape Swift case (types with `merge` / `combine` / `concat` / `union` operations that aren't arithmetic-`+`-shaped). Adopters that already conform to `AdditiveArithmetic` can also conform to Semigroup if the kit-side `combine` semantics align — the two are independent.
+
+### `Monoid` *(v1.8)*
+
+- **Inherits:** `Semigroup`
+- **Requirement:** `static var identity: Self { get }`
+- A `Semigroup` with a two-sided identity element. The `identity` name is chosen over `empty` / `zero` to avoid overlap with `RangeReplaceableCollection.init()` and `AdditiveArithmetic.zero`. SwiftInferProperties' RefactorBridge bridges user-named identities (`.empty`, `.zero`, `.none`, `.default`) to the canonical `.identity` via a one-line static aliasing in the conformance writeout.
+
+### Roadmap
+
+`Group`, `Semilattice`, `Ring` are intentionally not yet shipped — wider design work, deferred until SwiftInferProperties M8's algebraic-structure-composition pass motivates them. `CommutativeSemigroup` / `CommutativeMonoid` are deferred for the same reason — commutativity is structurally orthogonal to associativity / identity. `Functor` / `Applicative` / `Monad` are out of scope indefinitely.
