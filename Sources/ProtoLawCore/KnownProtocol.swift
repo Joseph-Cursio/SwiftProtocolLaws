@@ -34,6 +34,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
     case floatingPoint
     case binaryFloatingPoint
     case stringProtocol
+    case semigroup
 
     /// Maps a single inheritance-clause type name to a `KnownProtocol`.
     /// `Encodable`/`Decodable` are intentionally absent — only the pair
@@ -69,7 +70,8 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         "FixedWidthInteger": .fixedWidthInteger,
         "FloatingPoint": .floatingPoint,
         "BinaryFloatingPoint": .binaryFloatingPoint,
-        "StringProtocol": .stringProtocol
+        "StringProtocol": .stringProtocol,
+        "Semigroup": .semigroup
     ]
 
     /// Resolve a list of raw inherited-type names into the recognized
@@ -191,7 +193,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
             return [.bidirectionalCollection, .collection, .sequence, .iteratorProtocol]
         case .equatable, .codable, .iteratorProtocol, .setAlgebra,
              .rawRepresentable, .losslessStringConvertible, .identifiable,
-             .caseIterable, .additiveArithmetic: return []
+             .caseIterable, .additiveArithmetic, .semigroup: return []
         }
     }
 
@@ -226,6 +228,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .floatingPoint: return "checkFloatingPointProtocolLaws"
         case .binaryFloatingPoint: return "checkBinaryFloatingPointProtocolLaws"
         case .stringProtocol: return "checkStringProtocolLaws"
+        case .semigroup: return "checkSemigroupProtocolLaws"
         }
     }
 
@@ -261,6 +264,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .floatingPoint: return "FloatingPoint"
         case .binaryFloatingPoint: return "BinaryFloatingPoint"
         case .stringProtocol: return "StringProtocol"
+        case .semigroup: return "Semigroup"
         }
     }
 
@@ -295,6 +299,7 @@ package enum KnownProtocol: String, CaseIterable, Hashable, Sendable {
         case .floatingPoint: return "floatingPoint"
         case .binaryFloatingPoint: return "binaryFloatingPoint"
         case .stringProtocol: return "stringProtocol"
+        case .semigroup: return "semigroup"
         }
     }
 }
