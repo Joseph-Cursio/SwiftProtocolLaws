@@ -1,6 +1,6 @@
 # Product Requirements Document
 
-## SwiftProtocolLaws: Protocol Law Testing for Swift
+## SwiftPropertyLaws: Protocol Law Testing for Swift
 
 **Version:** 0.1 Draft  
 **Status:** Proposal  
@@ -12,12 +12,12 @@
 
 Swift’s protocol system creates a gap between structural conformance — which the compiler verifies — and semantic conformance, which it cannot. A type may declare `Equatable` while implementing `==` incorrectly. A `Comparable` implementation may violate transitivity. A `Codable` round-trip may silently lose data. None of these violations are detectable at compile time.
 
-This document proposes **SwiftProtocolLaws**, an open source Swift package delivering two separable but complementary contributions:
+This document proposes **SwiftPropertyLaws**, an open source Swift package delivering two separable but complementary contributions:
 
-- **Contribution 1 — ProtocolLawKit**: A curated library of protocol law property tests, generic over any conforming type, usable standalone with any property-based testing backend.
-- **Contribution 2 — ProtoLawMacro**: A Swift macro layer that uses SwiftSyntax to detect protocol conformances in a codebase and automatically wire up ProtocolLawKit tests, eliminating manual test registration.
+- **Contribution 1 — PropertyLawKit**: A curated library of protocol law property tests, generic over any conforming type, usable standalone with any property-based testing backend.
+- **Contribution 2 — PropertyLawMacro**: A Swift macro layer that uses SwiftSyntax to detect protocol conformances in a codebase and automatically wire up PropertyLawKit tests, eliminating manual test registration.
 
-These two contributions are intentionally decoupled. ProtocolLawKit ships first and has independent value. ProtoLawMacro depends on ProtocolLawKit and adds automation.
+These two contributions are intentionally decoupled. PropertyLawKit ships first and has independent value. PropertyLawMacro depends on PropertyLawKit and adds automation.
 
 -----
 
@@ -89,11 +89,11 @@ The Swift property-based testing ecosystem has two active packages (swift-proper
 
 -----
 
-## 4. Contribution 1: ProtocolLawKit
+## 4. Contribution 1: PropertyLawKit
 
 ### 4.1 Description
 
-ProtocolLawKit is a standalone Swift package providing a typed registry of protocol law property tests. Each law is expressed as a generic function parameterized over a conforming type, runnable against any property-based testing backend through a thin abstraction protocol.
+PropertyLawKit is a standalone Swift package providing a typed registry of protocol law property tests. Each law is expressed as a generic function parameterized over a conforming type, runnable against any property-based testing backend through a thin abstraction protocol.
 
 ### 4.2 Supported Protocol Laws
 
@@ -151,27 +151,27 @@ ProtocolLawKit is a standalone Swift package providing a typed registry of proto
 Protocol law checks are invoked as generic functions. The default backend is swift-property-based:
 
 ```swift
-import ProtocolLawKit
+import PropertyLawKit
 import Testing
 
 @Suite struct MyTypeConformanceTests {
 
-    @Test func equatableProtocolLaws() async {
-        await checkEquatableProtocolLaws(
+    @Test func equatablePropertyLaws() async {
+        await checkEquatablePropertyLaws(
             for: MyType.self,
             using: Gen.myType()
         )
     }
 
-    @Test func comparableProtocolLaws() async {
-        await checkComparableProtocolLaws(
+    @Test func comparablePropertyLaws() async {
+        await checkComparablePropertyLaws(
             for: MyType.self,
             using: Gen.myType()
         )
     }
 
-    @Test func codableProtocolLaws() async {
-        await checkCodableProtocolLaws(
+    @Test func codablePropertyLaws() async {
+        await checkCodablePropertyLaws(
             for: MyType.self,
             using: Gen.myType(),
             encoder: JSONEncoder(),
@@ -192,7 +192,7 @@ Failures report which specific protocol law was violated, not just that a proper
 
 ### 4.4 Backend Abstraction
 
-ProtocolLawKit defines a `PropertyBackend` protocol so teams can swap the underlying runner:
+PropertyLawKit defines a `PropertyBackend` protocol so teams can swap the underlying runner:
 
 ```swift
 public protocol PropertyBackend {
@@ -235,13 +235,13 @@ This positions protocol law checks as *replayable experiments* — the seed and 
 
 -----
 
-## 5. Contribution 2: ProtoLawMacro
+## 5. Contribution 2: PropertyLawMacro
 
 ### 5.1 Description
 
-ProtoLawMacro is a Swift macro package that uses SwiftSyntax to statically analyze source files, detect protocol conformances, and automatically generate ProtocolLawKit test registrations. It eliminates the need to manually write `checkEquatableProtocolLaws(...)` calls for each conforming type.
+PropertyLawMacro is a Swift macro package that uses SwiftSyntax to statically analyze source files, detect protocol conformances, and automatically generate PropertyLawKit test registrations. It eliminates the need to manually write `checkEquatablePropertyLaws(...)` calls for each conforming type.
 
-ProtoLawMacro outputs *human-reviewable stubs*, not silently executed tests. The developer reviews, approves, and commits generated test code. This preserves developer agency and avoids the “magic that occasionally breaks” failure mode.
+PropertyLawMacro outputs *human-reviewable stubs*, not silently executed tests. The developer reviews, approves, and commits generated test code. This preserves developer agency and avoids the “magic that occasionally breaks” failure mode.
 
 ### 5.2 Two Operating Modes
 
@@ -250,37 +250,37 @@ ProtoLawMacro outputs *human-reviewable stubs*, not silently executed tests. The
 A single annotation on a test suite triggers protocol law generation for types under test:
 
 ```swift
-@ProtoLawSuite(types: [MyType.self, OtherType.self])
-struct AutoProtocolLawTests {}
+@PropertyLawSuite(types: [MyType.self, OtherType.self])
+struct AutoPropertyLawTests {}
 ```
 
-The macro expands to the appropriate `checkXxxProtocolLaws(...)` calls based on the detected conformances of each named type at compile time.
+The macro expands to the appropriate `checkXxxPropertyLaws(...)` calls based on the detected conformances of each named type at compile time.
 
 #### Discovery Mode (CLI, whole-module)
 
 A command-line tool scans a Swift module, enumerates all types with relevant protocol conformances, and emits a candidate test file for human review:
 
 ```bash
-swift-protolawcheck discover --target MyModule --output ProtocolLawTests.generated.swift
+swift-propertylawcheck discover --target MyModule --output PropertyLawTests.generated.swift
 ```
 
 Output is clearly marked as generated and includes provenance:
 
 ```swift
-// GENERATED by swift-protolawcheck — review before committing
+// GENERATED by swift-propertylawcheck — review before committing
 // Detected conformances: Equatable, Comparable, Codable
 // Source: Sources/MyModule/MyType.swift
 
-@Suite struct MyTypeProtocolLaws {
+@Suite struct MyTypePropertyLaws {
 
     // Equatable protocol laws — MyType: Equatable (line 12, MyType.swift)
-    @Test func equatableProtocolLaws() async {
-        await checkEquatableProtocolLaws(for: MyType.self, using: .derived)
+    @Test func equatablePropertyLaws() async {
+        await checkEquatablePropertyLaws(for: MyType.self, using: .derived)
     }
 
     // Codable protocol laws — MyType: Codable (line 14, MyType.swift)
-    @Test func codableProtocolLaws() async {
-        await checkCodableProtocolLaws(for: MyType.self, using: .derived,
+    @Test func codablePropertyLaws() async {
+        await checkCodablePropertyLaws(for: MyType.self, using: .derived,
                                encoder: JSONEncoder(), decoder: JSONDecoder())
     }
 }
@@ -288,11 +288,11 @@ Output is clearly marked as generated and includes provenance:
 
 ### 5.3 Missing Conformance Suggestions
 
-Beyond verifying declared conformances, ProtoLawMacro performs structural analysis to suggest *potentially missing* conformances. This is surfaced as informational output, never as a test failure:
+Beyond verifying declared conformances, PropertyLawMacro performs structural analysis to suggest *potentially missing* conformances. This is surfaced as informational output, never as a test failure:
 
 ```
 ℹ️  MyType has encode(_:) and init(from:) but does not declare Codable.
-    Consider conforming and running codableProtocolLaws to verify round-trip fidelity.
+    Consider conforming and running codablePropertyLaws to verify round-trip fidelity.
 
 ℹ️  MyType has a binary + operator and a zero static property.
     This matches the Monoid pattern. Consider formalizing with AdditiveArithmetic.
@@ -302,10 +302,10 @@ Suggestions are conservative — only emitted when structural evidence is strong
 
 ### 5.4 Property Contradiction Detection
 
-When multiple protocol law annotations are applied to the same type, ProtoLawMacro checks for logical contradictions before emitting tests:
+When multiple protocol law annotations are applied to the same type, PropertyLawMacro checks for logical contradictions before emitting tests:
 
 ```swift
-@CheckProtocolLaws([.idempotent, .involutive])  // f(f(x)) == f(x) AND f(f(x)) == x → f must be identity
+@CheckPropertyLaws([.idempotent, .involutive])  // f(f(x)) == f(x) AND f(f(x)) == x → f must be identity
 func normalize(_ x: MyType) -> MyType { ... }
 ```
 
@@ -318,7 +318,7 @@ Contradictory combinations emit a warning:
 
 ### 5.5 Cross-Function Discovery
 
-ProtoLawMacro detects function pairs with inverse type signatures and suggests round-trip properties:
+PropertyLawMacro detects function pairs with inverse type signatures and suggests round-trip properties:
 
 - Detection criteria: functions `f: T → U` and `g: U → T` in the same type or module
 - Filtered by: type compatibility first, naming heuristics second (`encode`/`decode`, `serialize`/`deserialize`, `push`/`pop`)
@@ -328,7 +328,7 @@ Cross-function discovery is opt-in in v1 to manage signal-to-noise ratio.
 
 ### 5.6 Generator Derivation
 
-ProtoLawMacro attempts to derive generators for discovered types automatically using the `.derived` strategy:
+PropertyLawMacro attempts to derive generators for discovered types automatically using the `.derived` strategy:
 
 - If `T: CaseIterable`, enumerate cases
 - If `T: Codable`, use JSON round-trip generation
@@ -339,7 +339,7 @@ ProtoLawMacro attempts to derive generators for discovered types automatically u
 
 |Milestone|Deliverable                                                              |
 |---------|-------------------------------------------------------------------------|
-|M1       |SwiftSyntax conformance detection, `@ProtoLawSuite` macro, diagnostic emission|
+|M1       |SwiftSyntax conformance detection, `@PropertyLawSuite` macro, diagnostic emission|
 |M2       |Discovery CLI, generated file output with provenance                     |
 |M3       |Missing conformance suggestions                                          |
 |M4       |Cross-function round-trip discovery (opt-in)                             |
@@ -352,15 +352,15 @@ ProtoLawMacro attempts to derive generators for discovered types automatically u
 
 ```
 ┌─────────────────────────────────────────────────┐
-│                  ProtoLawMacro                  │
-│  SwiftSyntax analysis + @ProtoLawSuite macro    │
+│                  PropertyLawMacro                  │
+│  SwiftSyntax analysis + @PropertyLawSuite macro    │
 │  Discovery CLI + suggestion engine              │
 └────────────────┬────────────────────────────────┘
                  │ generates calls to
 ┌────────────────▼────────────────────────────────┐
-│                 ProtocolLawKit                  │
+│                 PropertyLawKit                  │
 │  Protocol law definitions                       │
-│  checkEquatableProtocolLaws(), etc.             │
+│  checkEquatablePropertyLaws(), etc.             │
 │  Confidence reporting                           │
 └────────────────┬────────────────────────────────┘
                  │ runs via
@@ -382,19 +382,19 @@ ProtoLawMacro attempts to derive generators for discovered types automatically u
 |Generator derivation fails silently         |Medium    |Always emit explicit stubs when derivation is uncertain                      |
 |Cross-function pairing is O(n²) at scale    |Low       |Type-directed filtering eliminates most pairs before enumeration             |
 |Backend divergence (seed/generator mismatch)|Low       |Shared `PropertyBackend` abstraction with explicit seed contract             |
-|Property contradictions confuse users       |Low       |Contradiction detection in ProtoLawMacro with clear warnings                      |
+|Property contradictions confuse users       |Low       |Contradiction detection in PropertyLawMacro with clear warnings                      |
 
 -----
 
 ## 8. Success Criteria
 
-### ProtocolLawKit
+### PropertyLawKit
 
 - A developer can add protocol law checking for a custom `Equatable` type in under 5 minutes
 - Protocol law violations produce failure messages that identify the specific violated protocol law and provide a reproducible counterexample
 - The protocol law library compiles and passes CI on Linux, macOS, and Windows
 
-### ProtoLawMacro
+### PropertyLawMacro
 
 - The discovery CLI correctly identifies conformances in a real-world Swift module with less than 5% false positive suggestions
 - Generated test stubs compile without modification for types with derivable generators
@@ -404,11 +404,11 @@ ProtoLawMacro attempts to derive generators for discovered types automatically u
 
 ## 9. Open Questions
 
-1. **Naming**: `SwiftProtocolLaws` / `ProtocolLawKit` / `ProtoLawMacro` are working names. Should this be a single package with multiple targets or two separate repositories?
-2. **Generator convention**: Should `checkEquatableProtocolLaws` require an explicit `Gen<T>` argument, or attempt `.derived` by default with an explicit override path?
+1. **Naming**: `SwiftPropertyLaws` / `PropertyLawKit` / `PropertyLawMacro` are working names. Should this be a single package with multiple targets or two separate repositories?
+2. **Generator convention**: Should `checkEquatablePropertyLaws` require an explicit `Gen<T>` argument, or attempt `.derived` by default with an explicit override path?
 3. **Conformance scope**: Should protocol law checking extend to common third-party protocols (e.g. `Identifiable`, custom algebraic structures) in a separate community-contributed target?
 4. **Macro vs. plugin**: Could the discovery functionality be better served as a Swift package plugin (build-time) rather than a macro (compile-time)? Plugins have better file system access for whole-module scanning.
-5. **Relationship to swift-testing**: Should `@ProtoLawSuite` be a custom `Suite` trait rather than a standalone macro, to integrate more naturally with Swift Testing’s trait system?
+5. **Relationship to swift-testing**: Should `@PropertyLawSuite` be a custom `Suite` trait rather than a standalone macro, to integrate more naturally with Swift Testing’s trait system?
 
 -----
 

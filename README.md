@@ -1,4 +1,4 @@
-# SwiftProtocolLaws
+# SwiftPropertyLaws
 
 Property-based protocol law checks for Swift's standard-library protocols. Catches semantic conformance bugs the compiler can't.
 
@@ -72,16 +72,16 @@ Inheritance is implicit: `checkComparable…` runs Equatable's laws automaticall
 
 ```swift
 // Package.swift
-.package(url: "https://github.com/Joseph-Cursio/SwiftProtocolLaws.git", from: "1.0.0")
+.package(url: "https://github.com/Joseph-Cursio/SwiftPropertyLaws.git", from: "1.0.0")
 ```
 
 ```swift
 .target(
     name: "MyApp",
     dependencies: [
-        .product(name: "ProtocolLawKit", package: "SwiftProtocolLaws"),
-        // Optional — for the @ProtoLawSuite macro:
-        .product(name: "ProtoLawMacro", package: "SwiftProtocolLaws"),
+        .product(name: "PropertyLawKit", package: "SwiftPropertyLaws"),
+        // Optional — for the @PropertyLawSuite macro:
+        .product(name: "PropertyLawMacro", package: "SwiftPropertyLaws"),
     ]
 ),
 ```
@@ -97,26 +97,26 @@ The simplest entry point — pass a generator, get back per-law `CheckResult`s.
 ```swift
 import Testing
 import PropertyBased
-import ProtocolLawKit
+import PropertyLawKit
 
 @Test func myTypeLaws() async throws {
-    try await checkHashableProtocolLaws(
+    try await checkHashablePropertyLaws(
         for: MyType.self,
         using: Gen.myType()
     )
 }
 ```
 
-Throws `ProtocolLawViolation` on Strict-tier failures with a replayable seed and counterexample.
+Throws `PropertyLawViolation` on Strict-tier failures with a replayable seed and counterexample.
 
-### 2. `@ProtoLawSuite` peer macro
+### 2. `@PropertyLawSuite` peer macro
 
 Apply to a type. The macro reads the type's inheritance clause and emits a peer test struct with one `@Test func` per recognized stdlib conformance.
 
 ```swift
-import ProtoLawMacro
+import PropertyLawMacro
 
-@ProtoLawSuite
+@PropertyLawSuite
 struct MyType: Equatable, Hashable, Codable {
     let id: Int
     let name: String
@@ -133,7 +133,7 @@ extension MyType {
 Expands at compile time to:
 
 ```swift
-struct MyTypeProtocolLawTests {
+struct MyTypePropertyLawTests {
     @Test func hashable_MyType() async throws { /* ... */ }
     @Test func codable_MyType() async throws { /* ... */ }
 }
@@ -144,13 +144,13 @@ Most-specific-conformance dedupe runs at expansion time — `Hashable` subsumes 
 **Generator derivation (M3).** For `CaseIterable` enums and `RawRepresentable` enums backed by recognized stdlib raw types, the macro derives the generator automatically — no `gen()` method required.
 
 ```swift
-@ProtoLawSuite
+@PropertyLawSuite
 enum Status: CaseIterable, Equatable {
     case pending, active, archived
 }
 // Macro emits: using: Gen<Status>.element(of: Status.allCases)
 
-@ProtoLawSuite
+@PropertyLawSuite
 enum Direction: String, Codable, Equatable {
     case north, south, east, west
 }
@@ -165,12 +165,12 @@ For other types, the macro falls through to `<TypeName>.gen()` (define it yourse
 For projects with many types, run the plugin and commit the generated file.
 
 ```bash
-swift package --allow-writing-to-package-directory protolawcheck discover --target MyModule
+swift package --allow-writing-to-package-directory propertylawcheck discover --target MyModule
 ```
 
-Walks every `.swift` file in the target, aggregates type declarations and extensions across files, and emits `Tests/MyModuleTests/ProtocolLawTests.generated.swift` with one `@Suite struct` per recognized type.
+Walks every `.swift` file in the target, aggregates type declarations and extensions across files, and emits `Tests/MyModuleTests/PropertyLawTests.generated.swift` with one `@Suite struct` per recognized type.
 
-Idempotent: re-running with no source changes produces byte-identical output. Suppression markers in the generated file (`// proto-law-suppress: <protocol>_<TypeName>`) survive regeneration — the user marks a check as deliberately skipped, the next run keeps it skipped.
+Idempotent: re-running with no source changes produces byte-identical output. Suppression markers in the generated file (`// property-law-suppress: <protocol>_<TypeName>`) survive regeneration — the user marks a check as deliberately skipped, the next run keeps it skipped.
 
 ## Strictness tiers
 
@@ -189,7 +189,7 @@ PRD §4.2 has the full tier-per-law table.
 When a law-check legitimately doesn't apply (`NaN` reflexivity on a `Float`-bearing type, intentional Codable lossiness, etc.) suppress at the call site:
 
 ```swift
-try await checkEquatableProtocolLaws(
+try await checkEquatablePropertyLaws(
     for: MyType.self,
     using: Gen.myType(),
     options: LawCheckOptions(
@@ -217,9 +217,9 @@ Replay-validation is opt-in: pass an `expectedReplayEnvironment` and the kit ref
 
 | Component | Status |
 |---|---|
-| `ProtocolLawKit` (PRD Contribution 1) | v1.0 base + v1.1 round-trip + v1.2 collection-refinements + v1.4 numeric/integer/FloatingPoint + v1.5 StringProtocol shipped — closes out the entire PRD §4.3 v1.1+ candidates list |
-| `ProtoLawMacro` peer macro (PRD §5.3 Macro Mode) | M1 shipped |
-| `swift package protolawcheck` discovery plugin (PRD §5.3 Discovery Mode) | M2 shipped |
+| `PropertyLawKit` (PRD Contribution 1) | v1.0 base + v1.1 round-trip + v1.2 collection-refinements + v1.4 numeric/integer/FloatingPoint + v1.5 StringProtocol shipped — closes out the entire PRD §4.3 v1.1+ candidates list |
+| `PropertyLawMacro` peer macro (PRD §5.3 Macro Mode) | M1 shipped |
+| `swift package propertylawcheck` discovery plugin (PRD §5.3 Discovery Mode) | M2 shipped |
 | Generator derivation (PRD §5.7) — `CaseIterable` + `RawRepresentable` enums | M3 shipped |
 | Memberwise-`Arbitrary` derivation (PRD §5.7 Strategy 3) | Shipped — structs whose every stored property is a recognized stdlib raw type (Int / String / Bool / Double / Float and the fixed-width integer family) get `zip(...).map { Type(prop: $0.N, …) }` derived through the synthesized memberwise initializer; arity 1–10 (`swift-property-based`'s `zip` overload cap); falls through to `.todo` for non-raw member types, structs declaring user `init`, and class/actor kinds |
 | Advisory: missing-conformance suggestions (PRD §5.4) | M4 shipped — opt-in via `--advisory`, HIGH-confidence detectors for `Equatable`, `Hashable`, `Comparable`, `Codable` |
@@ -231,7 +231,7 @@ The PropertyBackend abstraction (PRD §4.5) is shipped public with `SwiftPropert
 
 ## Documentation
 
-- **[`docs/SwiftProtocolLaws PRD.md`](docs/SwiftProtocolLaws%20PRD.md)** — design specification, the load-bearing reference for what the kit does and why.
+- **[`docs/SwiftPropertyLaws PRD.md`](docs/SwiftPropertyLaws%20PRD.md)** — design specification, the load-bearing reference for what the kit does and why.
 - **[`docs/Swift Standard Library Protocols.md`](docs/Swift%20Standard%20Library%20Protocols.md)** — structural inventory of all ~54 stdlib protocols (Inherits / Requirements / one-liner). Laws and v1/v1.1/deferred classification live in PRD §4.3 and §4.3 Coverage Scope.
 - **[`docs/SwiftInferProperties PRD.md`](docs/SwiftInferProperties%20PRD.md)** — design for the downstream SwiftInferProperties package (signature-pattern matcher + test lifter).
 - **[`CLAUDE.md`](CLAUDE.md)** — repository state, design decisions baked into the current PRD, build instructions.

@@ -1,4 +1,4 @@
-ProtoLawDiscoveryTool: wrote /Users/josephcursio/xcode_projects/SwiftProtocolLaws/Validation/results/ArgumentParser.generated.swift
+PropertyLawDiscoveryTool: wrote /Users/josephcursio/xcode_projects/SwiftPropertyLaws/Validation/results/ArgumentParser.generated.swift
   target: ArgumentParser
   source files scanned: 49
   types detected: 99

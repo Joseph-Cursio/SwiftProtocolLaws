@@ -1,4 +1,4 @@
-ProtoLawDiscoveryTool: wrote /Users/josephcursio/xcode_projects/SwiftProtocolLaws/Validation/results/AWSLambdaRuntime.generated.swift
+PropertyLawDiscoveryTool: wrote /Users/josephcursio/xcode_projects/SwiftPropertyLaws/Validation/results/AWSLambdaRuntime.generated.swift
   target: AWSLambdaRuntime
   source files scanned: 43
   types detected: 35

@@ -22,9 +22,9 @@ This is **scan-only** validation. It proves:
 3. The `.todo` telemetry surfaces every type that would need a manual `gen()`.
 4. Output is sensible — emitted `@Test` shapes look like what a maintainer would write themselves.
 
-It does **not** run the kit's `checkXxxProtocolLaws` against these packages. Doing so requires per-package work that's outside the scope of this first pass:
+It does **not** run the kit's `checkXxxPropertyLaws` against these packages. Doing so requires per-package work that's outside the scope of this first pass:
 
-1. Adding `SwiftProtocolLaws` + `swift-property-based` as dependencies to each target package's manifest.
+1. Adding `SwiftPropertyLaws` + `swift-property-based` as dependencies to each target package's manifest.
 2. Writing a `gen()` static method per surveyed type (M3 derivation only auto-handles `CaseIterable` enums and `RawRepresentable` enums with stdlib raw types — those are the minority).
 3. Compiling + running the generated tests under each backend's trial budget.
 
@@ -63,7 +63,7 @@ After scanning four real-world Swift packages with combined ~209 source files an
 
 **No conformance bugs were caught in this pass — none were possible to catch, because the kit's checks weren't actually run.** That's the architectural ceiling on scan-only validation, not a comment on the surveyed packages. Apple's `swift-argument-parser` and well-tested community packages like `Hummingbird` are precisely the case where finding a real bug would be unexpected — they're tested heavily, including with property-based approaches in some cases.
 
-The PRD §8 1.0 gate ("must catch a real semantic conformance bug in 5+ popular Swift packages") remains open. Closing it requires the next-pass work above: actual integration of `ProtocolLawKit` into one or more of these packages' test targets and running the checks at full budget.
+The PRD §8 1.0 gate ("must catch a real semantic conformance bug in 5+ popular Swift packages") remains open. Closing it requires the next-pass work above: actual integration of `PropertyLawKit` into one or more of these packages' test targets and running the checks at full budget.
 
 ## What this pass does justify
 
@@ -85,7 +85,7 @@ Output lands in `Validation/results/<TargetName>.{generated.swift,summary.txt}`.
 
 ## Pass 2: actual law checks against an external package
 
-`Validation/Package.swift` is a separate SwiftPM package that depends on the parent (via local path) and on `swift-argument-parser` (via remote). It runs the kit's `checkXxxProtocolLaws` against public types from ArgumentParser. Kept separate so the external dep doesn't leak into the kit's main manifest — consumers of `SwiftProtocolLaws` never see ArgumentParser.
+`Validation/Package.swift` is a separate SwiftPM package that depends on the parent (via local path) and on `swift-argument-parser` (via remote). It runs the kit's `checkXxxPropertyLaws` against public types from ArgumentParser. Kept separate so the external dep doesn't leak into the kit's main manifest — consumers of `SwiftPropertyLaws` never see ArgumentParser.
 
 ```bash
 cd Validation && swift test
@@ -104,8 +104,8 @@ All four conformances satisfy every Strict-tier law the kit checks. The two RawR
 
 ### What pass 2 actually proves
 
-1. **The kit composes cleanly with an external Swift package.** SwiftPM resolves both deps, the test target links against ArgumentParser + ProtocolLawKit, generators reference public ArgumentParser API, and the kit's checks run unmodified against types the kit's authors didn't write.
-2. **The pipeline shape works for an adopter.** A maintainer wanting to validate their own types follows the same recipe: separate test package OR test target with both deps, write `gen()`, call `checkXxxProtocolLaws`. The Validation/Package.swift is a worked example.
+1. **The kit composes cleanly with an external Swift package.** SwiftPM resolves both deps, the test target links against ArgumentParser + PropertyLawKit, generators reference public ArgumentParser API, and the kit's checks run unmodified against types the kit's authors didn't write.
+2. **The pipeline shape works for an adopter.** A maintainer wanting to validate their own types follows the same recipe: separate test package OR test target with both deps, write `gen()`, call `checkXxxPropertyLaws`. The Validation/Package.swift is a worked example.
 3. **At least one Strict-tier `Hashable` law check has run end-to-end against external Apple OSS code.** That's a concrete artifact, even though the result is "the laws hold."
 
 ### What pass 2 still doesn't do
@@ -259,7 +259,7 @@ Neither churn affected the suite or law-check counts.
 ### How to re-run the revalidation
 
 ```bash
-swift build --product ProtoLawDiscoveryTool -c release
+swift build --product PropertyLawDiscoveryTool -c release
 Validation/run.sh ~/xcode_projects/swift-argument-parser ArgumentParser
 Validation/run.sh ~/xcode_projects/Hummingbird Hummingbird
 Validation/run.sh ~/xcode_projects/swift-aws-lambda-runtime AWSLambdaRuntime
@@ -275,12 +275,12 @@ The original Pass 2 (commit `599c843` and earlier) only ran the kit's laws again
 
 | Type | Laws checked | Trial budget | Result |
 |---|---|---|---|
-| `Int32` | `checkFixedWidthIntegerProtocolLaws` (which transitively runs BinaryInteger + Numeric + AdditiveArithmetic) | `.standard` (1,000) | passed |
-| `Int32` | `checkSignedIntegerProtocolLaws` (sibling chain to FixedWidthInteger) | `.standard` (1,000) | passed |
-| `UInt` | `checkFixedWidthIntegerProtocolLaws` | `.standard` (1,000) | passed |
-| `UInt` | `checkUnsignedIntegerProtocolLaws` | `.standard` (1,000) | passed |
-| `Double` | `checkBinaryFloatingPointProtocolLaws` (finite-only generator, `allowNaN: false`) | `.standard` (1,000) | passed |
-| `Double` | `checkBinaryFloatingPointProtocolLaws` (NaN-injecting generator, `allowNaN: true` — exercises NaN-domain laws) | `.standard` (1,000) | passed |
+| `Int32` | `checkFixedWidthIntegerPropertyLaws` (which transitively runs BinaryInteger + Numeric + AdditiveArithmetic) | `.standard` (1,000) | passed |
+| `Int32` | `checkSignedIntegerPropertyLaws` (sibling chain to FixedWidthInteger) | `.standard` (1,000) | passed |
+| `UInt` | `checkFixedWidthIntegerPropertyLaws` | `.standard` (1,000) | passed |
+| `UInt` | `checkUnsignedIntegerPropertyLaws` | `.standard` (1,000) | passed |
+| `Double` | `checkBinaryFloatingPointPropertyLaws` (finite-only generator, `allowNaN: false`) | `.standard` (1,000) | passed |
+| `Double` | `checkBinaryFloatingPointPropertyLaws` (NaN-injecting generator, `allowNaN: true` — exercises NaN-domain laws) | `.standard` (1,000) | passed |
 
 This is the **first time the kit's own laws run end-to-end against stdlib types** — significant for the §8 closure narrative. Apple's reference implementations satisfy every Strict-tier law the v1.4 cluster checks, including the IEEE-754 NaN-domain laws under `allowNaN: true`. As with the original Pass 2, "no bug found" is the predicted result for the most heavily-tested numeric implementations on the planet, but the assertion is now real rather than asymptotic.
 
@@ -333,10 +333,10 @@ After v1.4 shipped, three external libraries were wired into Pass 2 to test the 
 
 | Type | Law check | Suppressions | Result |
 |---|---|---|---|
-| `BigInt` | `checkBinaryIntegerProtocolLaws` (16 own + inherited Numeric + AdditiveArithmetic) | none | passed @ `.standard` |
-| `BigInt` | `checkSignedIntegerProtocolLaws` (1 own + inherited BinaryInteger + SignedNumeric) | none | passed @ `.standard` |
-| `BigUInt` | `checkBinaryIntegerProtocolLaws` | `bitwiseDoubleNegation`, `bitwiseDeMorgan` (as `intentionalViolation`) | passed with documented exceptions |
-| `BigUInt` | `checkUnsignedIntegerProtocolLaws` | same | passed with documented exceptions |
+| `BigInt` | `checkBinaryIntegerPropertyLaws` (16 own + inherited Numeric + AdditiveArithmetic) | none | passed @ `.standard` |
+| `BigInt` | `checkSignedIntegerPropertyLaws` (1 own + inherited BinaryInteger + SignedNumeric) | none | passed @ `.standard` |
+| `BigUInt` | `checkBinaryIntegerPropertyLaws` | `bitwiseDoubleNegation`, `bitwiseDeMorgan` (as `intentionalViolation`) | passed with documented exceptions |
+| `BigUInt` | `checkUnsignedIntegerPropertyLaws` | same | passed with documented exceptions |
 
 **Real finding: `BigUInt.~` does not satisfy De Morgan's law.** Counterexample (replay seed `JJV3lDSZMUfh1OXBSpPuu+SMxMVOzze42idwOvk3nK4=`):
 
@@ -361,9 +361,9 @@ The suppression-based test shape — `intentionalViolation` for the bit-width-de
 
 | Type | Law check | Suppressions | Result |
 |---|---|---|---|
-| `Decimal` | `checkSignedNumericProtocolLaws` (4 own + inherited Numeric + AdditiveArithmetic) | none | passed @ `.standard` |
-| `Decimal` | `checkNumericProtocolLaws` (own only) | none | passed @ `.standard` |
-| `Decimal` | `checkAdditiveArithmeticProtocolLaws` (5 own) | none | passed @ `.standard` |
+| `Decimal` | `checkSignedNumericPropertyLaws` (4 own + inherited Numeric + AdditiveArithmetic) | none | passed @ `.standard` |
+| `Decimal` | `checkNumericPropertyLaws` (own only) | none | passed @ `.standard` |
+| `Decimal` | `checkAdditiveArithmeticPropertyLaws` (5 own) | none | passed @ `.standard` |
 
 `Decimal`'s 128-bit mantissa with exact decimal arithmetic (no IEEE-754 rounding for in-range integer values) means the algebraic laws hold cleanly for bounded magnitudes. This is the kind of "exact-equality numeric type" that v1.4 M1's exact-equality assumption was written for.
 
@@ -373,12 +373,12 @@ The suppression-based test shape — `intentionalViolation` for the bit-width-de
 
 | Type | Law check | Suppressions | Result |
 |---|---|---|---|
-| `Complex<Double>` | `checkNumericProtocolLaws` (own only) | `multiplicationAssociativity`, `leftDistributivity`, `rightDistributivity`, `additionAssociativity`, `subtractionInverse` (as `intentionalViolation`) | passed with documented exceptions |
-| `Complex<Double>` | `checkSignedNumericProtocolLaws` (own only) | none | passed @ `.standard` |
+| `Complex<Double>` | `checkNumericPropertyLaws` (own only) | `multiplicationAssociativity`, `leftDistributivity`, `rightDistributivity`, `additionAssociativity`, `subtractionInverse` (as `intentionalViolation`) | passed with documented exceptions |
+| `Complex<Double>` | `checkSignedNumericPropertyLaws` (own only) | none | passed @ `.standard` |
 
 `Complex<Double>` is the empirical demonstration of why M1's doc-comments redirect FP users to M4. Its underlying components are `Double`, so multiplication and three-way addition round in IEEE-754 the same way `Double` does — the kit's exact-equality algebraic laws fire spurious violations under random sampling. **This is not a bug in `Complex<Double>`** (the laws hold to within rounding tolerance, which is what users of complex floating-point arithmetic actually rely on); it's a documentation case for "if you have a Numeric whose components are FloatingPoint, expect to suppress the rounding-sensitive laws and rely on the negation/inverse laws that don't depend on chained arithmetic."
 
-`Complex` itself doesn't conform to `FloatingPoint` (no `.infinity` / `.nan` on the type — only on `RealType`), so `checkFloatingPointProtocolLaws` doesn't apply. The kit currently has no protocol-level abstraction for "Numeric-on-floating-point-components"; explicit per-call suppression is the pragmatic v1.4 answer.
+`Complex` itself doesn't conform to `FloatingPoint` (no `.infinity` / `.nan` on the type — only on `RealType`), so `checkFloatingPointPropertyLaws` doesn't apply. The kit currently has no protocol-level abstraction for "Numeric-on-floating-point-components"; explicit per-call suppression is the pragmatic v1.4 answer.
 
 ### Summary
 

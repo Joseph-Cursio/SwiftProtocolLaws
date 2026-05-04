@@ -1,4 +1,4 @@
-ProtoLawDiscoveryTool: wrote /Users/josephcursio/xcode_projects/SwiftProtocolLaws/Validation/results/Hummingbird.generated.swift
+PropertyLawDiscoveryTool: wrote /Users/josephcursio/xcode_projects/SwiftPropertyLaws/Validation/results/Hummingbird.generated.swift
   target: Hummingbird
   source files scanned: 73
   types detected: 99

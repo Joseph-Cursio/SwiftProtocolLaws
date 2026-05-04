@@ -91,9 +91,9 @@ A comprehensive reference of all ~54 public protocols in the Swift Standard Libr
 
 ### `SetAlgebra`
 
-- **Inherits:** nothing in stdlib (every adopting type is also `Equatable` in practice; the comparison-based laws in `ProtocolLawKit` require it).
+- **Inherits:** nothing in stdlib (every adopting type is also `Equatable` in practice; the comparison-based laws in `PropertyLawKit` require it).
 - **Requirements:** `init()`, `func contains(_ member: Element) -> Bool`, `func union(_ other: Self) -> Self`, `func intersection(_ other: Self) -> Self`, `func symmetricDifference(_ other: Self) -> Self`, `mutating func formUnion(_ other: Self)`, `mutating func formIntersection(_ other: Self)`, `mutating func formSymmetricDifference(_ other: Self)`, `mutating func insert(_ newMember: Element) -> (inserted: Bool, memberAfterInsert: Element)`, `mutating func remove(_ member: Element) -> Element?`, `mutating func update(with newMember: Element) -> Element?`.
-- A type representing a mathematical set, with union, intersection, and symmetric-difference operations. Adopters: `Set`, `OptionSet`, `IndexSet`, `CharacterSet`, plus third-party types like `OrderedSet`, `TreeSet`, `BitSet`. Note: SetAlgebra is filed under Apple's "Collections" documentation topic but does *not* inherit from `Collection` — `Set` adopts both protocols separately. ProtocolLawKit covers nine SetAlgebra laws (see PRD §4.3 SetAlgebra), including four `symmetricDifference*` laws that close the algebraic identity for the operation.
+- A type representing a mathematical set, with union, intersection, and symmetric-difference operations. Adopters: `Set`, `OptionSet`, `IndexSet`, `CharacterSet`, plus third-party types like `OrderedSet`, `TreeSet`, `BitSet`. Note: SetAlgebra is filed under Apple's "Collections" documentation topic but does *not* inherit from `Collection` — `Set` adopts both protocols separately. PropertyLawKit covers nine SetAlgebra laws (see PRD §4.3 SetAlgebra), including four `symmetricDifference*` laws that close the algebraic identity for the operation.
 
 -----
 
@@ -337,7 +337,7 @@ These protocols let custom types be initialized from literal syntax.
 
 ## Kit-defined Protocols
 
-ProtocolLawKit also defines a small set of protocols where the Swift Standard Library leaves a useful gap. These are kit-owned (not stdlib), shipped from `import ProtocolLawKit`, and verified by the kit's discovery plugin under the same `KnownProtocol`-driven dispatch as the stdlib protocols above.
+PropertyLawKit also defines a small set of protocols where the Swift Standard Library leaves a useful gap. These are kit-owned (not stdlib), shipped from `import PropertyLawKit`, and verified by the kit's discovery plugin under the same `KnownProtocol`-driven dispatch as the stdlib protocols above.
 
 ### `Semigroup` *(v1.8)*
 

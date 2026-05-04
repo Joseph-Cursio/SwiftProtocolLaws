@@ -1,4 +1,4 @@
-ProtoLawDiscoveryTool: wrote /Users/josephcursio/xcode_projects/SwiftProtocolLaws/Validation/results/SitrepCore.generated.swift
+PropertyLawDiscoveryTool: wrote /Users/josephcursio/xcode_projects/SwiftPropertyLaws/Validation/results/SitrepCore.generated.swift
   target: SitrepCore
   source files scanned: 12
   types detected: 18
