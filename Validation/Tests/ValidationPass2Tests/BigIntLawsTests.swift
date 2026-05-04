@@ -1,6 +1,6 @@
 import Testing
 import PropertyBased
-import ProtocolLawKit
+import PropertyLawKit
 import BigInt
 
 /// Pass 2 validation — `attaswift/BigInt`.
@@ -21,7 +21,7 @@ struct BigIntLawsTests {
     // MARK: - BigInt (signed arbitrary-precision)
 
     @Test func bigIntPassesBinaryIntegerLaws() async throws {
-        try await checkBinaryIntegerProtocolLaws(
+        try await checkBinaryIntegerPropertyLaws(
             for: BigInt.self,
             using: Gen<Int>.int(in: -1_000_000...1_000_000).map { BigInt($0) },
             options: LawCheckOptions(budget: .standard)
@@ -29,7 +29,7 @@ struct BigIntLawsTests {
     }
 
     @Test func bigIntPassesSignedIntegerLaws() async throws {
-        try await checkSignedIntegerProtocolLaws(
+        try await checkSignedIntegerPropertyLaws(
             for: BigInt.self,
             using: Gen<Int>.int(in: -1_000_000...1_000_000).map { BigInt($0) },
             options: LawCheckOptions(budget: .standard)
@@ -60,7 +60,7 @@ struct BigIntLawsTests {
     ]
 
     @Test func bigUIntPassesBinaryIntegerLaws() async throws {
-        try await checkBinaryIntegerProtocolLaws(
+        try await checkBinaryIntegerPropertyLaws(
             for: BigUInt.self,
             using: Gen<UInt>.uint(in: 0...1_000_000).map { BigUInt($0) },
             options: LawCheckOptions(
@@ -71,7 +71,7 @@ struct BigIntLawsTests {
     }
 
     @Test func bigUIntPassesUnsignedIntegerLaws() async throws {
-        try await checkUnsignedIntegerProtocolLaws(
+        try await checkUnsignedIntegerPropertyLaws(
             for: BigUInt.self,
             using: Gen<UInt>.uint(in: 0...1_000_000).map { BigUInt($0) },
             options: LawCheckOptions(

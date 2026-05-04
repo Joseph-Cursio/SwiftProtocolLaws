@@ -1,6 +1,6 @@
 import Testing
 import PropertyBased
-import ProtocolLawKit
+import PropertyLawKit
 import ComplexModule
 
 /// Pass 2 validation — `apple/swift-numerics` `Complex<Double>`.
@@ -15,7 +15,7 @@ import ComplexModule
 ///
 /// `Complex` is *not* itself a `FloatingPoint` (no `infinity`, `isNaN`,
 /// etc. on the type — only on the underlying RealType), so the kit can't
-/// route it through `checkFloatingPointProtocolLaws`. This file documents
+/// route it through `checkFloatingPointPropertyLaws`. This file documents
 /// the empirical limit: bounded-magnitude Complex<Double> generators
 /// passing AdditiveArithmetic on a ~1000 magnitude range, with multiplication
 /// laws suppressed via `intentionalViolation` because they're known to fire
@@ -62,7 +62,7 @@ struct ComplexLawsTests {
     }
 
     @Test func complexDoublePassesNumericLawsWithFPSuppressions() async throws {
-        try await checkNumericProtocolLaws(
+        try await checkNumericPropertyLaws(
             for: Complex<Double>.self,
             using: Self.complexGenerator(),
             options: LawCheckOptions(
@@ -79,7 +79,7 @@ struct ComplexLawsTests {
         // hold exactly for Complex<Double> because they don't involve the
         // rounding-prone multiplication or three-way addition. Run with
         // .ownOnly to skip the inherited Numeric laws (which would fire).
-        try await checkSignedNumericProtocolLaws(
+        try await checkSignedNumericPropertyLaws(
             for: Complex<Double>.self,
             using: Self.complexGenerator(),
             options: LawCheckOptions(budget: .standard),

@@ -1,6 +1,6 @@
 import Testing
 import PropertyBased
-import ProtocolLawKit
+import PropertyLawKit
 
 /// Pass 2 validation (PRD §8) — v1.4 numeric/integer/FloatingPoint
 /// expansion. First time the kit's own laws run end-to-end against
@@ -18,7 +18,7 @@ struct StdlibNumericLawsTests {
     // MARK: - Int32 (FixedWidthInteger + SignedInteger siblings)
 
     @Test func int32PassesFixedWidthIntegerLaws() async throws {
-        try await checkFixedWidthIntegerProtocolLaws(
+        try await checkFixedWidthIntegerPropertyLaws(
             for: Int32.self,
             using: Gen<Int32>.boundedForArithmetic(),
             options: LawCheckOptions(budget: .standard)
@@ -26,7 +26,7 @@ struct StdlibNumericLawsTests {
     }
 
     @Test func int32PassesSignedIntegerLaws() async throws {
-        try await checkSignedIntegerProtocolLaws(
+        try await checkSignedIntegerPropertyLaws(
             for: Int32.self,
             using: Gen<Int32>.boundedForArithmetic(),
             options: LawCheckOptions(budget: .standard)
@@ -36,7 +36,7 @@ struct StdlibNumericLawsTests {
     // MARK: - UInt (FixedWidthInteger + UnsignedInteger siblings)
 
     @Test func uintPassesFixedWidthIntegerLaws() async throws {
-        try await checkFixedWidthIntegerProtocolLaws(
+        try await checkFixedWidthIntegerPropertyLaws(
             for: UInt.self,
             using: Gen<UInt>.boundedForArithmetic(),
             options: LawCheckOptions(budget: .standard)
@@ -44,7 +44,7 @@ struct StdlibNumericLawsTests {
     }
 
     @Test func uintPassesUnsignedIntegerLaws() async throws {
-        try await checkUnsignedIntegerProtocolLaws(
+        try await checkUnsignedIntegerPropertyLaws(
             for: UInt.self,
             using: Gen<UInt>.boundedForArithmetic(),
             options: LawCheckOptions(budget: .standard)
@@ -54,7 +54,7 @@ struct StdlibNumericLawsTests {
     // MARK: - Double (BinaryFloatingPoint)
 
     @Test func doublePassesBinaryFloatingPointLawsFinite() async throws {
-        try await checkBinaryFloatingPointProtocolLaws(
+        try await checkBinaryFloatingPointPropertyLaws(
             for: Double.self,
             using: Gen<Double>.double(in: -1_000_000.0 ... 1_000_000.0),
             options: LawCheckOptions(budget: .standard)
@@ -62,7 +62,7 @@ struct StdlibNumericLawsTests {
     }
 
     @Test func doublePassesBinaryFloatingPointLawsWithNaN() async throws {
-        try await checkBinaryFloatingPointProtocolLaws(
+        try await checkBinaryFloatingPointPropertyLaws(
             for: Double.self,
             using: Gen<Double>.doubleWithNaN(),
             options: LawCheckOptions(budget: .standard, allowNaN: true)

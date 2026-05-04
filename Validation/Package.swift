@@ -1,10 +1,10 @@
 // swift-tools-version: 6.1
 import PackageDescription
 
-/// Validation harness (PRD §8): wires `ProtocolLawKit` against external
+/// Validation harness (PRD §8): wires `PropertyLawKit` against external
 /// Swift packages and runs actual law checks. Lives in its own SwiftPM
 /// package so the external deps don't leak into the kit's main manifest —
-/// consumers of SwiftProtocolLaws never see ArgumentParser or Collections.
+/// consumers of SwiftPropertyLaws never see ArgumentParser or Collections.
 ///
 /// Run with:
 ///   cd Validation && swift test
@@ -19,7 +19,7 @@ import PackageDescription
 /// (the parent of `35349601`, which fixed `_Bitmap.symmetricDifference`
 /// to use `^` instead of `&`). At that SHA, `TreeSet.symmetricDifference`
 /// returns the *intersection* rather than the symmetric difference. The
-/// pass-3 tests assert that `checkSetAlgebraProtocolLaws` catches the
+/// pass-3 tests assert that `checkSetAlgebraPropertyLaws` catches the
 /// violation via the four `symmetricDifference*` laws added to PRD §4.3
 /// SetAlgebra in response to this finding. Counts toward the §8 1.0 gate.
 let package = Package(
@@ -28,7 +28,7 @@ let package = Package(
         .macOS(.v14)
     ],
     dependencies: [
-        .package(name: "SwiftProtocolLaws", path: ".."),
+        .package(name: "SwiftPropertyLaws", path: ".."),
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.6.0"),
         // attaswift/BigInt — arbitrary-precision integers conforming to
         // BinaryInteger / SignedInteger / UnsignedInteger / Numeric. v1.4
@@ -54,9 +54,9 @@ let package = Package(
         .testTarget(
             name: "ValidationPass2Tests",
             dependencies: [
-                // ProtocolLawKit re-exports PropertyBased (`@_exported import`),
+                // PropertyLawKit re-exports PropertyBased (`@_exported import`),
                 // so a direct dep on it isn't needed here.
-                .product(name: "ProtocolLawKit", package: "SwiftProtocolLaws"),
+                .product(name: "PropertyLawKit", package: "SwiftPropertyLaws"),
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "BigInt", package: "BigInt"),
                 .product(name: "ComplexModule", package: "swift-numerics")
@@ -65,7 +65,7 @@ let package = Package(
         .testTarget(
             name: "ValidationPass3Tests",
             dependencies: [
-                .product(name: "ProtocolLawKit", package: "SwiftProtocolLaws"),
+                .product(name: "PropertyLawKit", package: "SwiftPropertyLaws"),
                 .product(name: "HashTreeCollections", package: "swift-collections")
             ]
         )

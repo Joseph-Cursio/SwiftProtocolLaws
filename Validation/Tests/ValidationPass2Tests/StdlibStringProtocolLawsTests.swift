@@ -1,6 +1,6 @@
 import Testing
 import PropertyBased
-import ProtocolLawKit
+import PropertyLawKit
 
 /// Pass 2 validation — v1.5 StringProtocol cluster against stdlib `String`
 /// and `Substring`.
@@ -14,18 +14,18 @@ import ProtocolLawKit
 /// Generators sample short ASCII-letter strings (length 0...8) — broad
 /// enough to exercise the boundary cases (empty string, single char, ASCII
 /// case folding) without slowing the sub-package's run time.
-struct StdlibStringProtocolLawsTests {
+struct StdlibStringPropertyLawsTests {
 
-    @Test func stringPassesStringProtocolLaws() async throws {
-        try await checkStringProtocolLaws(
+    @Test func stringPassesStringPropertyLaws() async throws {
+        try await checkStringProtocolPropertyLaws(
             for: String.self,
             using: Gen<Character>.letterOrNumber.string(of: 0...8),
             options: LawCheckOptions(budget: .standard)
         )
     }
 
-    @Test func substringPassesStringProtocolLaws() async throws {
-        try await checkStringProtocolLaws(
+    @Test func substringPassesStringPropertyLaws() async throws {
+        try await checkStringProtocolPropertyLaws(
             for: Substring.self,
             using: Gen<Character>.letterOrNumber.string(of: 0...8).map { Substring($0) },
             options: LawCheckOptions(budget: .standard)

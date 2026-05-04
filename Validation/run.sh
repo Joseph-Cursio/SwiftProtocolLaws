@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Validation harness for the PRD §8 1.0 gate. Runs
-# ProtoLawDiscoveryTool against an external Swift package's source
-# files without requiring SwiftProtocolLaws to be added as a dep on
+# PropertyLawDiscoveryTool against an external Swift package's source
+# files without requiring SwiftPropertyLaws to be added as a dep on
 # the target.
 #
 # Usage:
@@ -31,8 +31,8 @@ fi
 
 # Build the tool from this package, then invoke directly.
 cd "$ROOT"
-swift build --product ProtoLawDiscoveryTool -c release 2>&1 | tail -3
-TOOL=$(swift build --product ProtoLawDiscoveryTool -c release --show-bin-path)/ProtoLawDiscoveryTool
+swift build --product PropertyLawDiscoveryTool -c release 2>&1 | tail -3
+TOOL=$(swift build --product PropertyLawDiscoveryTool -c release --show-bin-path)/PropertyLawDiscoveryTool
 
 # Collect every .swift file under the target's source dir.
 SOURCE_FILES=()

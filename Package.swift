@@ -3,7 +3,7 @@ import CompilerPluginSupport
 import PackageDescription
 
 let package = Package(
-    name: "SwiftProtocolLaws",
+    name: "SwiftPropertyLaws",
     platforms: [
         .macOS(.v14),
         .iOS(.v17),
@@ -13,12 +13,12 @@ let package = Package(
     ],
     products: [
         .library(
-            name: "ProtocolLawKit",
-            targets: ["ProtocolLawKit"]
+            name: "PropertyLawKit",
+            targets: ["PropertyLawKit"]
         ),
         .library(
-            name: "ProtoLawMacro",
-            targets: ["ProtoLawMacro"]
+            name: "PropertyLawMacro",
+            targets: ["PropertyLawMacro"]
         ),
         // PRD §5.7 generator-derivation strategist exposed as its own
         // shipped library so downstream tools (SwiftInferProperties M3+,
@@ -28,8 +28,8 @@ let package = Package(
         // `MemberwiseEmitter` stay `package`-scoped for now (M1 of the
         // SwiftInferProperties cross-validation work doesn't need either).
         .library(
-            name: "ProtoLawCore",
-            targets: ["ProtoLawCore"]
+            name: "PropertyLawCore",
+            targets: ["PropertyLawCore"]
         )
     ],
     dependencies: [
@@ -44,50 +44,50 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "ProtocolLawKit",
+            name: "PropertyLawKit",
             dependencies: [
                 .product(name: "PropertyBased", package: "swift-property-based")
             ]
         ),
         .testTarget(
-            name: "ProtocolLawKitTests",
+            name: "PropertyLawKitTests",
             dependencies: [
-                "ProtocolLawKit",
+                "PropertyLawKit",
                 .product(name: "PropertyBased", package: "swift-property-based")
             ]
         ),
 
         // Shared core target. The §5.7 generator-derivation strategist is
-        // exposed publicly via the `ProtoLawCore` product (added v1.6.0)
+        // exposed publicly via the `PropertyLawCore` product (added v1.6.0)
         // for downstream consumption by SwiftInferProperties M3+. The
         // PRD §4.3 `KnownProtocol` enum and the `MemberwiseEmitter`
         // text-renderer stay `package`-scoped — they're consumed only by
-        // `ProtoLawMacroImpl` and `ProtoLawDiscoveryTool` inside this
+        // `PropertyLawMacroImpl` and `PropertyLawDiscoveryTool` inside this
         // package and aren't part of the shipped API contract.
         .target(
-            name: "ProtoLawCore",
+            name: "PropertyLawCore",
             dependencies: []
         ),
         .testTarget(
-            name: "ProtoLawCoreTests",
-            dependencies: ["ProtoLawCore"]
+            name: "PropertyLawCoreTests",
+            dependencies: ["PropertyLawCore"]
         ),
         // User-facing macro target — declarations only. Re-exports
-        // ProtocolLawKit so users importing ProtoLawMacro can call the
-        // generated `checkXxxProtocolLaws` functions without a second import.
+        // PropertyLawKit so users importing PropertyLawMacro can call the
+        // generated `checkXxxPropertyLaws` functions without a second import.
         .target(
-            name: "ProtoLawMacro",
+            name: "PropertyLawMacro",
             dependencies: [
-                "ProtocolLawKit",
-                "ProtoLawMacroImpl"
+                "PropertyLawKit",
+                "PropertyLawMacroImpl"
             ]
         ),
         // Compiler-plugin target hosting the macro implementation. Plugin
         // targets compile against swift-syntax and run during macro expansion.
         .macro(
-            name: "ProtoLawMacroImpl",
+            name: "PropertyLawMacroImpl",
             dependencies: [
-                "ProtoLawCore",
+                "PropertyLawCore",
                 .product(name: "SwiftSyntax", package: "swift-syntax"),
                 .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
                 .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
@@ -95,11 +95,11 @@ let package = Package(
             ]
         ),
         .testTarget(
-            name: "ProtoLawMacroTests",
+            name: "PropertyLawMacroTests",
             dependencies: [
-                "ProtoLawMacro",
-                "ProtoLawMacroImpl",
-                "ProtocolLawKit",
+                "PropertyLawMacro",
+                "PropertyLawMacroImpl",
+                "PropertyLawKit",
                 .product(name: "PropertyBased", package: "swift-property-based"),
                 .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
                 .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax")
@@ -112,39 +112,39 @@ let package = Package(
         // file. The plugin is intentionally thin; the executable tool
         // does the actual SwiftSyntax work.
         .executableTarget(
-            name: "ProtoLawDiscoveryTool",
+            name: "PropertyLawDiscoveryTool",
             dependencies: [
-                "ProtoLawCore",
+                "PropertyLawCore",
                 .product(name: "SwiftSyntax", package: "swift-syntax"),
                 .product(name: "SwiftParser", package: "swift-syntax")
             ]
         ),
         .plugin(
-            name: "ProtoLawDiscoveryPlugin",
+            name: "PropertyLawDiscoveryPlugin",
             capability: .command(
                 intent: .custom(
-                    verb: "protolawcheck",
+                    verb: "propertylawcheck",
                     description: """
-                        Generate ProtocolLawKit test files by walking a target's source files \
+                        Generate PropertyLawKit test files by walking a target's source files \
                         and detecting stdlib protocol conformances.
                         """
                 ),
                 permissions: [
                     .writeToPackageDirectory(reason:
-                        "ProtoLawDiscoveryPlugin writes a generated test file (default: " +
-                        "Tests/<Target>Tests/ProtocolLawTests.generated.swift) listing the " +
-                        "checkXxxProtocolLaws calls for each detected conformance."
+                        "PropertyLawDiscoveryPlugin writes a generated test file (default: " +
+                        "Tests/<Target>Tests/PropertyLawTests.generated.swift) listing the " +
+                        "checkXxxPropertyLaws calls for each detected conformance."
                     )
                 ]
             ),
             dependencies: [
-                "ProtoLawDiscoveryTool"
+                "PropertyLawDiscoveryTool"
             ]
         ),
         .testTarget(
-            name: "ProtoLawDiscoveryToolTests",
+            name: "PropertyLawDiscoveryToolTests",
             dependencies: [
-                "ProtoLawDiscoveryTool",
+                "PropertyLawDiscoveryTool",
                 .product(name: "SwiftSyntax", package: "swift-syntax"),
                 .product(name: "SwiftParser", package: "swift-syntax")
             ]

@@ -1,8 +1,8 @@
 import Testing
 import ArgumentParser
-import ProtocolLawKit
+import PropertyLawKit
 
-/// Pass 2 validation (PRD §8): runs ProtocolLawKit's `checkXxxProtocolLaws`
+/// Pass 2 validation (PRD §8): runs PropertyLawKit's `checkXxxPropertyLaws`
 /// against public types from an external well-tested Swift package.
 ///
 /// The bar PRD §8 sets is "find at least one real semantic conformance bug
@@ -26,7 +26,7 @@ struct ExternalPackageTests {
     // MARK: - ExitCode
 
     @Test func exitCodeHashableLawsHold() async throws {
-        try await checkHashableProtocolLaws(
+        try await checkHashablePropertyLaws(
             for: ExitCode.self,
             using: Gen<ExitCode>.exitCode(),
             options: LawCheckOptions(budget: .standard)
@@ -34,7 +34,7 @@ struct ExternalPackageTests {
     }
 
     @Test func exitCodeRawRepresentableLawsHold() async throws {
-        try await checkRawRepresentableProtocolLaws(
+        try await checkRawRepresentablePropertyLaws(
             for: ExitCode.self,
             using: Gen<ExitCode>.exitCode(),
             options: LawCheckOptions(budget: .standard)
@@ -44,7 +44,7 @@ struct ExternalPackageTests {
     // MARK: - ArgumentVisibility
 
     @Test func argumentVisibilityHashableLawsHold() async throws {
-        try await checkHashableProtocolLaws(
+        try await checkHashablePropertyLaws(
             for: ArgumentVisibility.self,
             using: Gen<ArgumentVisibility>.argumentVisibility(),
             options: LawCheckOptions(budget: .standard)
@@ -54,7 +54,7 @@ struct ExternalPackageTests {
     // MARK: - CompletionShell
 
     @Test func completionShellRawRepresentableLawsHold() async throws {
-        try await checkRawRepresentableProtocolLaws(
+        try await checkRawRepresentablePropertyLaws(
             for: CompletionShell.self,
             using: Gen<CompletionShell>.completionShell(),
             options: LawCheckOptions(budget: .standard)

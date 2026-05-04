@@ -1,6 +1,6 @@
 import Testing
 import HashTreeCollections
-import ProtocolLawKit
+import PropertyLawKit
 
 /// Pass 3 validation (PRD §8): retroactive investigation of a real
 /// `swift-collections` commit, plus the empirical finding that closed it.
@@ -22,7 +22,7 @@ import ProtocolLawKit
 /// ```
 ///
 /// The plan: pin `swift-collections` to the buggy parent SHA `8e5e4a8f`
-/// and demonstrate that `checkSetAlgebraProtocolLaws(TreeSet<Int>.self, ...)`
+/// and demonstrate that `checkSetAlgebraPropertyLaws(TreeSet<Int>.self, ...)`
 /// retroactively catches the violation through the four `symmetricDifference*`
 /// laws added to PRD §4.3 SetAlgebra in response to this finding.
 ///
@@ -66,7 +66,7 @@ struct SwiftCollectionsRetroactiveTests {
     /// traversal and is correct. The kit's no-violation result here is
     /// the *honest* answer.
     @Test func treeSetPassesAllLawsAtBuggySHA() async throws {
-        try await checkSetAlgebraProtocolLaws(
+        try await checkSetAlgebraPropertyLaws(
             for: TreeSet<Int>.self,
             using: Gen<TreeSet<Int>>.treeSetOfInt(),
             options: LawCheckOptions(budget: .standard)

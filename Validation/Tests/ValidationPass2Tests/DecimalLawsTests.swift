@@ -1,7 +1,7 @@
 import Testing
 import Foundation
 import PropertyBased
-import ProtocolLawKit
+import PropertyLawKit
 
 /// Pass 2 validation — `Foundation.Decimal`.
 ///
@@ -18,7 +18,7 @@ import ProtocolLawKit
 struct DecimalLawsTests {
 
     @Test func decimalPassesSignedNumericLaws() async throws {
-        try await checkSignedNumericProtocolLaws(
+        try await checkSignedNumericPropertyLaws(
             for: Decimal.self,
             using: Gen<Int>.int(in: -1_000...1_000).map { Decimal($0) },
             options: LawCheckOptions(budget: .standard)
@@ -26,7 +26,7 @@ struct DecimalLawsTests {
     }
 
     @Test func decimalPassesNumericLawsOwnOnly() async throws {
-        try await checkNumericProtocolLaws(
+        try await checkNumericPropertyLaws(
             for: Decimal.self,
             using: Gen<Int>.int(in: -1_000...1_000).map { Decimal($0) },
             options: LawCheckOptions(budget: .standard),
@@ -35,7 +35,7 @@ struct DecimalLawsTests {
     }
 
     @Test func decimalPassesAdditiveArithmeticLaws() async throws {
-        try await checkAdditiveArithmeticProtocolLaws(
+        try await checkAdditiveArithmeticPropertyLaws(
             for: Decimal.self,
             using: Gen<Int>.int(in: -1_000_000...1_000_000).map { Decimal($0) },
             options: LawCheckOptions(budget: .standard)
