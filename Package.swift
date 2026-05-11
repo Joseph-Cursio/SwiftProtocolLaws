@@ -30,11 +30,24 @@ let package = Package(
         .library(
             name: "PropertyLawCore",
             targets: ["PropertyLawCore"]
+        ),
+        // v2.1.0 — Complex<RealType> generator helpers carved out as an
+        // opt-in product so the main `PropertyLawKit` line keeps a zero
+        // `swift-numerics` footprint. Consumers that need
+        // `Gen<Complex<Double>>.edgeCaseBiased()` (SwiftInferProperties'
+        // v1.42+ Phase-1 test-execution verify mode is the first) `import
+        // PropertyLawComplex` explicitly.
+        .library(
+            name: "PropertyLawComplex",
+            targets: ["PropertyLawComplex"]
         )
     ],
     dependencies: [
         .package(url: "https://github.com/x-sheep/swift-property-based.git", from: "1.0.0"),
-        .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "600.0.0")
+        .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "600.0.0"),
+        // Optional kit-side dep — used only by the `PropertyLawComplex`
+        // target. The main `PropertyLawKit` line does not depend on it.
+        .package(url: "https://github.com/apple/swift-numerics.git", from: "1.0.0")
         // `swift-property-based` is the single property-based backend.
         // The PRD §4.5 `PropertyBackend` abstraction stays public — its
         // closure-level seam is non-leaky, and a future second backend can
@@ -147,6 +160,31 @@ let package = Package(
                 "PropertyLawDiscoveryTool",
                 .product(name: "SwiftSyntax", package: "swift-syntax"),
                 .product(name: "SwiftParser", package: "swift-syntax")
+            ]
+        ),
+
+        // v2.1.0 — opt-in Complex<RealType> generator helpers. Lives in
+        // its own product so `swift-numerics` stays out of the main
+        // `PropertyLawKit` transitive dependency set. Depends on
+        // `PropertyBased` for `Gen<T>` / `Generator<Value, Shrinker>` and
+        // on `ComplexModule` for `Complex<Double>` itself.
+        .target(
+            name: "PropertyLawComplex",
+            dependencies: [
+                .product(name: "PropertyBased", package: "swift-property-based"),
+                // `ComplexModule` brings `Complex<RealType>`; `RealModule`
+                // brings `Double: Real`, which `Complex<Double>` requires.
+                .product(name: "ComplexModule", package: "swift-numerics"),
+                .product(name: "RealModule", package: "swift-numerics")
+            ]
+        ),
+        .testTarget(
+            name: "PropertyLawComplexTests",
+            dependencies: [
+                "PropertyLawComplex",
+                .product(name: "PropertyBased", package: "swift-property-based"),
+                .product(name: "ComplexModule", package: "swift-numerics"),
+                .product(name: "RealModule", package: "swift-numerics")
             ]
         )
     ]
