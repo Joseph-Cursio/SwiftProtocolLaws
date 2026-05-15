@@ -190,4 +190,42 @@ struct ActionSequenceFactoryTests {
         ]
         #expect(guards.count == 4)
     }
+
+    // MARK: - Convenience entry (CaseIterable)
+
+    @Test("convenience entry delegates to the primary entry via Gen<Action>.case")
+    func convenienceEntryWorks() {
+        let gen = ActionSequenceFactory.actionSequence(
+            forCaseIterable: TestAction.self,
+            length: 8...8
+        )
+        var rng = makeRNG()
+        let result = gen.run(using: &rng)
+        #expect(result.count == 8)
+        // Every element must be a valid TestAction case.
+        for action in result {
+            #expect(TestAction.allCases.contains(action))
+        }
+    }
+
+    @Test("convenience entry honors the default length when not specified")
+    func convenienceEntryDefaultLength() {
+        let gen = ActionSequenceFactory.actionSequence(forCaseIterable: TestAction.self)
+        var rng = makeRNG()
+        let result = gen.run(using: &rng)
+        #expect(result.count >= 0)
+        #expect(result.count <= 16)
+    }
+
+    @Test("convenience entry threads stateful guards through")
+    func convenienceEntryWithGuards() {
+        let gen = ActionSequenceFactory.actionSequence(
+            forCaseIterable: TestAction.self,
+            length: 20...20,
+            statefulGuards: [ForbidBar()]
+        )
+        var rng = makeRNG()
+        let result = gen.run(using: &rng)
+        #expect(!result.contains(.bar))
+    }
 }
