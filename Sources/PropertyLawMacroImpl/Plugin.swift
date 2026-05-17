@@ -7,6 +7,7 @@ import SwiftSyntaxMacros
 struct PropertyLawMacroPlugin: CompilerPlugin {
     let providingMacros: [Macro.Type] = [
         PropertyLawSuiteMacro.self,
-        DiscoverableMacro.self
+        DiscoverableMacro.self,
+        InteractionInvariantTestsMacro.self
     ]
 }

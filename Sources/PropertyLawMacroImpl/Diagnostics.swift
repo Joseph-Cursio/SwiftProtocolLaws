@@ -31,6 +31,14 @@ internal enum PropertyLawDiagnostic: DiagnosticMessage {
     /// so the user knows to inline the literal.
     case discoverableGroupNotLiteral
 
+    /// v2.5.0 — `@InteractionInvariantTests` decoratee has no
+    /// recognized family-protocol conformance in its inheritance
+    /// clause. Either the type doesn't conform to any of the five
+    /// v2.3.0 family sub-protocols, or the conformance is declared
+    /// in an extension outside the type's primary declaration (the
+    /// macro can't see siblings). No peer is emitted.
+    case noInteractionInvariantConformance
+
     var message: String {
         switch self {
         case .nonTypeDecl:
@@ -56,6 +64,15 @@ internal enum PropertyLawDiagnostic: DiagnosticMessage {
                 + "evaluate variable references or computed strings. "
                 + "Replace with an inline string literal so the function is "
                 + "matched by group-based round-trip discovery."
+        case .noInteractionInvariantConformance:
+            return "@InteractionInvariantTests requires the decoratee to "
+                + "conform to one of the five v2.3.0 family protocols in its "
+                + "primary declaration's inheritance clause: "
+                + "CardinalityInvariant, ReferentialIntegrityInvariant, "
+                + "BiconditionalInvariant, ConservationInvariant, "
+                + "ActionIdempotenceInvariant (or the root InteractionInvariant). "
+                + "Conformances declared via extensions outside the type's "
+                + "primary declaration aren't visible to the macro."
         }
     }
 
@@ -66,6 +83,7 @@ internal enum PropertyLawDiagnostic: DiagnosticMessage {
         case .noKnownConformance: id = "noKnownConformance"
         case .cannotDeriveGenerator: id = "cannotDeriveGenerator"
         case .discoverableGroupNotLiteral: id = "discoverableGroupNotLiteral"
+        case .noInteractionInvariantConformance: id = "noInteractionInvariantConformance"
         }
         return MessageID(domain: "PropertyLawMacro", id: id)
     }
@@ -74,7 +92,8 @@ internal enum PropertyLawDiagnostic: DiagnosticMessage {
         switch self {
         case .nonTypeDecl: return .error
         case .noKnownConformance, .cannotDeriveGenerator,
-             .discoverableGroupNotLiteral:
+             .discoverableGroupNotLiteral,
+             .noInteractionInvariantConformance:
             return .warning
         }
     }
